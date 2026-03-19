@@ -1,0 +1,192 @@
+TAKAHE ARCHITECTURE
+===================
+
+Directory structure maps 1:1 to pipeline stages.
+Each stage is a self-contained module with its own
+folder, types, and public API. Stages communicate
+through well-defined interfaces (AST, RTL IR, netlist).
+
+No stage reaches into another's internals. Like
+compartments in a submarine: if one floods, the
+others stay dry.
+
+
+DIRECTORY LAYOUT
+================
+
+takahe/
+  include/
+    takahe.h          Master header. All shared types, limits.
+    kauri.h           Memory safety (arena, bounds, strings).
+
+  defs/
+    sv_tok.def        Lexer: keywords, operators, literals.
+    sv_opt.def        Optimiser: boolean identities, transforms.
+    tech_map.def      Mapper: logic pattern -> cell templates.
+    report.def        Reporter: output format definitions.
+
+  src/
+    main.c            CLI driver. Wires stages together.
+
+    lex/              STAGE 1: Lexer + Preprocessor
+      tk_pp.c           Preprocessor (`ifdef, `define, macro expand)
+      tk_lex.c          Tokeniser (driven by sv_tok.def)
+      tk_dload.c        Definition loader (two-pass, string interning)
+
+    parse/            STAGE 2: Parser
+      tk_parse.c        Recursive descent -> flat AST
+                        Module, port, param, always, case, if,
+                        for, generate, expressions, instantiation.
+
+    elab/             STAGE 3: Elaboration
+      tk_elab.c         Parameter resolution, generate expansion.
+      tk_ceval.c        Constant expression evaluator.
+      tk_width.c        Width inference (IEEE 1800 rules).
+      tk_flat.c         Hierarchy flattening.
+
+    rtl/              STAGE 4: RTL IR
+      tk_rtl.c          IR types: nets, cells, modules.
+      tk_lower.c        AST -> RTL lowering.
+                        always_ff -> DFF, always_comb -> gates,
+                        assign -> wire + driver.
+      tk_hdl.c          Handle table (Burroughs-style tagged refs).
+      tk_jrnl.c         Transaction journal (CICS-style rollback).
+      tk_pool.c         Fixed pool allocator (TPF-style).
+
+    opt/              STAGE 5: Logic Optimisation
+      tk_opt.c          Pattern-match-and-replace from sv_opt.def.
+      tk_cprop.c        Constant propagation.
+      tk_dce.c          Dead logic elimination.
+      tk_cse.c          Common subexpression sharing.
+
+    map/              STAGE 6: Technology Mapping
+      tk_map.c          Tree covering algorithm.
+      tk_lib.c          Liberty .lib parser.
+      tk_emit.c         Gate-level Verilog output.
+      tk_rpt.c          Timing/area/power reports.
+
+  tests/
+    tharns.h          Test harness (shared, from BarraCUDA pattern).
+    tmain.c           Test runner.
+    tlex.c            Lexer tests.
+    tparse.c          Parser tests.
+    telab.c           Elaboration tests.
+    trtl.c            RTL IR tests.
+    topt.c            Optimiser tests.
+    tmap.c            Mapper tests.
+    smoke.sv          Basic SystemVerilog (counter + ALU).
+    bigger.sv         FIFO with enums, structs, generate.
+
+
+NAMING CONVENTIONS
+==================
+
+  Module prefixes (by directory):
+    pp_     preprocessor (lex/)
+    lx_     lexer (lex/)
+    dl_     def loader (lex/)
+    pk_     parser (parse/)
+    el_     elaboration (elab/)
+    ce_     constant eval (elab/)
+    wi_     width inference (elab/)
+    fl_     flattening (elab/)
+    rt_     RTL IR (rtl/)
+    lw_     lowering (rtl/)
+    hd_     handles (rtl/)
+    jn_     journal (rtl/)
+    pl_     pool alloc (rtl/)
+    op_     optimiser (opt/)
+    cp_     const prop (opt/)
+    dc_     dead code elim (opt/)
+    cs_     common subexpr (opt/)
+    mp_     mapper (map/)
+    lb_     liberty parser (map/)
+    em_     emitter (map/)
+    rp_     reporter (map/)
+
+  Function names: 4-7 characters (HLASM convention).
+  No exceptions. If you can't name it in 7 chars,
+  you haven't understood what it does yet.
+
+
+DATA FLOW
+=========
+
+  Source (.sv)
+       |
+  [lex/]  tk_pp.c  ->  preprocessed text
+       |
+  [lex/]  tk_lex.c ->  tk_token_t[]
+       |
+  [parse/] tk_parse.c -> tk_node_t[] (flat AST)
+       |
+  [elab/] tk_elab.c  ->  elaborated AST
+          tk_ceval.c     (params resolved, generates expanded,
+          tk_width.c      widths inferred, hierarchy flat)
+          tk_flat.c
+       |
+  [rtl/]  tk_lower.c -> tk_net_t[], tk_cell_t[] (RTL IR)
+          tk_rtl.c      (always_ff -> DFF, comb -> gates)
+       |
+  [opt/]  tk_opt.c   -> optimised RTL IR
+          tk_cprop.c    (boolean min, const prop, DCE, CSE)
+          tk_dce.c
+          tk_cse.c
+       |
+  [map/]  tk_map.c   -> gate-level Verilog netlist
+          tk_lib.c      (tree covering against .lib cells)
+          tk_emit.c
+       |
+  Output (.v gate-level netlist)
+
+
+INTER-STAGE INTERFACES
+======================
+
+  Stage 1->2:  tk_token_t[]   (token array + string pool)
+  Stage 2->3:  tk_node_t[]    (flat AST + string pool)
+  Stage 3->4:  tk_node_t[]    (elaborated AST, same format)
+  Stage 4->5:  tk_net_t[] + tk_cell_t[]  (RTL IR)
+  Stage 5->6:  tk_net_t[] + tk_cell_t[]  (optimised RTL IR)
+  Stage 6->out: text file     (gate-level Verilog)
+
+  Each interface is an array of structs in pre-allocated pools.
+  No stage allocates memory, all pools sized at init.
+  Stages communicate through the struct arrays, never through
+  function calls into other stages' internals.
+
+
+MEMORY MODEL
+============
+
+  All state lives in a single top-level context struct:
+
+    typedef struct {
+        tk_lex_t     lex;       /* lexer state + tokens */
+        tk_parse_t   parse;     /* parser state + AST */
+        tk_elab_t    elab;      /* elaboration state */
+        tk_rtl_t     rtl;       /* RTL IR (nets, cells) */
+        tk_opt_t     opt;       /* optimiser state */
+        tk_map_t     map;       /* mapper state */
+        ka_arena_t   arena;     /* Kauri scratch arena */
+    } tk_ctx_t;
+
+
+
+
+JOURNAL (CICS pattern)
+======================
+
+  Every mutation to the RTL IR is journaled:
+
+    jn_mark()   -- save checkpoint
+    jn_add()    -- record addition
+    jn_del()    -- record deletion
+    jn_mod()    -- record modification
+    jn_rwind()  -- discard mutations since last mark
+    jn_flush()  -- commit mutations (discard journal)
+
+  If an optimisation pass makes things worse (area increased,
+  timing violated), call jn_rwind() and the IR reverts to the
+  checkpoint. No half-optimised netlists.
+

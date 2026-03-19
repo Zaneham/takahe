@@ -1,0 +1,39 @@
+# Takahe rārangi karere — Te Reo Māori
+# Hōputu: TK<NNN> <kupu karere me ngā %s/%u/%d tohu hōputu>
+# Ko ngā rārangi ka tīmata ki te # he kōrero.
+# Ka utaina tēnei e te mihini i te tīmatanga.
+# Ki te tāpiri karere, tāpiria tētahi rārangi ki konei,
+# kaua e pā ki te C.
+
+# ---- Tātari Kupu (001-009) ----
+TK001 kāore e taea te whakatuwhera i te kōnae '%s'
+TK002 he nui rawa te kōnae (%u paita, nui rawa %u)
+TK003 hapa wāwāhi i te %u:%u: %s
+TK004 kua pau te pūrere kōwae AST (%u kōwae)
+
+# ---- Whakawhānui (010-019) ----
+TK010 he tawhā kāore anō kia whakatauria '%s'
+TK011 kāore e taea te whakawhanake whānui mō '%s'
+
+# ---- RTL / Whakaheke (020-029) ----
+TK020 kua pau te pūrere whatunga (%u whatunga, nui rawa %u)
+TK021 kua pau te pūrere pūtau (%u pūtau, nui rawa %u)
+TK022 ko te putanga '%s' kāore he taraiwa
+
+# ---- Wā (030-039) ----
+TK030 kāore he whare pūtau kua utaina (whakamahia --lib)
+TK031 ko te momo pūtau %s kāore i herea ki te kuwaha whare
+TK032 takahē tautuhinga: ka tae mai ngā raraunga %.3f ns i muri i te karaka (me %.3f ns i mua)
+TK033 takahē pupuri: ka huri ngā raraunga %.3f ns i muri i te karaka (me pupuri %.3f ns)
+TK034 takahē wā: mokowā = %.3f ns i te ara '%s'
+TK035 kōpiri tūhono i te whatunga '%s' (%u whatunga i ngā kōpiri)
+
+# ---- Mahere (040-049) ----
+TK040 pakarutanga pānga-moka: %u pūtau nui ake i te pūrere
+TK041 Espresso: %d tāuru i te koeko (nui rawa %d)
+
+# ---- ABEND ----
+TK090 Wāhanga
+TK091 Take
+TK092 Kia kaha. Ka oti. Ka pai.
+TK093 (Be strong. It will be finished. It will be good.)

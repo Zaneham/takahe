@@ -1,0 +1,194 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_iching.def -- I Ching trigram logic (radix-8)
+#
+# The oldest binary system in human history.
+#
+# 3,000 years before Leibniz. 5,000 years before Shannon.
+# The eight trigrams (八卦, bāguà) encode all combinations
+# of three yin/yang lines. Leibniz saw them in 1703 and
+# recognised binary arithmetic. He wrote to the Jesuit
+# Joachim Bouvet: "this is the origin of my binary calculus."
+#
+# Shannon formalised binary logic in 1938.
+# Takahe generalised beyond binary in 2026.
+# This .def file closes the loop.
+#
+# The eight trigrams:
+#   0 = ☷ KUN   (Earth)     000  receptive
+#   1 = ☶ GEN   (Mountain)  001  keeping still
+#   2 = ☵ KAN   (Water)     010  the abysmal
+#   3 = ☴ XUN   (Wind)      011  the gentle
+#   4 = ☳ ZHEN  (Thunder)   100  the arousing
+#   5 = ☲ LI    (Fire)      101  the clinging
+#   6 = ☱ DUI   (Lake)      110  the joyous
+#   7 = ☰ QIAN  (Heaven)    111  the creative
+#
+# Two trigrams form a hexagram (卦, guà). There are 64
+# hexagrams — the same as 6-bit binary, the same as the
+# number of codons in DNA. The universe rhymes.
+#
+# A changing line transforms one trigram into another by
+# flipping a single bit. This is a truth table operation.
+# The Book of Changes is, and always has been, a lookup
+# table with commentary.
+
+# ---- I Ching NOT: complement (all lines change) ----
+# ☷ Earth (000) ↔ ☰ Heaven (111)
+# ☶ Mountain (001) ↔ ☱ Lake (110)
+# ☵ Water (010) ↔ ☲ Fire (101)
+# ☴ Wind (011) ↔ ☳ Thunder (100)
+#
+# Every yin becomes yang, every yang becomes yin.
+# The fundamental duality. 陰陽.
+
+cell NOT radix 8 inputs 1 outputs 1
+  pin A in
+  pin Y out complement(A)
+  truth 0 -> 7
+  truth 1 -> 6
+  truth 2 -> 5
+  truth 3 -> 4
+  truth 4 -> 3
+  truth 5 -> 2
+  truth 6 -> 1
+  truth 7 -> 0
+end
+
+# ---- I Ching HEXAGRAM: combine two trigrams ----
+# Lower trigram + upper trigram → hexagram index (0-63)
+# lower * 8 + upper
+# King Wen's sequence would be a different mapping,
+# but the binary encoding is what Leibniz recognised.
+
+cell HEXAGRAM radix 8 inputs 2 outputs 1
+  pin LOWER in
+  pin UPPER in
+  pin HEX out hex(LOWER,UPPER)
+  truth 0 0 ->  0
+  truth 0 1 ->  1
+  truth 0 2 ->  2
+  truth 0 3 ->  3
+  truth 0 4 ->  4
+  truth 0 5 ->  5
+  truth 0 6 ->  6
+  truth 0 7 ->  7
+  truth 1 0 ->  8
+  truth 1 1 ->  9
+  truth 1 2 -> 10
+  truth 1 3 -> 11
+  truth 1 4 -> 12
+  truth 1 5 -> 13
+  truth 1 6 -> 14
+  truth 1 7 -> 15
+  truth 2 0 -> 16
+  truth 2 1 -> 17
+  truth 2 2 -> 18
+  truth 2 3 -> 19
+  truth 2 4 -> 20
+  truth 2 5 -> 21
+  truth 2 6 -> 22
+  truth 2 7 -> 23
+  truth 3 0 -> 24
+  truth 3 1 -> 25
+  truth 3 2 -> 26
+  truth 3 3 -> 27
+  truth 3 4 -> 28
+  truth 3 5 -> 29
+  truth 3 6 -> 30
+  truth 3 7 -> 31
+  truth 4 0 -> 32
+  truth 4 1 -> 33
+  truth 4 2 -> 34
+  truth 4 3 -> 35
+  truth 4 4 -> 36
+  truth 4 5 -> 37
+  truth 4 6 -> 38
+  truth 4 7 -> 39
+  truth 5 0 -> 40
+  truth 5 1 -> 41
+  truth 5 2 -> 42
+  truth 5 3 -> 43
+  truth 5 4 -> 44
+  truth 5 5 -> 45
+  truth 5 6 -> 46
+  truth 5 7 -> 47
+  truth 6 0 -> 48
+  truth 6 1 -> 49
+  truth 6 2 -> 50
+  truth 6 3 -> 51
+  truth 6 4 -> 52
+  truth 6 5 -> 53
+  truth 6 6 -> 54
+  truth 6 7 -> 55
+  truth 7 0 -> 56
+  truth 7 1 -> 57
+  truth 7 2 -> 58
+  truth 7 3 -> 59
+  truth 7 4 -> 60
+  truth 7 5 -> 61
+  truth 7 6 -> 62
+  truth 7 7 -> 63
+end
+
+# ---- I Ching ELEMENT: trigram → element mapping ----
+# 0=Earth, 1=Metal, 2=Water, 3=Wood, 4=Wood, 5=Fire, 6=Metal, 7=Heaven/Metal
+# Simplified wuxing (五行) cycle.
+
+cell ELEMENT radix 8 inputs 1 outputs 1
+  pin TRIGRAM in
+  pin WUXING out element(TRIGRAM)
+  truth 0 -> 0
+  truth 1 -> 1
+  truth 2 -> 2
+  truth 3 -> 3
+  truth 4 -> 3
+  truth 5 -> 4
+  truth 6 -> 1
+  truth 7 -> 1
+end
+
+# ---- I Ching DFF ----
+
+cell DFF radix 8 inputs 1 outputs 1
+  pin D in
+  pin Q out D
+  truth 0 -> 0
+  truth 1 -> 1
+  truth 2 -> 2
+  truth 3 -> 3
+  truth 4 -> 4
+  truth 5 -> 5
+  truth 6 -> 6
+  truth 7 -> 7
+end
+
+# ---- I Ching CONST ----
+
+cell CONST radix 8 inputs 0 outputs 1
+  pin Y out
+  truth -> 0
+  truth -> 1
+  truth -> 2
+  truth -> 3
+  truth -> 4
+  truth -> 5
+  truth -> 6
+  truth -> 7
+end
+
+# Leibniz to Bouvet, 1703:
+# "What I find most remarkable is that this arithmetic
+# by 0 and 1 happens to contain the mystery of the lines
+# of an ancient Chinese king and philosopher named Fuxi."
+#
+# He was right. The I Ching IS binary arithmetic.
+# And binary arithmetic is just radix-2 truth tables.
+# And truth tables are just .def files.
+# And .def files are just text.
+#
+# 伏羲 drew lines in the dirt 5,000 years ago.
+# We're still executing them.

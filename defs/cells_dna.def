@@ -1,0 +1,289 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_dna.def -- Nucleotide logic (radix-4) cell definitions
+#
+# DNA computing: the original biological processor.
+# 3.7 billion years of field testing. Zero RMAs.
+#
+# Digit set: {0=A, 1=T, 2=G, 3=C}
+#   Adenine, Thymine, Guanine, Cytosine
+#
+# The NOT operation is Watson-Crick base pairing:
+#   A ↔ T (0 ↔ 1)
+#   G ↔ C (2 ↔ 3)
+# This is how DNA stores its backup copy. Nature invented
+# complementary logic 3.7 billion years before CMOS.
+#
+# AND = min(A,B) by molecular weight ordering: A < T < G < C
+# OR  = max(A,B) by the same ordering
+#
+# Practical applications:
+#   - Molecular logic circuits (Adleman 1994, DNA computing)
+#   - Biosensor signal processing
+#   - Gene regulatory network synthesis
+#   - Aptamer-based molecular switches
+#   - The world's most power-efficient computer (runs on ATP)
+#
+# Each nucleotide carries log2(4) = 2 bits of information.
+# A 20-nucleotide strand = 40 bits. A DNA molecule with
+# 3 billion base pairs = 6 gigabits of storage at room
+# temperature for millions of years. Beat that, DRAM.
+#
+# ACGT is the original quaternary code. Everything else
+# is a lossy compression of biology.
+
+# ---- Nucleotide AND: min by molecular weight ----
+# A(0) < T(1) < G(2) < C(3)
+# The conservative hybridisation: pick the lighter base.
+
+cell AND radix 4 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out min(A,B)
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 1 0 -> 0
+  truth 1 1 -> 1
+  truth 1 2 -> 1
+  truth 1 3 -> 1
+  truth 2 0 -> 0
+  truth 2 1 -> 1
+  truth 2 2 -> 2
+  truth 2 3 -> 2
+  truth 3 0 -> 0
+  truth 3 1 -> 1
+  truth 3 2 -> 2
+  truth 3 3 -> 3
+end
+
+# ---- Nucleotide OR: max by molecular weight ----
+# The aggressive hybridisation: pick the heavier base.
+
+cell OR radix 4 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out max(A,B)
+  truth 0 0 -> 0
+  truth 0 1 -> 1
+  truth 0 2 -> 2
+  truth 0 3 -> 3
+  truth 1 0 -> 1
+  truth 1 1 -> 1
+  truth 1 2 -> 2
+  truth 1 3 -> 3
+  truth 2 0 -> 2
+  truth 2 1 -> 2
+  truth 2 2 -> 2
+  truth 2 3 -> 3
+  truth 3 0 -> 3
+  truth 3 1 -> 3
+  truth 3 2 -> 3
+  truth 3 3 -> 3
+end
+
+# ---- Nucleotide NOT: Watson-Crick complement ----
+# A ↔ T, G ↔ C. The base-pairing rule that makes life
+# possible. Every cell in your body runs this gate
+# every time it divides. ~37 trillion instances.
+# Your body IS a massively parallel NOT gate array.
+
+cell NOT radix 4 inputs 1 outputs 1
+  pin A in
+  pin Y out complement(A)
+  truth 0 -> 1
+  truth 1 -> 0
+  truth 2 -> 3
+  truth 3 -> 2
+end
+
+# ---- Nucleotide MATCH: exact base-pair test ----
+# Are these two nucleotides complementary?
+# Output: 3 (C, strongest) if Watson-Crick pair,
+#         0 (A, weakest) if mismatch.
+# This is the molecular recognition gate — the basis
+# of PCR, CRISPR, and every DNA-based biosensor.
+# Literally how COVID tests work.
+
+cell MATCH radix 4 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out wc_pair(A,B)
+  truth 0 0 -> 0
+  truth 0 1 -> 3
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 1 0 -> 3
+  truth 1 1 -> 0
+  truth 1 2 -> 0
+  truth 1 3 -> 0
+  truth 2 0 -> 0
+  truth 2 1 -> 0
+  truth 2 2 -> 0
+  truth 2 3 -> 3
+  truth 3 0 -> 0
+  truth 3 1 -> 0
+  truth 3 2 -> 3
+  truth 3 3 -> 0
+end
+
+# ---- Nucleotide TRANSCRIBE: DNA → RNA ----
+# A → U(1), T → A(0), G → C(3), C → G(2)
+# (We encode U as T/1 since both are pyrimidines.
+# The RNA world is just DNA with a hydroxyl group
+# and a slightly different attitude.)
+
+cell TRANSCRIBE radix 4 inputs 1 outputs 1
+  pin DNA in
+  pin RNA out transcribe(DNA)
+  truth 0 -> 1
+  truth 1 -> 0
+  truth 2 -> 3
+  truth 3 -> 2
+end
+
+# ---- Nucleotide CONSENSUS ----
+# Two sequencing reads agree? Output the base.
+# Disagree? Output 0 (ambiguous, needs more coverage).
+# This is literally how genome assemblers work.
+# Except they use Python and it takes 3 hours.
+# This takes one clock cycle.
+
+cell CONSENSUS radix 4 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out cons(A,B)
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 1 0 -> 0
+  truth 1 1 -> 1
+  truth 1 2 -> 0
+  truth 1 3 -> 0
+  truth 2 0 -> 0
+  truth 2 1 -> 0
+  truth 2 2 -> 2
+  truth 2 3 -> 0
+  truth 3 0 -> 0
+  truth 3 1 -> 0
+  truth 3 2 -> 0
+  truth 3 3 -> 3
+end
+
+# ---- Nucleotide CODON: 3-input → amino acid index ----
+# Three nucleotides encode one amino acid (0-19 + stop).
+# This is the genetic code — the most important lookup
+# table in biology. 64 codons → 20 amino acids + stop.
+#
+# We encode the 21 outputs as 0-20 (needs radix > 4 for
+# output, so we output the codon VALUE as a single
+# base-64 number: A*16 + B*4 + C, range 0-63).
+# The actual amino acid mapping is done downstream.
+#
+# This cell IS the ribosome. In silicon.
+
+cell CODON radix 4 inputs 3 outputs 1
+  pin N1 in
+  pin N2 in
+  pin N3 in
+  pin IDX out codon(N1,N2,N3)
+  # AAA=0, AAT=1, AAG=2, AAC=3, ATA=4, ... TTT=21, ...
+  # Output = N1*16 + N2*4 + N3 (codon index 0-63)
+  truth 0 0 0 ->  0
+  truth 0 0 1 ->  1
+  truth 0 0 2 ->  2
+  truth 0 0 3 ->  3
+  truth 0 1 0 ->  4
+  truth 0 1 1 ->  5
+  truth 0 1 2 ->  6
+  truth 0 1 3 ->  7
+  truth 0 2 0 ->  8
+  truth 0 2 1 ->  9
+  truth 0 2 2 -> 10
+  truth 0 2 3 -> 11
+  truth 0 3 0 -> 12
+  truth 0 3 1 -> 13
+  truth 0 3 2 -> 14
+  truth 0 3 3 -> 15
+  truth 1 0 0 -> 16
+  truth 1 0 1 -> 17
+  truth 1 0 2 -> 18
+  truth 1 0 3 -> 19
+  truth 1 1 0 -> 20
+  truth 1 1 1 -> 21
+  truth 1 1 2 -> 22
+  truth 1 1 3 -> 23
+  truth 1 2 0 -> 24
+  truth 1 2 1 -> 25
+  truth 1 2 2 -> 26
+  truth 1 2 3 -> 27
+  truth 1 3 0 -> 28
+  truth 1 3 1 -> 29
+  truth 1 3 2 -> 30
+  truth 1 3 3 -> 31
+  truth 2 0 0 -> 32
+  truth 2 0 1 -> 33
+  truth 2 0 2 -> 34
+  truth 2 0 3 -> 35
+  truth 2 1 0 -> 36
+  truth 2 1 1 -> 37
+  truth 2 1 2 -> 38
+  truth 2 1 3 -> 39
+  truth 2 2 0 -> 40
+  truth 2 2 1 -> 41
+  truth 2 2 2 -> 42
+  truth 2 2 3 -> 43
+  truth 2 3 0 -> 44
+  truth 2 3 1 -> 45
+  truth 2 3 2 -> 46
+  truth 2 3 3 -> 47
+  truth 3 0 0 -> 48
+  truth 3 0 1 -> 49
+  truth 3 0 2 -> 50
+  truth 3 0 3 -> 51
+  truth 3 1 0 -> 52
+  truth 3 1 1 -> 53
+  truth 3 1 2 -> 54
+  truth 3 1 3 -> 55
+  truth 3 2 0 -> 56
+  truth 3 2 1 -> 57
+  truth 3 2 2 -> 58
+  truth 3 2 3 -> 59
+  truth 3 3 0 -> 60
+  truth 3 3 1 -> 61
+  truth 3 3 2 -> 62
+  truth 3 3 3 -> 63
+end
+
+# ---- Nucleotide DFF: base register ----
+# Stores one nucleotide. Epigenetic memory.
+
+cell DFF radix 4 inputs 1 outputs 1
+  pin D in
+  pin Q out D
+  truth 0 -> 0
+  truth 1 -> 1
+  truth 2 -> 2
+  truth 3 -> 3
+end
+
+# ---- Nucleotide CONST ----
+
+cell CONST radix 4 inputs 0 outputs 1
+  pin Y out
+  truth -> 0
+  truth -> 1
+  truth -> 2
+  truth -> 3
+end
+
+# Every living thing on Earth runs on this instruction set.
+# 3.7 billion years, zero breaking API changes.
+# The original backwards-compatible architecture.
+#
+# Your move, Intel.

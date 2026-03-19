@@ -1,0 +1,142 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_stoch.def -- Stochastic computing cell definitions
+#
+# Stochastic computing: signals are random bitstreams where
+# the probability of a 1 encodes a value in [0, 1].
+# A wire that's 1 seventy percent of the time represents 0.7.
+#
+# The magic: an AND gate computes MULTIPLICATION.
+#   P(A & B) = P(A) * P(B)
+#
+# An OR gate approximates ADDITION (for small probabilities):
+#   P(A | B) ≈ P(A) + P(B)  when P(A)*P(B) ≈ 0
+#
+# A MUX computes SCALED ADDITION:
+#   P(MUX) = P(S)*P(D1) + (1-P(S))*P(D0)
+#
+# XOR computes ABSOLUTE DIFFERENCE (for bipolar encoding):
+#   P(A ⊕ B) = P(A)(1-P(B)) + P(B)(1-P(A))
+#
+# NOT computes COMPLEMENT:
+#   P(!A) = 1 - P(A)
+#
+# Width in stochastic mode is PRECISION: more bits in the
+# stream = more samples = more accurate probability estimate.
+# A 256-bit-wide stochastic signal has 8 bits of precision.
+#
+# Hardware cost: one AND gate does what a multiplier needs
+# hundreds of gates for. The price is latency and random
+# number generation. Neural networks don't mind.
+#
+# The radix is 2 (binary hardware) but the SEMANTICS are
+# probabilistic. We mark this with radix 2 and a special
+# "stochastic" flag in the cell definition.
+#
+# These cells use the same binary truth tables as cells.def
+# but with stochastic semantic annotations that the optimiser
+# and verifier use to reason about probability accuracy.
+
+# ---- Stochastic AND = Multiplication ----
+# P(Y) = P(A) * P(B)
+# Exact. No approximation. One gate. Beautiful.
+
+cell AND radix 2 stochastic inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out P(A)*P(B)
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 1 0 -> 0
+  truth 1 1 -> 1
+end
+
+# ---- Stochastic OR = Probabilistic OR ----
+# P(Y) = P(A) + P(B) - P(A)*P(B)
+# Exact for independent streams. NOT plain addition.
+
+cell OR radix 2 stochastic inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out P(A)+P(B)-P(A)*P(B)
+  truth 0 0 -> 0
+  truth 0 1 -> 1
+  truth 1 0 -> 1
+  truth 1 1 -> 1
+end
+
+# ---- Stochastic NOT = Complement ----
+# P(Y) = 1 - P(A)
+# Trivial. One inverter.
+
+cell NOT radix 2 stochastic inputs 1 outputs 1
+  pin A in
+  pin Y out 1-P(A)
+  truth 0 -> 1
+  truth 1 -> 0
+end
+
+# ---- Stochastic MUX = Scaled Addition ----
+# P(Y) = P(S)*P(D1) + (1-P(S))*P(D0)
+# This is the fundamental stochastic ADDITION gate.
+# By fixing P(S) = 0.5, you get (P(D0) + P(D1)) / 2.
+# Chain MUXes for weighted sums. Neural network layers
+# are just trees of stochastic MUXes.
+
+cell MUX radix 2 stochastic inputs 3 outputs 1
+  pin S in
+  pin D0 in
+  pin D1 in
+  pin Y out P(S)*P(D1)+(1-P(S))*P(D0)
+  truth 0 0 0 -> 0
+  truth 0 0 1 -> 0
+  truth 0 1 0 -> 1
+  truth 0 1 1 -> 1
+  truth 1 0 0 -> 0
+  truth 1 0 1 -> 1
+  truth 1 1 0 -> 0
+  truth 1 1 1 -> 1
+end
+
+# ---- Stochastic XOR = Absolute Difference (bipolar) ----
+# In bipolar encoding where P maps to 2P-1:
+# XOR computes 1 - 2*|P(A) - P(B)| ... it's complicated.
+# In unipolar: P(Y) = P(A) + P(B) - 2*P(A)*P(B)
+# Useful for distance metrics in neural matching.
+
+cell XOR radix 2 stochastic inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out P(A)+P(B)-2*P(A)*P(B)
+  truth 0 0 -> 0
+  truth 0 1 -> 1
+  truth 1 0 -> 1
+  truth 1 1 -> 0
+end
+
+# ---- Stochastic DFF = Decorrelator / Regenerator ----
+# In stochastic computing, DFFs serve as stream decorrelators.
+# Feeding the same stream into both inputs of an AND gate
+# gives P(A&A) = P(A), not P(A)^2 — correlation kills you.
+# A DFF breaks the temporal correlation by delaying one cycle.
+
+cell DFF radix 2 stochastic inputs 1 outputs 1
+  pin D in
+  pin Q out P(D)
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+# ---- Stochastic CONST = Probability Source ----
+# Generates a bitstream with probability P = param/2^width.
+# The param field encodes the target probability.
+# Needs an LFSR or similar RNG in the physical implementation.
+
+cell CONST radix 2 stochastic inputs 0 outputs 1
+  pin Y out
+  truth -> 0
+  truth -> 1
+end

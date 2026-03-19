@@ -1,0 +1,198 @@
+TAKAHE SITUATION REPORT — 2026-03-20
+=====================================
+
+WHAT WE BUILT TODAY
+-------------------
+Starting from Tier 4 (expression completeness), built through
+to a timing-accurate synthesis tool with thirteen computing
+paradigms. Full session, one day.
+
+Tiers completed: 4 (select/concat/memory), 5 (SKY130 mapping),
+polish (MUX fix, bus reconstruction, scoped nets), universal
+cell defs (13 paradigms), radix-aware optimiser, architecture
+restructure, PicoRV32 parser fixes, STA engine with PCHIP
+interpolation, femtosecond integer arithmetic, NLDM table
+extraction, MPL 2.0 licensing.
+
+
+WHERE WE ARE
+------------
+Pipeline:   SV → lex → parse → elaborate → width → lower →
+            optimise → bit-blast → map → STA → emit
+
+Lines:      ~11,000 C99
+Files:      25 source (.c/.h), 13 definition (.def)
+Tests:      57, all passing
+Warnings:   0 under -Werror -Wpedantic
+License:    MPL 2.0
+Target:     SKY130 130nm (any Liberty .lib)
+
+
+WHAT WORKS
+----------
+- Parse SystemVerilog (PicoRV32: 0 errors)
+- Elaborate, width infer, generate expansion
+- RTL lowering (if→MUX, case→MUX, DFF inference)
+- Bit/part select, concatenation, memory inference
+- Constant propagation (radix-aware via truth tables)
+- Dead cell elimination (fixpoint)
+- Pattern matching (NOT+AND→NAND, NOT+OR→NOR)
+- Bit-blast (AND/OR/MUX/DFF/ADD/SUB/EQ/NE/CONCAT/SELECT)
+- Liberty .lib parsing (428 SKY130 cells, NLDM tables)
+- Cell binding (function string → library gate)
+- Gate-level Verilog output (bus reconstruction)
+- BLIF output (ABC compatible)
+- Yosys JSON output (nextpnr/OpenROAD compatible)
+- STA (Kahn topo sort, PCHIP NLDM lookup, slew propagation)
+- Setup/hold checking at DFF boundaries
+- Area reporting from Liberty
+- Multi-radix synthesis (--radix 3/4/7/8/12)
+- 13 computing paradigms via .def files
+
+
+PICORV32 RESULTS
+----------------
+Parse:      11,143 AST nodes, 0 errors
+Lower:      4,895 nets, 5,415 cells
+Optimise:   3,651 pre-blast + 13,587 post-blast
+Map:        24,669 SKY130 gate instances
+Area:       138,988 um2
+STA:        8.959 ns critical path (smoke.sv ALU)
+            7 violations at 50MHz (PicoRV32)
+
+
+TIMING ACCURACY
+---------------
+Arithmetic: int64 femtoseconds (zero floats in timing path)
+Lookup:     PCHIP monotone cubic interpolation (Fritsch 1980)
+Tables:     7x7 NLDM from Liberty (cell_rise, cell_fall)
+Slew:       Propagated through timing graph
+Result:     9.5x improvement over worst-case scalar
+            84.9ns → 8.96ns on smoke.sv ALU critical path
+
+
+THIRTEEN PARADIGMS
+------------------
+cells.def         Binary          Shannon, 1938
+cells_ter.def     Ternary         Brusentsov, 1958
+cells_stoch.def   Stochastic      Gaines, 1969
+cells_qc.def      Quantum         Feynman, 1982
+cells_doz.def     Duodecimal      Sumer, 3000 BCE
+cells_dna.def     Nucleotide      LUCA, 3.7 Gya
+cells_epist.def   Epistemic       Bochvar, 1938
+cells_life.def    Cellular Auto   Conway/Wolfram
+cells_affect.def  Affective       Plutchik, 1980
+cells_iching.def  I Ching         Fuxi, ~3000 BCE
+cells_music.def   Music Theory    Pythagoras/Bach
+cells_quark.def   Particle Phys   Gell-Mann, 1964
+cells_arrow.def   Impossibility   Arrow, 1951
+
+All evaluated by the same cd_eval() function.
+All optimised by the same radix-aware constant propagator.
+
+
+PROJECT STRUCTURE
+-----------------
+src/
+  lex/        lexer + preprocessor + .def loader
+  parse/      recursive descent parser
+  elab/       constant eval, elaboration, width inference
+  rtl/        RTL IR + AST-to-RTL lowering
+  opt/        constant propagation, dead cell elimination
+  xform/      bit-blast, pattern matching
+  tech/       Liberty parser, cell defs, cell binding, PCHIP, STA
+  emit/       BLIF, Yosys JSON, gate-level Verilog output
+
+defs/         13 paradigm definition files
+tests/        57 tests across 7 test files
+docs/         this file
+
+
+COMPARISON
+----------
+vs Synopsys DC: Missing boolean minimisation, timing-driven opt,
+physical awareness. Has better timing arithmetic (exact int64
+vs IEEE 754 double). Has multi-radix (13 paradigms vs 1).
+Price: free vs $200k/yr.
+
+vs Yosys: Yosys is an elaborator that shells out to ABC.
+Takahe is a standalone synthesis tool with built-in STA.
+No dependencies beyond libc.
+
+vs Nothing: There is no open-source tool that does synthesis
+with timing analysis in one binary. Takahe is the first.
+
+
+WHAT'S MISSING
+--------------
+Must have:
+  1. Boolean minimisation (Espresso or ABC)
+  2. Timing-driven optimisation (cell resizing, buffer insertion)
+  3. More SV features ($signed, casex, function/task)
+  4. Combinational loop resolution in STA
+
+Should have:
+  5. Multi-clock domain support
+  6. Output validation (Yosys check, OpenROAD)
+  7. Formal equivalence checking
+  8. Full NLDM transition table extraction
+
+Nice to have:
+  9. Ternary front-end language
+  10. Stochastic neural compiler
+  11. More foundry targets (GF180, IHP130)
+
+
+WHEN CAN WE DESIGN CHIPS
+-------------------------
+Now, with caveats. Small-to-medium digital logic targeting
+SKY130 via OpenROAD. Netlists are logically correct but
+over-sized (no boolean minimisation). Timing is informational
+(reports but doesn't optimise).
+
+For a serious tapeout: boolean minimisation + timing-driven
+opt + output validation. That's the next phase.
+
+
+JPL AUDIT
+---------
+Status: NOT DONE. Codebase grew fast. Newer code (STA, Liberty
+parser, PCHIP, bit-blast) needs auditing against Power of 10:
+  - Bounded loops (KA_GUARD on everything)
+  - No unbounded arrays
+  - Overflow checking on arithmetic
+  - No recursion (except pk_gif forward decl)
+  - Error paths return cleanly
+  - Stack usage bounded (no large locals)
+
+Scheduled: next task.
+
+
+ACADEMIC REFERENCES
+-------------------
+Fritsch, F. N., & Carlson, R. E. (1980). Monotone piecewise
+  cubic interpolation. SIAM J. Numer. Anal. 17(2), 238-246.
+
+Fritsch, F. N., & Butland, J. (1984). A method for constructing
+  local monotone piecewise cubic interpolants. SIAM J. Sci.
+  Stat. Comp. 5(2), 300-304.
+
+Hitchcock, R. B., Smith, G. L., & Cheng, D. D. (1982). Timing
+  analysis of computer hardware. IBM J. Res. Dev. 26(1), 100-105.
+
+Sapatnekar, S. S. (2004). Timing. Springer.
+
+Bhasker, J., & Chadha, R. (2009). Static timing analysis for
+  nanometer designs. Springer.
+
+Hambly, Z. (2026). SLATEC-Modern [Computer software].
+  https://github.com/Zaneham/slatec-modern
+
+
+QUALITY NOTICE
+--------------
+This project carries NO WARRANTY regarding copper quality.
+If your interconnect is of substandard grade, you have only
+yourself to blame for buying from Ea-nasir.
+
+Nanni was warned. Nobody listens.

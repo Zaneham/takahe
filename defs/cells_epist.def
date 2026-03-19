@@ -1,0 +1,365 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_epist.def -- Epistemic logic (radix-7) cell definitions
+#
+# Bochvar's three-valued logic (1938) meets hardware.
+#
+# Seven epistemic states — not just true/false, but HOW
+# you know it and WHETHER your justification survived scrutiny:
+#
+#   0 = N     Meaningless / nonsense (Bochvar's "infectious" value)
+#   1 = F|D   False, Defeated (was justified, warrant revoked)
+#   2 = F|U   False, Ungrounded (suspected false, no warrant)
+#   3 = F|J   False, Justified (known false, warranted)
+#   4 = T|D   True, Defeated (was justified, warrant revoked)
+#   5 = T|U   True, Ungrounded (believed true, no warrant)
+#   6 = T|J   True, Justified (known true, warranted)
+#
+# Encoding: assertion = {F=-1, N=0, T=+1} × warrant = {D=-1, U=0, J=+1}
+# Flattened to 0-6 for the truth table.
+#
+# This is not academic. When multiple sources disagree —
+# sensors, models, intelligence reports, LLM outputs —
+# you need to track not just WHAT they claim but HOW WELL
+# their claim is supported. Binary logic collapses all
+# uncertainty into "I don't know." Epistemic logic preserves
+# the structure of doubt.
+#
+# A chip running this logic processes beliefs, not bits.
+# CONSENSUS merges knowledge from multiple warranted sources.
+# DEFEAT revokes a warrant when counter-evidence arrives.
+# UPGRADE promotes ungrounded belief to justified knowledge.
+#
+# From Bochvar (Moscow, 1938) → Setun (Moscow, 1958) →
+# Takahe (2026). The thread runs through Soviet mathematics
+# and resurfaces in silicon. The KGB would be confused.
+# The logicians would be delighted.
+
+# ---- Epistemic AND: cautious conjunction ----
+# Both assertions must be true AND both warrants must hold.
+# Result warrant = min(warrant_A, warrant_B).
+# If either is Meaningless (0), output is Meaningless.
+# Bochvar's "infectious nonsense" — garbage in, garbage out,
+# and the garbage KNOWS it's garbage.
+
+cell AND radix 7 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out ep_and(A,B)
+  # N infects everything
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 0 4 -> 0
+  truth 0 5 -> 0
+  truth 0 6 -> 0
+  truth 1 0 -> 0
+  truth 2 0 -> 0
+  truth 3 0 -> 0
+  truth 4 0 -> 0
+  truth 5 0 -> 0
+  truth 6 0 -> 0
+  # F & F = F, warrant = min
+  truth 1 1 -> 1
+  truth 1 2 -> 1
+  truth 1 3 -> 1
+  truth 2 1 -> 1
+  truth 2 2 -> 2
+  truth 2 3 -> 2
+  truth 3 1 -> 1
+  truth 3 2 -> 2
+  truth 3 3 -> 3
+  # F & T = F, warrant = min of both warrants
+  truth 1 4 -> 1
+  truth 1 5 -> 1
+  truth 1 6 -> 1
+  truth 2 4 -> 1
+  truth 2 5 -> 2
+  truth 2 6 -> 2
+  truth 3 4 -> 1
+  truth 3 5 -> 2
+  truth 3 6 -> 3
+  # T & F = F (symmetric)
+  truth 4 1 -> 1
+  truth 4 2 -> 1
+  truth 4 3 -> 1
+  truth 5 1 -> 1
+  truth 5 2 -> 2
+  truth 5 3 -> 2
+  truth 6 1 -> 1
+  truth 6 2 -> 2
+  truth 6 3 -> 3
+  # T & T = T, warrant = min
+  truth 4 4 -> 4
+  truth 4 5 -> 4
+  truth 4 6 -> 4
+  truth 5 4 -> 4
+  truth 5 5 -> 5
+  truth 5 6 -> 5
+  truth 6 4 -> 4
+  truth 6 5 -> 5
+  truth 6 6 -> 6
+end
+
+# ---- Epistemic OR: bold disjunction ----
+# Either assertion suffices. Warrant = min of warrants.
+# If either is T, result is T (with appropriate warrant).
+
+cell OR radix 7 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out ep_or(A,B)
+  # N infects
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 0 4 -> 0
+  truth 0 5 -> 0
+  truth 0 6 -> 0
+  truth 1 0 -> 0
+  truth 2 0 -> 0
+  truth 3 0 -> 0
+  truth 4 0 -> 0
+  truth 5 0 -> 0
+  truth 6 0 -> 0
+  # F | F = F
+  truth 1 1 -> 1
+  truth 1 2 -> 1
+  truth 1 3 -> 1
+  truth 2 1 -> 1
+  truth 2 2 -> 2
+  truth 2 3 -> 2
+  truth 3 1 -> 1
+  truth 3 2 -> 2
+  truth 3 3 -> 3
+  # F | T = T, warrant = min
+  truth 1 4 -> 4
+  truth 1 5 -> 4
+  truth 1 6 -> 4
+  truth 2 4 -> 4
+  truth 2 5 -> 4
+  truth 2 6 -> 5
+  truth 3 4 -> 4
+  truth 3 5 -> 5
+  truth 3 6 -> 6
+  # T | F = T
+  truth 4 1 -> 4
+  truth 4 2 -> 4
+  truth 4 3 -> 4
+  truth 5 1 -> 4
+  truth 5 2 -> 4
+  truth 5 3 -> 5
+  truth 6 1 -> 4
+  truth 6 2 -> 5
+  truth 6 3 -> 6
+  # T | T = T, warrant = max (either justification suffices)
+  truth 4 4 -> 4
+  truth 4 5 -> 5
+  truth 4 6 -> 6
+  truth 5 4 -> 5
+  truth 5 5 -> 5
+  truth 5 6 -> 6
+  truth 6 4 -> 6
+  truth 6 5 -> 6
+  truth 6 6 -> 6
+end
+
+# ---- Epistemic NOT: assertion flip, warrant preserved ----
+# True becomes False, False becomes True.
+# Warrant level is unchanged — negation doesn't affect
+# how well you know something, only WHAT you know.
+# Meaningless stays Meaningless.
+
+cell NOT radix 7 inputs 1 outputs 1
+  pin A in
+  pin Y out ep_not(A)
+  truth 0 -> 0
+  truth 1 -> 4
+  truth 2 -> 5
+  truth 3 -> 6
+  truth 4 -> 1
+  truth 5 -> 2
+  truth 6 -> 3
+end
+
+# ---- Epistemic CONSENSUS: multi-source merge ----
+# The crown jewel. Two sources provide epistemic values.
+# If they agree on assertion: output with max warrant
+# (corroboration strengthens justification).
+# If they disagree: output Meaningless (unresolvable).
+#
+# This is how you merge LLM outputs, sensor readings,
+# intelligence reports, or any set of fallible sources.
+# It's also how peer review works, if peer review were
+# implemented in gate logic instead of email chains.
+
+cell CONSENSUS radix 7 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out ep_cons(A,B)
+  # N with anything = N
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 0 4 -> 0
+  truth 0 5 -> 0
+  truth 0 6 -> 0
+  truth 1 0 -> 0
+  truth 2 0 -> 0
+  truth 3 0 -> 0
+  truth 4 0 -> 0
+  truth 5 0 -> 0
+  truth 6 0 -> 0
+  # F agrees F: corroborate (max warrant)
+  truth 1 1 -> 1
+  truth 1 2 -> 2
+  truth 1 3 -> 3
+  truth 2 1 -> 2
+  truth 2 2 -> 2
+  truth 2 3 -> 3
+  truth 3 1 -> 3
+  truth 3 2 -> 3
+  truth 3 3 -> 3
+  # F disagrees T: Meaningless (conflict)
+  truth 1 4 -> 0
+  truth 1 5 -> 0
+  truth 1 6 -> 0
+  truth 2 4 -> 0
+  truth 2 5 -> 0
+  truth 2 6 -> 0
+  truth 3 4 -> 0
+  truth 3 5 -> 0
+  truth 3 6 -> 0
+  # T disagrees F: Meaningless
+  truth 4 1 -> 0
+  truth 4 2 -> 0
+  truth 4 3 -> 0
+  truth 5 1 -> 0
+  truth 5 2 -> 0
+  truth 5 3 -> 0
+  truth 6 1 -> 0
+  truth 6 2 -> 0
+  truth 6 3 -> 0
+  # T agrees T: corroborate
+  truth 4 4 -> 4
+  truth 4 5 -> 5
+  truth 4 6 -> 6
+  truth 5 4 -> 5
+  truth 5 5 -> 5
+  truth 5 6 -> 6
+  truth 6 4 -> 6
+  truth 6 5 -> 6
+  truth 6 6 -> 6
+end
+
+# ---- Epistemic DEFEAT: revoke warrant ----
+# If defeater D is T|J (6), downgrade A's warrant to Defeated.
+# Otherwise pass A through unchanged. This is how
+# counter-evidence works: a justified true defeater
+# kills the warrant on the original belief.
+#
+# Gettier's problem in hardware: you can have justified
+# true belief that is STILL defeated by new evidence.
+# Epistemology's hardest problem, one gate at a time.
+
+cell DEFEAT radix 7 inputs 2 outputs 1
+  pin A in
+  pin D in
+  pin Y out ep_defeat(A,D)
+  # If D is T|J (6), defeat A: move warrant to D
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 0 4 -> 0
+  truth 0 5 -> 0
+  truth 0 6 -> 0
+  truth 1 0 -> 1
+  truth 1 1 -> 1
+  truth 1 2 -> 1
+  truth 1 3 -> 1
+  truth 1 4 -> 1
+  truth 1 5 -> 1
+  truth 1 6 -> 1
+  truth 2 0 -> 2
+  truth 2 1 -> 2
+  truth 2 2 -> 2
+  truth 2 3 -> 2
+  truth 2 4 -> 2
+  truth 2 5 -> 2
+  truth 2 6 -> 1
+  truth 3 0 -> 3
+  truth 3 1 -> 3
+  truth 3 2 -> 3
+  truth 3 3 -> 3
+  truth 3 4 -> 3
+  truth 3 5 -> 3
+  truth 3 6 -> 1
+  truth 4 0 -> 4
+  truth 4 1 -> 4
+  truth 4 2 -> 4
+  truth 4 3 -> 4
+  truth 4 4 -> 4
+  truth 4 5 -> 4
+  truth 4 6 -> 4
+  truth 5 0 -> 5
+  truth 5 1 -> 5
+  truth 5 2 -> 5
+  truth 5 3 -> 5
+  truth 5 4 -> 5
+  truth 5 5 -> 5
+  truth 5 6 -> 4
+  truth 6 0 -> 6
+  truth 6 1 -> 6
+  truth 6 2 -> 6
+  truth 6 3 -> 6
+  truth 6 4 -> 6
+  truth 6 5 -> 6
+  truth 6 6 -> 4
+end
+
+# ---- Epistemic DFF ----
+
+cell DFF radix 7 inputs 1 outputs 1
+  pin D in
+  pin Q out D
+  truth 0 -> 0
+  truth 1 -> 1
+  truth 2 -> 2
+  truth 3 -> 3
+  truth 4 -> 4
+  truth 5 -> 5
+  truth 6 -> 6
+end
+
+# ---- Epistemic CONST ----
+
+cell CONST radix 7 inputs 0 outputs 1
+  pin Y out
+  truth -> 0
+  truth -> 1
+  truth -> 2
+  truth -> 3
+  truth -> 4
+  truth -> 5
+  truth -> 6
+end
+
+# Bochvar published his three-valued logic in Moscow in 1938.
+# The NKVD was busy purging scientists that year.
+# Bochvar survived. His logic, which models nonsense as a
+# first-class propagating value, may have been informed by
+# professional experience of living in a state where official
+# truth was frequently nonsensical and acknowledging this
+# could get you killed.
+#
+# We implement his system in silicon because someone should,
+# and because a chip that knows the difference between
+# "justified true" and "believed true" is more epistemically
+# rigorous than most social media platforms.

@@ -1,0 +1,143 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells.def -- Binary (radix-2) cell definitions for Takahe
+#
+# The periodic table of digital logic, binary edition.
+# Each cell is a truth table the engine can evaluate,
+# optimise, and map to physical gates.
+#
+# Format:
+#   cell <TYPE> radix <N> inputs <N> outputs <N>
+#   pin <name> <in|out> [function-string]
+#   truth <in0> <in1> ... -> <out0> ...
+#   end
+#
+# TYPE must match an rt_ctype_t name (AND, OR, XOR, etc.)
+# Values are integers in the radix's digit set.
+# Binary: {0, 1}.  Ternary: {-1, 0, 1}.
+
+# ---- Combinational gates ----
+
+cell AND radix 2 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out (A&B)
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 1 0 -> 0
+  truth 1 1 -> 1
+end
+
+cell OR radix 2 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out (A|B)
+  truth 0 0 -> 0
+  truth 0 1 -> 1
+  truth 1 0 -> 1
+  truth 1 1 -> 1
+end
+
+cell XOR radix 2 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out (A^B)
+  truth 0 0 -> 0
+  truth 0 1 -> 1
+  truth 1 0 -> 1
+  truth 1 1 -> 0
+end
+
+cell NAND radix 2 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out !(A&B)
+  truth 0 0 -> 1
+  truth 0 1 -> 1
+  truth 1 0 -> 1
+  truth 1 1 -> 0
+end
+
+cell NOR radix 2 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out !(A|B)
+  truth 0 0 -> 1
+  truth 0 1 -> 0
+  truth 1 0 -> 0
+  truth 1 1 -> 0
+end
+
+cell XNOR radix 2 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out !(A^B)
+  truth 0 0 -> 1
+  truth 0 1 -> 0
+  truth 1 0 -> 0
+  truth 1 1 -> 1
+end
+
+cell NOT radix 2 inputs 1 outputs 1
+  pin A in
+  pin Y out !A
+  truth 0 -> 1
+  truth 1 -> 0
+end
+
+cell BUF radix 2 inputs 1 outputs 1
+  pin A in
+  pin Y out A
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+# ---- Multiplexer ----
+# MUX: sel=0 selects D0, sel=1 selects D1
+
+cell MUX radix 2 inputs 3 outputs 1
+  pin S in
+  pin D0 in
+  pin D1 in
+  pin Y out (D0&!S)|(D1&S)
+  truth 0 0 0 -> 0
+  truth 0 0 1 -> 0
+  truth 0 1 0 -> 1
+  truth 0 1 1 -> 1
+  truth 1 0 0 -> 0
+  truth 1 0 1 -> 1
+  truth 1 1 0 -> 0
+  truth 1 1 1 -> 1
+end
+
+# ---- Sequential ----
+# DFF and DFFR are edge-triggered; truth table is the
+# next-state function (combinational part only).
+
+cell DFF radix 2 inputs 1 outputs 1
+  pin D in
+  pin Q out D
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+cell DFFR radix 2 inputs 2 outputs 1
+  pin D in
+  pin R in
+  pin Q out D&!R
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 1 0 -> 1
+  truth 1 1 -> 0
+end
+
+# ---- Constants ----
+
+cell CONST radix 2 inputs 0 outputs 1
+  pin Y out
+  truth -> 0
+  truth -> 1
+end

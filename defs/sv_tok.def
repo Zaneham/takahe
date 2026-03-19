@@ -1,0 +1,459 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# sv_tok.def -- SystemVerilog tokeniser definitions
+#
+# IEEE Std 1800-2017, Annex B (normative) + Section 5.
+# All 233 reserved keywords + operators + literal formats.
+#
+# Format:
+#   keyword <name>
+#   op <name> <chars> <token_id>
+#   literal <name> <pattern_desc>
+#   preproc <name>
+#
+# The lexer engine reads this at startup. Adding a keyword
+# or operator means adding one line here, not touching C.
+#
+# Named after the takahe because someone has to tokenise
+# SystemVerilog from scratch and it might as well be a bird
+# that was declared extinct and came back anyway.
+
+# ---- IEEE 1800-2017 Reserved Keywords (Annex B, Table B.1) ----
+# Synthesis-relevant keywords marked with [S]
+# Verification-only keywords marked with [V]
+# Both marked with [SV]
+
+# -- A --
+keyword accept_on           # [V] assertion
+keyword alias               # [V] port alias
+keyword always              # [S] combinational/sequential
+keyword always_comb         # [S] combinational logic
+keyword always_ff           # [S] flip-flop inference
+keyword always_latch        # [S] latch inference (with warning)
+keyword and                 # [S] gate primitive
+keyword assert              # [V] assertion
+keyword assign              # [S] continuous assignment
+keyword assume              # [V] assertion
+keyword automatic           # [S] lifetime
+
+# -- B --
+keyword before              # [V] sequence
+keyword begin               # [S] block
+keyword bind                # [V] bind directive
+keyword bins                # [V] coverage
+keyword binsof              # [V] coverage
+keyword bit                 # [S] 2-state type
+keyword break               # [S] loop control
+keyword buf                 # [S] gate primitive
+keyword bufif0              # [S] gate primitive
+keyword bufif1              # [S] gate primitive
+keyword byte                # [S] 2-state type
+
+# -- C --
+keyword case                # [S] case statement
+keyword casex               # [S] case with don't-care
+keyword casez               # [S] case with hi-Z
+keyword cell                # config
+keyword chandle             # [V] DPI
+keyword checker             # [V] checker
+keyword class               # [V] OOP
+keyword clocking            # [V] clocking block
+keyword cmos                # [S] gate primitive
+keyword config              # configuration
+keyword const               # [S] constant
+keyword constraint          # [V] random
+keyword context             # [V] DPI
+keyword continue            # [S] loop control
+keyword cover               # [V] coverage
+keyword covergroup          # [V] coverage
+keyword coverpoint          # [V] coverage
+keyword cross               # [V] coverage
+
+# -- D --
+keyword deassign            # [S] procedural deassign
+keyword default             # [S] case default
+keyword defparam            # [S] parameter override (deprecated)
+keyword design              # config
+keyword disable             # [S] disable block
+keyword dist                # [V] random distribution
+keyword do                  # [S] do-while
+
+# -- E --
+keyword edge                # [S] sensitivity
+keyword else                # [S] conditional
+keyword end                 # [S] block end
+keyword endcase             # [S] case end
+keyword endchecker          # [V]
+keyword endclass            # [V]
+keyword endclocking         # [V]
+keyword endconfig           # config
+keyword endfunction         # [S] function end
+keyword endgenerate         # [S] generate end
+keyword endgroup            # [V]
+keyword endinterface        # [S] interface end
+keyword endmodule           # [S] module end
+keyword endpackage          # [S] package end
+keyword endprimitive        # [S] primitive end
+keyword endprogram          # [V]
+keyword endproperty         # [V]
+keyword endspecify          # [S] specify end
+keyword endsequence         # [V]
+keyword endtable            # [S] table end
+keyword endtask             # [S] task end
+keyword enum                # [S] enumeration
+keyword event               # [V] event type
+keyword eventually          # [V] assertion
+keyword expect              # [V] assertion
+keyword export              # [V] DPI
+keyword extends             # [V] OOP
+keyword extern              # [V] DPI
+
+# -- F --
+keyword final               # [V] final block
+keyword first_match         # [V] sequence
+keyword for                 # [S] for loop
+keyword force               # [V] force statement
+keyword foreach             # [S] foreach loop
+keyword forever             # [S] forever loop
+keyword fork                # [V] parallel block
+keyword forkjoin            # [V] parallel
+keyword function            # [S] function definition
+
+# -- G --
+keyword generate            # [S] generate block
+keyword genvar              # [S] generate variable
+keyword global              # [V] assertion
+
+# -- H --
+keyword highz0              # [S] drive strength
+keyword highz1              # [S] drive strength
+
+# -- I --
+keyword if                  # [S] conditional
+keyword iff                 # [V] assertion
+keyword ifnone              # [S] specify
+keyword ignore_bins         # [V] coverage
+keyword illegal_bins        # [V] coverage
+keyword implements          # [V] OOP interface
+keyword implies             # [V] assertion
+keyword import              # [S] package import
+keyword incdir              # config
+keyword include             # config
+keyword initial             # [V] initial block (not synthesisable)
+keyword inout               # [S] port direction
+keyword input               # [S] port direction
+keyword inside              # [S] set membership
+keyword instance            # config
+keyword int                 # [S] 2-state 32-bit
+keyword integer             # [S] 4-state 32-bit
+keyword interconnect        # [S] net type
+keyword interface           # [S] interface
+keyword intersect           # [V] coverage
+
+# -- J --
+keyword join                # [V] parallel
+keyword join_any            # [V] parallel
+keyword join_none           # [V] parallel
+
+# -- L --
+keyword large               # [S] charge strength
+keyword let                 # [V] let declaration
+keyword liblist             # config
+keyword library             # config
+keyword local               # [V] OOP visibility
+keyword localparam          # [S] local parameter
+keyword logic               # [S] 4-state type
+keyword longint             # [S] 2-state 64-bit
+
+# -- M --
+keyword macromodule         # [S] module alias
+keyword matches             # [V] pattern matching
+keyword medium              # [S] charge strength
+keyword modport             # [S] interface modport
+keyword module              # [S] module definition
+
+# -- N --
+keyword nand                # [S] gate primitive
+keyword negedge             # [S] edge sensitivity
+keyword nettype             # [S] user-defined net
+keyword new                 # [V] OOP constructor
+keyword nexttime            # [V] assertion
+keyword nmos                # [S] gate primitive
+keyword nor                 # [S] gate primitive
+keyword noshowcancelled     # [S] specify
+keyword not                 # [S] gate primitive
+keyword notif0              # [S] gate primitive
+keyword notif1              # [S] gate primitive
+keyword null                # [V] null reference
+
+# -- O --
+keyword or                  # [S] gate primitive
+keyword output              # [S] port direction
+
+# -- P --
+keyword package             # [S] package
+keyword packed              # [S] packed array/struct
+keyword parameter           # [S] parameter
+keyword pmos                # [S] gate primitive
+keyword posedge             # [S] edge sensitivity
+keyword primitive           # [S] UDP primitive
+keyword priority            # [S] priority case/if
+keyword program             # [V] program block
+keyword property            # [V] assertion property
+keyword protected           # [V] OOP visibility
+keyword pull0               # [S] drive strength
+keyword pull1               # [S] drive strength
+keyword pulldown            # [S] gate primitive
+keyword pullup              # [S] gate primitive
+keyword pulsestyle_ondetect # [S] specify
+keyword pulsestyle_onevent  # [S] specify
+keyword pure                # [V] OOP
+
+# -- R --
+keyword rand                # [V] random
+keyword randc               # [V] random
+keyword randcase            # [V] random
+keyword randsequence        # [V] random
+keyword rcmos               # [S] gate primitive
+keyword real                # [S] real type
+keyword realtime            # [S] realtime type
+keyword ref                 # [S] pass by reference
+keyword reg                 # [S] register type (Verilog compat)
+keyword reject_on           # [V] assertion
+keyword release             # [V] release statement
+keyword repeat              # [S] repeat loop
+keyword restrict            # [V] assertion
+keyword return              # [S] function return
+keyword rnmos               # [S] gate primitive
+keyword rpmos               # [S] gate primitive
+keyword rtran               # [S] gate primitive
+keyword rtranif0            # [S] gate primitive
+keyword rtranif1            # [S] gate primitive
+
+# -- S --
+keyword s_always            # [V] assertion
+keyword s_eventually        # [V] assertion
+keyword s_nexttime          # [V] assertion
+keyword s_until             # [V] assertion
+keyword s_until_with        # [V] assertion
+keyword scalared            # [S] vectored/scalared
+keyword shortint            # [S] 2-state 16-bit
+keyword shortreal           # [S] short real type
+keyword showcancelled       # [S] specify
+keyword signed              # [S] signed modifier
+keyword small               # [S] charge strength
+keyword soft                # [V] constraint
+keyword solve               # [V] constraint
+keyword specify             # [S] timing specify
+keyword specparam           # [S] specify parameter
+keyword static              # [S] lifetime
+keyword string              # [V] string type
+keyword strong              # [V] assertion
+keyword strong0             # [S] drive strength
+keyword strong1             # [S] drive strength
+keyword struct              # [S] structure type
+keyword super               # [V] OOP
+keyword supply0             # [S] net type
+keyword supply1             # [S] net type
+keyword sync_accept_on      # [V] assertion
+keyword sync_reject_on      # [V] assertion
+
+# -- T --
+keyword table               # [S] UDP table
+keyword tagged              # [S] tagged union
+keyword task                # [S] task definition
+keyword this                # [V] OOP
+keyword throughout          # [V] sequence
+keyword time                # [S] time type
+keyword timeprecision       # [S] time precision
+keyword timeunit            # [S] time unit
+keyword tran                # [S] gate primitive
+keyword tranif0             # [S] gate primitive
+keyword tranif1             # [S] gate primitive
+keyword tri                 # [S] net type
+keyword tri0                # [S] net type
+keyword tri1                # [S] net type
+keyword triand              # [S] net type
+keyword trior               # [S] net type
+keyword trireg              # [S] net type
+keyword type                # [S] type operator
+keyword typedef             # [S] type definition
+
+# -- U --
+keyword union               # [S] union type
+keyword unique              # [S] unique case/if
+keyword unique0             # [S] unique0 case/if
+keyword unsigned            # [S] unsigned modifier
+keyword until               # [V] assertion
+keyword until_with          # [V] assertion
+keyword untyped             # [V] assertion
+keyword use                 # config
+keyword uwire               # [S] net type
+
+# -- V --
+keyword var                 # [S] variable
+keyword vectored            # [S] vectored/scalared
+keyword virtual             # [V] OOP/interface
+keyword void                # [S] void type
+
+# -- W --
+keyword wait                # [V] wait statement
+keyword wait_order          # [V] wait
+keyword wand                # [S] net type
+keyword weak                # [V] assertion
+keyword weak0               # [S] drive strength
+keyword weak1               # [S] drive strength
+keyword while               # [S] while loop
+keyword wildcard            # [V] wildcard
+keyword wire                # [S] net type
+keyword with                # [V] constraint/array
+keyword within              # [V] sequence
+keyword wor                 # [S] net type
+
+# -- X --
+keyword xnor                # [S] gate primitive
+keyword xor                 # [S] gate primitive
+
+
+# ---- Operators (IEEE 1800-2017 Section 11.3) ----
+
+# Arithmetic
+op plus          +
+op minus         -
+op star          *
+op slash         /
+op percent       %
+op power         **
+
+# Logical
+op not           !
+op and           &&
+op or            ||
+
+# Bitwise
+op bnot          ~
+op band          &
+op bor           |
+op bxor          ^
+op bxnor_1       ~^
+op bxnor_2       ^~
+
+# Reduction (same chars as bitwise, context-dependent)
+
+# Relational
+op lt            <
+op gt            >
+op le            <=
+op ge            >=
+
+# Equality
+op eq            ==
+op ne            !=
+op ceq           ===
+op cne           !==
+op weq           ==?
+op wne           !=?
+
+# Shift
+op shl           <<
+op shr           >>
+op sshl          <<<
+op sshr          >>>
+
+# Conditional
+op qmark         ?
+op colon         :
+
+# Concatenation / replication
+op lbrace        {
+op rbrace        }
+
+# Assignment
+op assign        =
+op add_assign    +=
+op sub_assign    -=
+op mul_assign    *=
+op div_assign    /=
+op mod_assign    %=
+op and_assign    &=
+op or_assign     |=
+op xor_assign    ^=
+op shl_assign    <<=
+op shr_assign    >>=
+op sshl_assign   <<<=
+op sshr_assign   >>>=
+
+# Increment / decrement
+op incr          ++
+op decr          --
+
+# Delimiters
+op lparen        (
+op rparen        )
+op lbrack        [
+op rbrack        ]
+op semi          ;
+op comma         ,
+op dot           .
+op hash          #
+op at            @
+op atat          @@
+op hashhash      ##
+op arrow         ->
+op darrow        ->>
+op eqgt          =>
+op pstarr        (*
+op starrp        *)
+op colcol        ::
+
+
+# ---- Literal Formats (IEEE 1800-2017 Section 5.7) ----
+
+literal decimal_number      # [0-9][_0-9]*
+literal based_binary        # [0-9]*'[sS]?[bB][01xXzZ_]+
+literal based_octal         # [0-9]*'[sS]?[oO][0-7xXzZ_]+
+literal based_hex           # [0-9]*'[sS]?[hH][0-9a-fA-FxXzZ_]+
+literal based_decimal       # [0-9]*'[sS]?[dD][0-9_]+
+literal real_number          # [0-9]+.[0-9]+ | [0-9]+[eE][+-]?[0-9]+
+literal time_literal         # [0-9]+[munpf]?s
+literal string_literal       # "..."
+literal unbased_unsized      # '0 | '1 | 'x | 'X | 'z | 'Z
+
+
+# ---- Preprocessor Directives (IEEE 1800-2017 Section 22) ----
+
+preproc define
+preproc undef
+preproc ifdef
+preproc ifndef
+preproc elsif
+preproc else
+preproc endif
+preproc include
+preproc timescale
+preproc default_nettype
+preproc resetall
+preproc celldefine
+preproc endcelldefine
+preproc unconnected_drive
+preproc nounconnected_drive
+preproc pragma
+preproc begin_keywords
+preproc end_keywords
+preproc line
+
+
+# ---- System Tasks/Functions (synthesis-relevant subset) ----
+
+systask clog2               # [S] ceiling log2
+systask bits                # [S] bit width
+systask size                # [S] array size
+systask left                # [S] dimension bound
+systask right               # [S] dimension bound
+systask low                 # [S] dimension bound
+systask high                # [S] dimension bound
+systask unsigned            # [S] type cast
+systask signed              # [S] type cast

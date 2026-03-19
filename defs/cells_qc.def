@@ -1,0 +1,240 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_qc.def -- Quantum circuit cell definitions (Clifford subset)
+#
+# Quantum gates as truth tables over computational basis states.
+# A qubit is {0, 1}. Two qubits are {00, 01, 10, 11}.
+# At the Clifford level the action on basis states is a
+# permutation — no complex amplitudes needed in the table.
+#
+# This covers: state preparation, error correction, syndrome
+# extraction, surface codes, stabiliser circuits, and all the
+# classical control around a quantum processor.
+#
+# For the Hadamard pedants: yes, H creates superposition.
+# But in a stabiliser formalism you track Pauli frames, not
+# amplitudes. The truth table describes the basis state mapping
+# which is all the synthesis tool needs. The physics stays
+# in the simulator.
+#
+# Non-Clifford gates (T, arbitrary rotation) need an angle
+# parameter — that's a format extension for later. The entire
+# fault-tolerant quantum computing stack runs on Clifford + T,
+# and T gates are implemented via magic state distillation
+# which is itself a Clifford circuit. So this gets you
+# surprisingly far.
+#
+# Radix 2: qubits are binary. The gate semantics are quantum.
+# Same hardware truth tables, different interpretation.
+# Schrödinger would be confused. Takahe doesn't care.
+
+# ---- Single-qubit gates ----
+
+# Pauli-X (quantum NOT): |0⟩ → |1⟩, |1⟩ → |0⟩
+# The only gate that looks exactly like its classical cousin.
+# Everything else gets weird.
+
+cell X radix 2 inputs 1 outputs 1
+  pin Q in
+  pin Q_out out X(Q)
+  truth 0 -> 1
+  truth 1 -> 0
+end
+
+# Pauli-Z: |0⟩ → |0⟩, |1⟩ → |1⟩ (phase flip, invisible on basis)
+# Z doesn't change the measurement outcome — it flips the phase.
+# In the stabiliser formalism this matters. In the truth table
+# it looks like a buffer. The synthesis tool routes it correctly;
+# the physics simulator interprets the phase.
+
+cell Z radix 2 inputs 1 outputs 1
+  pin Q in
+  pin Q_out out Z(Q)
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+# Pauli-Y: |0⟩ → i|1⟩, |1⟩ → -i|0⟩
+# On basis states: bit flip (like X). Phase is tracked separately.
+
+cell Y radix 2 inputs 1 outputs 1
+  pin Q in
+  pin Q_out out Y(Q)
+  truth 0 -> 1
+  truth 1 -> 0
+end
+
+# Hadamard: |0⟩ → |+⟩ = (|0⟩+|1⟩)/√2, |1⟩ → |−⟩ = (|0⟩-|1⟩)/√2
+# On basis states this is NOT a permutation — it creates
+# superposition. But in Pauli frame tracking (stabiliser sim),
+# H swaps X↔Z errors. For synthesis purposes we treat it as
+# a named cell with identity basis mapping and let the backend
+# handle the actual unitary.
+#
+# Truth table: identity (basis state tracking only).
+# The magic happens in simulation, not synthesis.
+
+cell H radix 2 inputs 1 outputs 1
+  pin Q in
+  pin Q_out out H(Q)
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+# S gate (phase gate, √Z): |0⟩ → |0⟩, |1⟩ → i|1⟩
+# Basis mapping: identity. Phase tracked by stabiliser formalism.
+
+cell S radix 2 inputs 1 outputs 1
+  pin Q in
+  pin Q_out out S(Q)
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+# S† (S-dagger, inverse S): same basis mapping
+
+cell SDG radix 2 inputs 1 outputs 1
+  pin Q in
+  pin Q_out out Sdg(Q)
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+# ---- Two-qubit gates ----
+
+# CNOT (Controlled-X): flips target iff control is |1⟩
+# The workhorse of quantum computing. Entanglement generator.
+# Creates Bell pairs, teleports states, corrects errors.
+# Truth table is a classical permutation — no superposition.
+#
+# Inputs: control (C), target (T)
+# Outputs: control unchanged, target XORed with control
+
+cell CNOT radix 2 inputs 2 outputs 2
+  pin C in
+  pin T in
+  pin C_out out C
+  pin T_out out C^T
+  truth 0 0 -> 0 0
+  truth 0 1 -> 0 1
+  truth 1 0 -> 1 1
+  truth 1 1 -> 1 0
+end
+
+# CZ (Controlled-Z): phase flip on target iff control is |1⟩
+# Symmetric: CZ(a,b) = CZ(b,a). Basis mapping: identity
+# except |11⟩ → -|11⟩ (phase only, invisible in truth table).
+# Like Z, the synthesis tool routes it; physics is elsewhere.
+
+cell CZ radix 2 inputs 2 outputs 2
+  pin A in
+  pin B in
+  pin A_out out A
+  pin B_out out B
+  truth 0 0 -> 0 0
+  truth 0 1 -> 0 1
+  truth 1 0 -> 1 0
+  truth 1 1 -> 1 1
+end
+
+# SWAP: exchange two qubits. No entanglement, pure routing.
+
+cell SWAP radix 2 inputs 2 outputs 2
+  pin A in
+  pin B in
+  pin A_out out B
+  pin B_out out A
+  truth 0 0 -> 0 0
+  truth 0 1 -> 1 0
+  truth 1 0 -> 0 1
+  truth 1 1 -> 1 1
+end
+
+# ---- Three-qubit gates ----
+
+# Toffoli (CCNOT / Controlled-Controlled-X):
+# Flips target iff BOTH controls are |1⟩.
+# Universal for classical reversible computing.
+# Used in quantum arithmetic (adders, comparators).
+# Truth table is a pure permutation — no quantum weirdness.
+
+cell CCNOT radix 2 inputs 3 outputs 3
+  pin C1 in
+  pin C2 in
+  pin T in
+  pin C1_out out C1
+  pin C2_out out C2
+  pin T_out out T^(C1&C2)
+  truth 0 0 0 -> 0 0 0
+  truth 0 0 1 -> 0 0 1
+  truth 0 1 0 -> 0 1 0
+  truth 0 1 1 -> 0 1 1
+  truth 1 0 0 -> 1 0 0
+  truth 1 0 1 -> 1 0 1
+  truth 1 1 0 -> 1 1 1
+  truth 1 1 1 -> 1 1 0
+end
+
+# Fredkin (CSWAP / Controlled-SWAP):
+# Swaps two targets iff control is |1⟩.
+# Also universal for classical reversible computing.
+
+cell CSWAP radix 2 inputs 3 outputs 3
+  pin C in
+  pin A in
+  pin B in
+  pin C_out out C
+  pin A_out out sel(C,A,B)
+  pin B_out out sel(C,B,A)
+  truth 0 0 0 -> 0 0 0
+  truth 0 0 1 -> 0 0 1
+  truth 0 1 0 -> 0 1 0
+  truth 0 1 1 -> 0 1 1
+  truth 1 0 0 -> 1 0 0
+  truth 1 0 1 -> 1 1 0
+  truth 1 1 0 -> 1 0 1
+  truth 1 1 1 -> 1 1 1
+end
+
+# ---- Measurement + Classical Control ----
+
+# MEAS (Measurement in Z basis): collapses qubit to |0⟩ or |1⟩
+# Output is a classical bit. This is the quantum-to-classical
+# boundary. Truth table is identity because we're describing
+# the basis state mapping, not the probability.
+
+cell MEAS radix 2 inputs 1 outputs 1
+  pin Q in
+  pin C out meas(Q)
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+# PREP (State preparation): prepare |0⟩ regardless of input.
+# Reset qubit to ground state. Classical input selects
+# whether to also apply X (prepare |1⟩ instead).
+
+cell PREP radix 2 inputs 1 outputs 1
+  pin INIT in
+  pin Q out prep(INIT)
+  truth 0 -> 0
+  truth 1 -> 1
+end
+
+# ---- Error correction building blocks ----
+
+# Syndrome extraction is just CNOT chains + measurement.
+# A [[7,1,3]] Steane code uses 6 ancilla qubits, 6 CNOTs
+# for X-syndrome and 6 for Z-syndrome. All Clifford.
+# The decoder is classical logic (binary cells.def).
+#
+# Surface codes use alternating X and Z stabilisers on a
+# 2D grid. Each stabiliser is 4 CNOTs + 1 measurement.
+# The entire error correction pipeline — stabiliser
+# measurement, syndrome decoding, Pauli frame update —
+# is expressible with the gates defined above.
+#
+# No additional cells needed. The architecture works.

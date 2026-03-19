@@ -1,0 +1,293 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_affect.def -- Affective computing cells (radix-8)
+#
+# Plutchik's wheel of emotions (1980) as hardware logic.
+#
+# Eight basic emotions, arranged as four opposing pairs:
+#
+#   0 = NEUTRAL    (absence of emotion / baseline)
+#   1 = JOY        opposite of SADNESS
+#   2 = TRUST      opposite of DISGUST
+#   3 = FEAR       opposite of ANGER
+#   4 = SURPRISE   opposite of ANTICIPATION
+#   5 = SADNESS    opposite of JOY
+#   6 = DISGUST    opposite of TRUST
+#   7 = ANGER      opposite of FEAR
+#
+# Plutchik's dyads (emotion combinations):
+#   JOY + TRUST     = LOVE (1+2)
+#   JOY + FEAR      = GUILT (1+3)
+#   TRUST + FEAR    = SUBMISSION (2+3)
+#   TRUST + SURPRISE= CURIOSITY (2+4)
+#   FEAR + SADNESS  = DESPAIR (3+5)
+#   SURPRISE + SADNESS = DISAPPOINTMENT (4+5)
+#   SADNESS + DISGUST  = REMORSE (5+6)
+#   DISGUST + ANGER    = CONTEMPT (6+7)
+#   ANGER + ANTICIPATION = AGGRESSION (7+4)
+#
+# Applications:
+#   - Affective computing / emotion-aware AI hardware
+#   - Sentiment analysis in hardware (no Python, no latency)
+#   - Human-robot interaction processors
+#   - Social signal processing for accessibility devices
+#   - Therapy chatbot ASICs (yes, really)
+#
+# A chip that processes emotions. Not simulates them —
+# PROCESSES them, the way a binary chip processes arithmetic.
+# The emotional state is the data type. The gates are the
+# psychological operations. The output is how your robot
+# should respond.
+#
+# Plutchik would have loved this. His publisher would have
+# been confused.
+
+# ---- Affective NOT: emotional opposite ----
+# Joy → Sadness, Trust → Disgust, Fear → Anger,
+# Surprise → Anticipation (we use 4 for both S and A).
+# Neutral stays Neutral.
+#
+# Flipping an emotion is psychologically real:
+# the sudden shift from trust to disgust when betrayed.
+# One gate. One clock cycle. One emotional reversal.
+
+cell NOT radix 8 inputs 1 outputs 1
+  pin E in
+  pin Y out opposite(E)
+  truth 0 -> 0
+  truth 1 -> 5
+  truth 2 -> 6
+  truth 3 -> 7
+  truth 4 -> 4
+  truth 5 -> 1
+  truth 6 -> 2
+  truth 7 -> 3
+end
+
+# ---- Affective BLEND: Plutchik's dyad ----
+# Combine two emotions. If same → intensify (stay same).
+# If opposites → Neutral (cancel out).
+# If adjacent on wheel → the resulting dyad.
+#
+# Simplified: output = dominant emotion (higher index
+# wins when not cancelling). Two identical emotions
+# reinforce. Opposites neutralise.
+
+cell BLEND radix 8 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out blend(A,B)
+  # Neutral absorbs
+  truth 0 0 -> 0
+  truth 0 1 -> 1
+  truth 0 2 -> 2
+  truth 0 3 -> 3
+  truth 0 4 -> 4
+  truth 0 5 -> 5
+  truth 0 6 -> 6
+  truth 0 7 -> 7
+  truth 1 0 -> 1
+  truth 2 0 -> 2
+  truth 3 0 -> 3
+  truth 4 0 -> 4
+  truth 5 0 -> 5
+  truth 6 0 -> 6
+  truth 7 0 -> 7
+  # Same emotion reinforces
+  truth 1 1 -> 1
+  truth 2 2 -> 2
+  truth 3 3 -> 3
+  truth 4 4 -> 4
+  truth 5 5 -> 5
+  truth 6 6 -> 6
+  truth 7 7 -> 7
+  # Opposites cancel: joy/sadness, trust/disgust, fear/anger
+  truth 1 5 -> 0
+  truth 5 1 -> 0
+  truth 2 6 -> 0
+  truth 6 2 -> 0
+  truth 3 7 -> 0
+  truth 7 3 -> 0
+  # Adjacent blends (Plutchik dyads) — dominant wins
+  # Joy + Trust → Love (encode as Trust=2, closer to Love)
+  truth 1 2 -> 2
+  truth 2 1 -> 2
+  # Joy + Fear → Guilt (complex, encode as Fear)
+  truth 1 3 -> 3
+  truth 3 1 -> 3
+  # Trust + Fear → Submission (encode as Fear)
+  truth 2 3 -> 3
+  truth 3 2 -> 3
+  # Trust + Surprise → Curiosity (encode as Surprise)
+  truth 2 4 -> 4
+  truth 4 2 -> 4
+  # Fear + Sadness → Despair (encode as Sadness)
+  truth 3 5 -> 5
+  truth 5 3 -> 5
+  # Surprise + Sadness → Disappointment
+  truth 4 5 -> 5
+  truth 5 4 -> 5
+  # Sadness + Disgust → Remorse
+  truth 5 6 -> 6
+  truth 6 5 -> 6
+  # Disgust + Anger → Contempt
+  truth 6 7 -> 7
+  truth 7 6 -> 7
+  # Non-adjacent non-opposite: dominant (higher) wins
+  truth 1 4 -> 4
+  truth 4 1 -> 4
+  truth 1 6 -> 6
+  truth 6 1 -> 6
+  truth 1 7 -> 7
+  truth 7 1 -> 7
+  truth 2 5 -> 5
+  truth 5 2 -> 5
+  truth 2 7 -> 7
+  truth 7 2 -> 7
+  truth 3 4 -> 4
+  truth 4 3 -> 4
+  truth 3 6 -> 6
+  truth 6 3 -> 6
+  truth 4 6 -> 6
+  truth 6 4 -> 6
+  truth 4 7 -> 7
+  truth 7 4 -> 7
+  truth 5 7 -> 7
+  truth 7 5 -> 7
+end
+
+# ---- Affective VALENCE: positive/negative/neutral ----
+# Maps emotion to valence: 0=neutral, 1=positive, 2=negative
+# Joy, Trust = positive. Fear, Sadness, Disgust, Anger = negative.
+# Surprise is neutral (can go either way).
+
+cell VALENCE radix 8 inputs 1 outputs 1
+  pin E in
+  pin V out valence(E)
+  truth 0 -> 0
+  truth 1 -> 1
+  truth 2 -> 1
+  truth 3 -> 2
+  truth 4 -> 0
+  truth 5 -> 2
+  truth 6 -> 2
+  truth 7 -> 2
+end
+
+# ---- Affective CONSENSUS ----
+# Two emotional readings agree → output emotion.
+# Disagree → Neutral (ambiguous emotional state).
+# Same as every other consensus gate, because consensus
+# is a universal pattern: cuneiform, DNA, emotions, beliefs.
+
+cell CONSENSUS radix 8 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out cons(A,B)
+  truth 0 0 -> 0
+  truth 1 1 -> 1
+  truth 2 2 -> 2
+  truth 3 3 -> 3
+  truth 4 4 -> 4
+  truth 5 5 -> 5
+  truth 6 6 -> 6
+  truth 7 7 -> 7
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 0 4 -> 0
+  truth 0 5 -> 0
+  truth 0 6 -> 0
+  truth 0 7 -> 0
+  truth 1 0 -> 0
+  truth 1 2 -> 0
+  truth 1 3 -> 0
+  truth 1 4 -> 0
+  truth 1 5 -> 0
+  truth 1 6 -> 0
+  truth 1 7 -> 0
+  truth 2 0 -> 0
+  truth 2 1 -> 0
+  truth 2 3 -> 0
+  truth 2 4 -> 0
+  truth 2 5 -> 0
+  truth 2 6 -> 0
+  truth 2 7 -> 0
+  truth 3 0 -> 0
+  truth 3 1 -> 0
+  truth 3 2 -> 0
+  truth 3 4 -> 0
+  truth 3 5 -> 0
+  truth 3 6 -> 0
+  truth 3 7 -> 0
+  truth 4 0 -> 0
+  truth 4 1 -> 0
+  truth 4 2 -> 0
+  truth 4 3 -> 0
+  truth 4 5 -> 0
+  truth 4 6 -> 0
+  truth 4 7 -> 0
+  truth 5 0 -> 0
+  truth 5 1 -> 0
+  truth 5 2 -> 0
+  truth 5 3 -> 0
+  truth 5 4 -> 0
+  truth 5 6 -> 0
+  truth 5 7 -> 0
+  truth 6 0 -> 0
+  truth 6 1 -> 0
+  truth 6 2 -> 0
+  truth 6 3 -> 0
+  truth 6 4 -> 0
+  truth 6 5 -> 0
+  truth 6 7 -> 0
+  truth 7 0 -> 0
+  truth 7 1 -> 0
+  truth 7 2 -> 0
+  truth 7 3 -> 0
+  truth 7 4 -> 0
+  truth 7 5 -> 0
+  truth 7 6 -> 0
+end
+
+# ---- Affective DFF ----
+
+cell DFF radix 8 inputs 1 outputs 1
+  pin D in
+  pin Q out D
+  truth 0 -> 0
+  truth 1 -> 1
+  truth 2 -> 2
+  truth 3 -> 3
+  truth 4 -> 4
+  truth 5 -> 5
+  truth 6 -> 6
+  truth 7 -> 7
+end
+
+# ---- Affective CONST ----
+
+cell CONST radix 8 inputs 0 outputs 1
+  pin Y out
+  truth -> 0
+  truth -> 1
+  truth -> 2
+  truth -> 3
+  truth -> 4
+  truth -> 5
+  truth -> 6
+  truth -> 7
+end
+
+# Robert Plutchik published his psychoevolutionary theory
+# of emotion in 1980. He proposed that emotions, like
+# colours, can be primary (basic) or mixed (blended),
+# and arranged on a wheel where opposites cancel.
+#
+# Nobody, including Plutchik, ever suggested implementing
+# this as gate-level logic in a hardware synthesis tool.
+#
+# We did it anyway. The robot therapist will see you now.

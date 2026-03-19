@@ -1,0 +1,175 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_life.def -- Cellular automata cells (radix-2)
+#
+# Rule 110 is Turing-complete.
+#
+# Let that sink in. A single truth table with 3 binary inputs
+# and 1 binary output — 8 rows — can compute ANYTHING that
+# any computer can compute. Proved by Matthew Cook in 2004,
+# to Stephen Wolfram's eternal smugness.
+#
+# This file defines elementary cellular automaton rules as
+# logic cells. Each cell takes three inputs (left neighbour,
+# self, right neighbour) and outputs the next state.
+# Chain them in a row and you have a 1D cellular automaton.
+# Tile them in a grid and you have a 2D one.
+#
+# Conway's Game of Life needs a neighbourhood sum (9 cells)
+# but the elementary rules need only 3. We define both.
+#
+# A synthesis tool that can instantiate cellular automata
+# as gate arrays is a synthesis tool that can build
+# hardware neural networks, random number generators,
+# hash functions, and Turing machines from first principles.
+#
+# Wolfram will probably try to patent this.
+# He can't. It's MPL 2.0.
+
+# ---- Rule 110: THE Turing-complete rule ----
+# Input: left, center, right (3 binary digits)
+# Output: next state of center cell
+#
+# 111 → 0    110 → 1    101 → 1    100 → 0
+# 011 → 1    010 → 1    001 → 1    000 → 0
+#
+# That's it. Eight rows. Universal computation.
+# Every Turing machine, every lambda calculus term,
+# every computable function, every program ever written
+# or that could be written — all reducible to this
+# one truth table repeated across space and time.
+#
+# The universe might run on something this simple.
+# Nobody has proved it doesn't.
+
+cell RULE110 radix 2 inputs 3 outputs 1
+  pin L in
+  pin C in
+  pin R in
+  pin N out rule110(L,C,R)
+  truth 0 0 0 -> 0
+  truth 0 0 1 -> 1
+  truth 0 1 0 -> 1
+  truth 0 1 1 -> 1
+  truth 1 0 0 -> 0
+  truth 1 0 1 -> 1
+  truth 1 1 0 -> 1
+  truth 1 1 1 -> 0
+end
+
+# ---- Rule 30: Wolfram's favourite ----
+# Chaotic, used for RNG in Mathematica.
+# The pattern it generates from a single 1 is provably
+# random-looking enough that Wolfram uses it to generate
+# random numbers for a living.
+# Yes, a billionaire's income depends on 8 truth table rows.
+
+cell RULE30 radix 2 inputs 3 outputs 1
+  pin L in
+  pin C in
+  pin R in
+  pin N out rule30(L,C,R)
+  truth 0 0 0 -> 0
+  truth 0 0 1 -> 1
+  truth 0 1 0 -> 1
+  truth 0 1 1 -> 1
+  truth 1 0 0 -> 1
+  truth 1 0 1 -> 0
+  truth 1 1 0 -> 0
+  truth 1 1 1 -> 0
+end
+
+# ---- Rule 90: Sierpinski triangle generator ----
+# XOR of left and right neighbours. Produces a perfect
+# fractal from a single seed. Used in LFSR-based
+# pseudorandom generators and error-correcting codes.
+# Also: it's just pretty.
+
+cell RULE90 radix 2 inputs 3 outputs 1
+  pin L in
+  pin C in
+  pin R in
+  pin N out rule90(L,C,R)
+  truth 0 0 0 -> 0
+  truth 0 0 1 -> 1
+  truth 0 1 0 -> 0
+  truth 0 1 1 -> 1
+  truth 1 0 0 -> 1
+  truth 1 0 1 -> 0
+  truth 1 1 0 -> 1
+  truth 1 1 1 -> 0
+end
+
+# ---- Rule 184: traffic flow model ----
+# Particles move right. If blocked, they stay.
+# This simple rule models highway traffic, packet routing,
+# and fluid dynamics. Instantiate 1000 of these in a chain
+# and you have a hardware traffic simulator.
+
+cell RULE184 radix 2 inputs 3 outputs 1
+  pin L in
+  pin C in
+  pin R in
+  pin N out rule184(L,C,R)
+  truth 0 0 0 -> 0
+  truth 0 0 1 -> 0
+  truth 0 1 0 -> 0
+  truth 0 1 1 -> 1
+  truth 1 0 0 -> 1
+  truth 1 0 1 -> 1
+  truth 1 1 0 -> 1
+  truth 1 1 1 -> 0
+end
+
+# ---- Game of Life step (simplified) ----
+# Conway's rules need a 3×3 neighbourhood sum (0-8).
+# We encode the sum as a 4-bit input + current state.
+# alive=1, dead=0.
+#
+# Rules:
+#   alive + 2 neighbours → alive (survival)
+#   alive + 3 neighbours → alive (survival)
+#   dead  + 3 neighbours → alive (birth)
+#   everything else      → dead
+#
+# This is a 2-input cell: (state, neighbour_count)
+# where count is 0-8 encoded directly.
+# Wire up the neighbourhood counter separately.
+
+cell LIFE radix 2 inputs 2 outputs 1
+  pin STATE in
+  pin COUNT in
+  pin NEXT out life(STATE,COUNT)
+  # dead cells
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 1
+  truth 0 4 -> 0
+  truth 0 5 -> 0
+  truth 0 6 -> 0
+  truth 0 7 -> 0
+  truth 0 8 -> 0
+  # alive cells
+  truth 1 0 -> 0
+  truth 1 1 -> 0
+  truth 1 2 -> 1
+  truth 1 3 -> 1
+  truth 1 4 -> 0
+  truth 1 5 -> 0
+  truth 1 6 -> 0
+  truth 1 7 -> 0
+  truth 1 8 -> 0
+end
+
+# John Conway died of COVID-19 on April 11, 2020.
+# His Game of Life is the most famous cellular automaton
+# ever created. It has been implemented in every programming
+# language, on every platform, and in at least one Excel
+# spreadsheet. It has never, until now, been implemented
+# as a synthesisable hardware cell definition.
+#
+# This one's for you, John. Gliders forever.

@@ -1,0 +1,178 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_arrow.def -- Arrow's impossibility theorem (radix-3)
+#
+# THIS CELL LIBRARY DOCUMENTS ITS OWN IMPOSSIBILITY.
+#
+# Arrow's impossibility theorem (1951, Nobel Prize 1972):
+# No voting system for 3+ candidates can simultaneously
+# satisfy all of these fairness axioms:
+#
+#   1. Unanimity: if every voter prefers A > B, society
+#      must prefer A > B.
+#   2. Non-dictatorship: no single voter can determine
+#      the social outcome regardless of others.
+#   3. Independence of irrelevant alternatives (IIA):
+#      the social preference between A and B depends
+#      only on individual preferences between A and B,
+#      not on preferences involving C.
+#
+# For 3 candidates, preferences are total orderings.
+# There are 6 possible orderings of {A, B, C}.
+# We encode them as:
+#   0 = A > B > C
+#   1 = A > C > B
+#   2 = B > A > C
+#   3 = B > C > A
+#   4 = C > A > B
+#   5 = C > B > A
+#
+# A "fair" voting cell would take two voters' preferences
+# and output a social preference that satisfies all three
+# axioms. Arrow proved no such function exists.
+#
+# The DICTATOR cell below satisfies unanimity and IIA
+# but violates non-dictatorship (voter 1 always wins).
+# It works. It's just not fair.
+#
+# The MAJORITY cell below satisfies unanimity and
+# non-dictatorship but violates IIA (Condorcet cycles).
+# It's fair but inconsistent.
+#
+# You cannot have all three. This is a mathematical
+# certainty, not an engineering limitation. No amount of
+# clever .def file writing can solve it. The truth table
+# that satisfies all three axioms does not exist.
+# Arrow proved it. We document it.
+#
+# Every democracy in the world operates under this
+# constraint. They just don't put it in a .def file.
+
+# ---- DICTATOR: voter 1 always wins ----
+# Satisfies: Unanimity ✓, IIA ✓
+# Violates:  Non-dictatorship ✗
+# It's not a bug. It's a theorem.
+
+cell DICTATOR radix 6 inputs 2 outputs 1
+  pin V1 in
+  pin V2 in
+  pin SOCIAL out v1
+  truth 0 0 -> 0
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 0 4 -> 0
+  truth 0 5 -> 0
+  truth 1 0 -> 1
+  truth 1 1 -> 1
+  truth 1 2 -> 1
+  truth 1 3 -> 1
+  truth 1 4 -> 1
+  truth 1 5 -> 1
+  truth 2 0 -> 2
+  truth 2 1 -> 2
+  truth 2 2 -> 2
+  truth 2 3 -> 2
+  truth 2 4 -> 2
+  truth 2 5 -> 2
+  truth 3 0 -> 3
+  truth 3 1 -> 3
+  truth 3 2 -> 3
+  truth 3 3 -> 3
+  truth 3 4 -> 3
+  truth 3 5 -> 3
+  truth 4 0 -> 4
+  truth 4 1 -> 4
+  truth 4 2 -> 4
+  truth 4 3 -> 4
+  truth 4 4 -> 4
+  truth 4 5 -> 4
+  truth 5 0 -> 5
+  truth 5 1 -> 5
+  truth 5 2 -> 5
+  truth 5 3 -> 5
+  truth 5 4 -> 5
+  truth 5 5 -> 5
+end
+
+# ---- CONSENSUS: agreement or deadlock ----
+# When voters agree → output their preference.
+# When they disagree → 0 (default ordering, arbitrary).
+# Satisfies: Unanimity ✓, Non-dictatorship ✓
+# Violates:  IIA ✗ (the default is arbitrary w.r.t. subsets)
+
+cell CONSENSUS radix 6 inputs 2 outputs 1
+  pin V1 in
+  pin V2 in
+  pin SOCIAL out cons(V1,V2)
+  truth 0 0 -> 0
+  truth 1 1 -> 1
+  truth 2 2 -> 2
+  truth 3 3 -> 3
+  truth 4 4 -> 4
+  truth 5 5 -> 5
+  truth 0 1 -> 0
+  truth 0 2 -> 0
+  truth 0 3 -> 0
+  truth 0 4 -> 0
+  truth 0 5 -> 0
+  truth 1 0 -> 0
+  truth 1 2 -> 0
+  truth 1 3 -> 0
+  truth 1 4 -> 0
+  truth 1 5 -> 0
+  truth 2 0 -> 0
+  truth 2 1 -> 0
+  truth 2 3 -> 0
+  truth 2 4 -> 0
+  truth 2 5 -> 0
+  truth 3 0 -> 0
+  truth 3 1 -> 0
+  truth 3 2 -> 0
+  truth 3 4 -> 0
+  truth 3 5 -> 0
+  truth 4 0 -> 0
+  truth 4 1 -> 0
+  truth 4 2 -> 0
+  truth 4 3 -> 0
+  truth 4 5 -> 0
+  truth 5 0 -> 0
+  truth 5 1 -> 0
+  truth 5 2 -> 0
+  truth 5 3 -> 0
+  truth 5 4 -> 0
+end
+
+# ---- FAIR: the impossible cell ----
+# THIS CELL INTENTIONALLY LEFT IMPOSSIBLE.
+#
+# A cell satisfying Unanimity + Non-dictatorship + IIA
+# for 3+ candidates cannot be constructed. If you find
+# a truth table that works, you have disproved Arrow's
+# theorem and should contact the Nobel committee, not
+# submit a pull request.
+#
+# We leave this as an empty cell — not because we forgot,
+# but because mathematics forbids its contents.
+#
+# cell FAIR radix 6 inputs 2 outputs 1
+#   pin V1 in
+#   pin V2 in
+#   pin SOCIAL out ???
+#   (no valid truth table exists)
+# end
+
+# Kenneth Arrow, 1921-2017.
+# He proved that perfect democracy is impossible,
+# won the Nobel Prize for it, and spent the rest of
+# his career trying to find the least bad alternative.
+#
+# Every voting system is a compromise. Every .def file
+# is a choice. This file contains two choices and one
+# proof that the choice you really wanted doesn't exist.
+#
+# Democracy is the worst form of government, except for
+# all the others. This .def file proves it formally.

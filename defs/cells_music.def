@@ -1,0 +1,435 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_music.def -- Chromatic music theory cells (radix-12)
+#
+# The chromatic scale is radix-12. Every operation in
+# Western music theory is modular arithmetic mod 12.
+# Transposition is addition. Inversion is subtraction from 12.
+# A major chord is a lookup table.
+#
+# Pitch classes:
+#   0=C, 1=C#, 2=D, 3=D#, 4=E, 5=F,
+#   6=F#, 7=G, 8=G#, 9=A, 10=A#, 11=B
+#
+# Intervals:
+#   0=unison, 1=m2, 2=M2, 3=m3, 4=M3, 5=P4,
+#   6=tritone, 7=P5, 8=m6, 9=M6, 10=m7, 11=M7
+#
+# Bach would have loved this. He WAS this.
+# The Well-Tempered Clavier is a proof that all 12 keys
+# are equivalent under transposition — which is to say,
+# modular addition is commutative. He proved group theory
+# with a harpsichord 100 years before Galois.
+
+# ---- TRANSPOSE: add interval mod 12 ----
+# Move a pitch up by an interval. The fundamental operation
+# of music. Every key change, every sequence, every
+# modulation is this gate repeated.
+
+cell TRANSPOSE radix 12 inputs 2 outputs 1
+  pin NOTE in
+  pin INTERVAL in
+  pin Y out (NOTE+INTERVAL)%12
+  truth  0  0 ->  0
+  truth  0  1 ->  1
+  truth  0  2 ->  2
+  truth  0  3 ->  3
+  truth  0  4 ->  4
+  truth  0  5 ->  5
+  truth  0  6 ->  6
+  truth  0  7 ->  7
+  truth  0  8 ->  8
+  truth  0  9 ->  9
+  truth  0 10 -> 10
+  truth  0 11 -> 11
+  truth  1  0 ->  1
+  truth  1  1 ->  2
+  truth  1  2 ->  3
+  truth  1  3 ->  4
+  truth  1  4 ->  5
+  truth  1  5 ->  6
+  truth  1  6 ->  7
+  truth  1  7 ->  8
+  truth  1  8 ->  9
+  truth  1  9 -> 10
+  truth  1 10 -> 11
+  truth  1 11 ->  0
+  truth  2  0 ->  2
+  truth  2  1 ->  3
+  truth  2  2 ->  4
+  truth  2  3 ->  5
+  truth  2  4 ->  6
+  truth  2  5 ->  7
+  truth  2  6 ->  8
+  truth  2  7 ->  9
+  truth  2  8 -> 10
+  truth  2  9 -> 11
+  truth  2 10 ->  0
+  truth  2 11 ->  1
+  truth  3  0 ->  3
+  truth  3  1 ->  4
+  truth  3  2 ->  5
+  truth  3  3 ->  6
+  truth  3  4 ->  7
+  truth  3  5 ->  8
+  truth  3  6 ->  9
+  truth  3  7 -> 10
+  truth  3  8 -> 11
+  truth  3  9 ->  0
+  truth  3 10 ->  1
+  truth  3 11 ->  2
+  truth  4  0 ->  4
+  truth  4  1 ->  5
+  truth  4  2 ->  6
+  truth  4  3 ->  7
+  truth  4  4 ->  8
+  truth  4  5 ->  9
+  truth  4  6 -> 10
+  truth  4  7 -> 11
+  truth  4  8 ->  0
+  truth  4  9 ->  1
+  truth  4 10 ->  2
+  truth  4 11 ->  3
+  truth  5  0 ->  5
+  truth  5  1 ->  6
+  truth  5  2 ->  7
+  truth  5  3 ->  8
+  truth  5  4 ->  9
+  truth  5  5 -> 10
+  truth  5  6 -> 11
+  truth  5  7 ->  0
+  truth  5  8 ->  1
+  truth  5  9 ->  2
+  truth  5 10 ->  3
+  truth  5 11 ->  4
+  truth  6  0 ->  6
+  truth  6  1 ->  7
+  truth  6  2 ->  8
+  truth  6  3 ->  9
+  truth  6  4 -> 10
+  truth  6  5 -> 11
+  truth  6  6 ->  0
+  truth  6  7 ->  1
+  truth  6  8 ->  2
+  truth  6  9 ->  3
+  truth  6 10 ->  4
+  truth  6 11 ->  5
+  truth  7  0 ->  7
+  truth  7  1 ->  8
+  truth  7  2 ->  9
+  truth  7  3 -> 10
+  truth  7  4 -> 11
+  truth  7  5 ->  0
+  truth  7  6 ->  1
+  truth  7  7 ->  2
+  truth  7  8 ->  3
+  truth  7  9 ->  4
+  truth  7 10 ->  5
+  truth  7 11 ->  6
+  truth  8  0 ->  8
+  truth  8  1 ->  9
+  truth  8  2 -> 10
+  truth  8  3 -> 11
+  truth  8  4 ->  0
+  truth  8  5 ->  1
+  truth  8  6 ->  2
+  truth  8  7 ->  3
+  truth  8  8 ->  4
+  truth  8  9 ->  5
+  truth  8 10 ->  6
+  truth  8 11 ->  7
+  truth  9  0 ->  9
+  truth  9  1 -> 10
+  truth  9  2 -> 11
+  truth  9  3 ->  0
+  truth  9  4 ->  1
+  truth  9  5 ->  2
+  truth  9  6 ->  3
+  truth  9  7 ->  4
+  truth  9  8 ->  5
+  truth  9  9 ->  6
+  truth  9 10 ->  7
+  truth  9 11 ->  8
+  truth 10  0 -> 10
+  truth 10  1 -> 11
+  truth 10  2 ->  0
+  truth 10  3 ->  1
+  truth 10  4 ->  2
+  truth 10  5 ->  3
+  truth 10  6 ->  4
+  truth 10  7 ->  5
+  truth 10  8 ->  6
+  truth 10  9 ->  7
+  truth 10 10 ->  8
+  truth 10 11 ->  9
+  truth 11  0 -> 11
+  truth 11  1 ->  0
+  truth 11  2 ->  1
+  truth 11  3 ->  2
+  truth 11  4 ->  3
+  truth 11  5 ->  4
+  truth 11  6 ->  5
+  truth 11  7 ->  6
+  truth 11  8 ->  7
+  truth 11  9 ->  8
+  truth 11 10 ->  9
+  truth 11 11 -> 10
+end
+
+# ---- INVERT: pitch class inversion (12 - note) mod 12 ----
+# Mirror a melody around C. Used in twelve-tone serialism
+# (Schoenberg, 1923) and fugal inversion (Bach, 1722).
+
+cell INVERT radix 12 inputs 1 outputs 1
+  pin NOTE in
+  pin Y out (12-NOTE)%12
+  truth  0 ->  0
+  truth  1 -> 11
+  truth  2 -> 10
+  truth  3 ->  9
+  truth  4 ->  8
+  truth  5 ->  7
+  truth  6 ->  6
+  truth  7 ->  5
+  truth  8 ->  4
+  truth  9 ->  3
+  truth 10 ->  2
+  truth 11 ->  1
+end
+
+# ---- INTERVAL: distance between two notes ----
+# (B - A + 12) mod 12. How far apart are they?
+# Same truth table as TRANSPOSE but semantically different:
+# TRANSPOSE moves, INTERVAL measures.
+
+cell INTERVAL radix 12 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out (B-A+12)%12
+  truth  0  0 ->  0
+  truth  0  1 ->  1
+  truth  0  2 ->  2
+  truth  0  3 ->  3
+  truth  0  4 ->  4
+  truth  0  5 ->  5
+  truth  0  6 ->  6
+  truth  0  7 ->  7
+  truth  0  8 ->  8
+  truth  0  9 ->  9
+  truth  0 10 -> 10
+  truth  0 11 -> 11
+  truth  1  0 -> 11
+  truth  1  1 ->  0
+  truth  1  2 ->  1
+  truth  1  3 ->  2
+  truth  1  4 ->  3
+  truth  1  5 ->  4
+  truth  1  6 ->  5
+  truth  1  7 ->  6
+  truth  1  8 ->  7
+  truth  1  9 ->  8
+  truth  1 10 ->  9
+  truth  1 11 -> 10
+  truth  2  0 -> 10
+  truth  2  1 -> 11
+  truth  2  2 ->  0
+  truth  2  3 ->  1
+  truth  2  4 ->  2
+  truth  2  5 ->  3
+  truth  2  6 ->  4
+  truth  2  7 ->  5
+  truth  2  8 ->  6
+  truth  2  9 ->  7
+  truth  2 10 ->  8
+  truth  2 11 ->  9
+  truth  3  0 ->  9
+  truth  3  1 -> 10
+  truth  3  2 -> 11
+  truth  3  3 ->  0
+  truth  3  4 ->  1
+  truth  3  5 ->  2
+  truth  3  6 ->  3
+  truth  3  7 ->  4
+  truth  3  8 ->  5
+  truth  3  9 ->  6
+  truth  3 10 ->  7
+  truth  3 11 ->  8
+  truth  4  0 ->  8
+  truth  4  1 ->  9
+  truth  4  2 -> 10
+  truth  4  3 -> 11
+  truth  4  4 ->  0
+  truth  4  5 ->  1
+  truth  4  6 ->  2
+  truth  4  7 ->  3
+  truth  4  8 ->  4
+  truth  4  9 ->  5
+  truth  4 10 ->  6
+  truth  4 11 ->  7
+  truth  5  0 ->  7
+  truth  5  1 ->  8
+  truth  5  2 ->  9
+  truth  5  3 -> 10
+  truth  5  4 -> 11
+  truth  5  5 ->  0
+  truth  5  6 ->  1
+  truth  5  7 ->  2
+  truth  5  8 ->  3
+  truth  5  9 ->  4
+  truth  5 10 ->  5
+  truth  5 11 ->  6
+  truth  6  0 ->  6
+  truth  6  1 ->  7
+  truth  6  2 ->  8
+  truth  6  3 ->  9
+  truth  6  4 -> 10
+  truth  6  5 -> 11
+  truth  6  6 ->  0
+  truth  6  7 ->  1
+  truth  6  8 ->  2
+  truth  6  9 ->  3
+  truth  6 10 ->  4
+  truth  6 11 ->  5
+  truth  7  0 ->  5
+  truth  7  1 ->  6
+  truth  7  2 ->  7
+  truth  7  3 ->  8
+  truth  7  4 ->  9
+  truth  7  5 -> 10
+  truth  7  6 -> 11
+  truth  7  7 ->  0
+  truth  7  8 ->  1
+  truth  7  9 ->  2
+  truth  7 10 ->  3
+  truth  7 11 ->  4
+  truth  8  0 ->  4
+  truth  8  1 ->  5
+  truth  8  2 ->  6
+  truth  8  3 ->  7
+  truth  8  4 ->  8
+  truth  8  5 ->  9
+  truth  8  6 -> 10
+  truth  8  7 -> 11
+  truth  8  8 ->  0
+  truth  8  9 ->  1
+  truth  8 10 ->  2
+  truth  8 11 ->  3
+  truth  9  0 ->  3
+  truth  9  1 ->  4
+  truth  9  2 ->  5
+  truth  9  3 ->  6
+  truth  9  4 ->  7
+  truth  9  5 ->  8
+  truth  9  6 ->  9
+  truth  9  7 -> 10
+  truth  9  8 -> 11
+  truth  9  9 ->  0
+  truth  9 10 ->  1
+  truth  9 11 ->  2
+  truth 10  0 ->  2
+  truth 10  1 ->  3
+  truth 10  2 ->  4
+  truth 10  3 ->  5
+  truth 10  4 ->  6
+  truth 10  5 ->  7
+  truth 10  6 ->  8
+  truth 10  7 ->  9
+  truth 10  8 -> 10
+  truth 10  9 -> 11
+  truth 10 10 ->  0
+  truth 10 11 ->  1
+  truth 11  0 ->  1
+  truth 11  1 ->  2
+  truth 11  2 ->  3
+  truth 11  3 ->  4
+  truth 11  4 ->  5
+  truth 11  5 ->  6
+  truth 11  6 ->  7
+  truth 11  7 ->  8
+  truth 11  8 ->  9
+  truth 11  9 -> 10
+  truth 11 10 -> 11
+  truth 11 11 ->  0
+end
+
+# ---- CONSONANCE: interval → consonance rating ----
+# Maps an interval to its perceived consonance.
+# Based on frequency ratios and 2,500 years of music theory.
+#   0 (unison)  → 11 (perfect)
+#   7 (P5)      → 10 (perfect)
+#   5 (P4)      →  9 (perfect)
+#   4 (M3)      →  7 (imperfect consonance)
+#   3 (m3)      →  6 (imperfect consonance)
+#   9 (M6)      →  5
+#   8 (m6)      →  4
+#   2 (M2)      →  2 (mild dissonance)
+#   10 (m7)     →  2
+#   11 (M7)     →  1 (harsh dissonance)
+#   1 (m2)      →  0 (maximum dissonance)
+#   6 (tritone) →  0 (diabolus in musica)
+#
+# Pythagoras worked this out with a monochord.
+# We worked it out with a truth table.
+# Same answer. Different vibes.
+
+cell CONSONANCE radix 12 inputs 1 outputs 1
+  pin INTERVAL in
+  pin RATING out consonance(INTERVAL)
+  truth  0 -> 11
+  truth  1 ->  0
+  truth  2 ->  2
+  truth  3 ->  6
+  truth  4 ->  7
+  truth  5 ->  9
+  truth  6 ->  0
+  truth  7 -> 10
+  truth  8 ->  4
+  truth  9 ->  5
+  truth 10 ->  2
+  truth 11 ->  1
+end
+
+# ---- Music DFF and CONST ----
+
+cell DFF radix 12 inputs 1 outputs 1
+  pin D in
+  pin Q out D
+  truth  0 ->  0
+  truth  1 ->  1
+  truth  2 ->  2
+  truth  3 ->  3
+  truth  4 ->  4
+  truth  5 ->  5
+  truth  6 ->  6
+  truth  7 ->  7
+  truth  8 ->  8
+  truth  9 ->  9
+  truth 10 -> 10
+  truth 11 -> 11
+end
+
+cell CONST radix 12 inputs 0 outputs 1
+  pin Y out
+  truth ->  0
+  truth ->  1
+  truth ->  2
+  truth ->  3
+  truth ->  4
+  truth ->  5
+  truth ->  6
+  truth ->  7
+  truth ->  8
+  truth ->  9
+  truth -> 10
+  truth -> 11
+end
+
+# "Music is the pleasure the human mind experiences from
+# counting without being aware that it is counting."
+#   — Leibniz (who also recognised the I Ching as binary)
+#
+# He was right about that too. Music IS counting mod 12.
+# And now it's a .def file.

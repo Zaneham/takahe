@@ -1,0 +1,29 @@
+# Build artifacts
+*.o
+*.exe
+takahe
+trunner
+
+# Liberty cell libraries (third-party, large)
+lib/
+
+# Editor cruft
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS noise
+Thumbs.db
+.DS_Store
+
+# Test artifacts
+tests/picorv32.v
+tests/picorv32_clean.v
+tests/out.*
+tests/emit_test.v
+
+# AI assistants
+.claude/
+CLAUDE.md

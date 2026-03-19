@@ -1,0 +1,233 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# vhdl_tok.def -- VHDL tokeniser definitions
+#
+# IEEE Std 1076-2008 (Revision of IEEE Std 1076-2002).
+# All reserved words + operators + literal formats.
+#
+# VHDL is case-insensitive. The lexer lowercases all identifiers
+# before keyword lookup. The Sumerians didn't have case sensitivity
+# either — cuneiform is cuneiform.
+#
+# Format: same as sv_tok.def
+#   keyword <name>
+#   op <name> <chars>
+#
+# If the French had invented VHDL it would have accents
+# on the reserved words. Fortunately the US DoD got there first.
+
+# ---- IEEE 1076-2008 Reserved Words (Section 15.10) ----
+# Synthesis-relevant marked [S]
+# Simulation-only marked [V]
+# Both marked [SV]
+
+# -- A --
+keyword abs               # [S] absolute value operator
+keyword access            # [V] access type (pointers)
+keyword after             # [V] delay model
+keyword alias             # [SV] alternate name
+keyword all               # [SV] universal selector
+keyword and               # [S] logical AND
+keyword architecture      # [S] design unit body
+keyword array             # [S] array type
+keyword assert            # [V] assertion
+keyword assume            # [V] PSL assume
+keyword assume_guarantee  # [V] PSL
+
+# -- B --
+keyword attribute         # [SV] attribute declaration
+keyword begin             # [S] block start
+keyword block             # [S] block statement
+keyword body              # [SV] package/protected body
+keyword buffer            # [S] buffer port mode
+keyword bus               # [V] bus signal kind
+
+# -- C --
+keyword case              # [S] case statement
+keyword component         # [S] component declaration
+keyword configuration     # [V] configuration
+keyword constant          # [S] constant declaration
+keyword context           # [SV] context declaration (2008)
+keyword cover             # [V] PSL cover
+
+# -- D --
+keyword default           # [SV] default (2008)
+keyword disconnect        # [V] disconnection spec
+keyword downto            # [S] descending range
+
+# -- E --
+keyword else              # [S] else branch
+keyword elsif             # [S] else-if branch
+keyword end               # [S] block/unit terminator
+keyword entity            # [S] design unit interface
+keyword exit              # [S] loop exit
+
+# -- F --
+keyword fairness          # [V] PSL
+keyword file              # [V] file type
+keyword for               # [S] for loop/generate
+keyword force             # [V] signal forcing (2008)
+keyword function          # [S] function declaration
+
+# -- G --
+keyword generate          # [S] generate statement
+keyword generic           # [S] generic parameters
+keyword group             # [V] group declaration
+keyword guarded           # [V] guarded signal
+
+# -- I --
+keyword if                # [S] if statement
+keyword impure            # [V] impure function
+keyword in                # [S] input port mode
+keyword inertial          # [V] inertial delay
+keyword inout             # [S] bidirectional port
+keyword is                # [S] declaration separator
+
+# -- L --
+keyword label             # [SV] label declaration
+keyword library           # [SV] library clause
+keyword linkage           # [V] linkage port mode
+keyword literal           # [V] literal type
+keyword loop              # [S] loop statement
+
+# -- M --
+keyword map               # [S] port/generic map
+keyword mod               # [S] modulo operator
+
+# -- N --
+keyword nand              # [S] logical NAND
+keyword new               # [V] allocator
+keyword next              # [S] loop continue
+keyword nor               # [S] logical NOR
+keyword not               # [S] logical NOT
+keyword null              # [SV] null statement/value
+
+# -- O --
+keyword of                # [S] type/array qualifier
+keyword on                # [V] sensitivity
+keyword open              # [S] open port association
+keyword or                # [S] logical OR
+keyword others            # [S] aggregate/case others
+keyword out               # [S] output port mode
+
+# -- P --
+keyword package           # [S] package declaration
+keyword parameter         # [SV] parameter (2008)
+keyword port              # [S] port declaration
+keyword postponed         # [V] postponed process
+keyword private           # [V] protected type private (2008)
+keyword procedure         # [S] procedure declaration
+keyword process           # [S] process statement
+keyword property          # [V] PSL property
+keyword protected         # [V] protected type
+keyword pure              # [V] pure function
+
+# -- R --
+keyword range             # [S] range constraint
+keyword record            # [S] record type
+keyword register          # [V] register signal kind
+keyword reject            # [V] reject time
+keyword release           # [V] signal release (2008)
+keyword rem               # [S] remainder operator
+keyword report            # [V] report statement
+keyword restrict          # [V] PSL restrict
+keyword restrict_guarantee # [V] PSL
+keyword return            # [S] return statement
+keyword rol               # [S] rotate left
+keyword ror               # [S] rotate right
+
+# -- S --
+keyword select            # [S] selected signal assignment
+keyword sequence          # [V] PSL sequence
+keyword severity          # [V] severity level
+keyword signal            # [S] signal declaration
+keyword shared            # [V] shared variable
+keyword sla               # [S] shift left arithmetic
+keyword sll               # [S] shift left logical
+keyword sra               # [S] shift right arithmetic
+keyword srl               # [S] shift right logical
+keyword strong            # [V] PSL strong
+keyword subtype           # [S] subtype declaration
+
+# -- T --
+keyword then              # [S] if-then separator
+keyword to                # [S] ascending range
+keyword transport         # [V] transport delay
+keyword type              # [S] type declaration
+
+# -- U --
+keyword unaffected        # [V] unaffected signal
+keyword units             # [V] physical type units
+keyword until             # [V] wait until
+keyword use               # [SV] use clause
+
+# -- V --
+keyword variable          # [S] variable declaration
+keyword view              # [V] mode view (2019)
+keyword vpkg              # [V] verification package
+keyword vmode             # [V] verification mode
+keyword vprop             # [V] verification property
+keyword vunit             # [V] verification unit
+
+# -- W --
+keyword wait              # [V] wait statement
+keyword when              # [S] case/conditional
+keyword while             # [S] while loop
+keyword with              # [S] selected signal assignment
+
+# -- X --
+keyword xnor              # [S] logical XNOR
+keyword xor               # [S] logical XOR
+
+# ---- Operators ----
+# VHDL operators are mostly keyword-based (and, or, not, etc.)
+# but has some symbolic ones too.
+
+# Assignment and association
+op vassign       <=         # signal assignment (also "less or equal" in expressions)
+op varassign     :=         # variable assignment
+op arrow         =>         # port/generic association, case arrow
+op box           <>         # unconstrained range ("box")
+
+# Comparison
+op eq            =          # equality
+op neq           /=         # inequality
+op lt            <          # less than
+op gt            >          # greater than
+op le            <=         # less or equal (context-dependent with vassign)
+op ge            >=         # greater or equal
+
+# Arithmetic
+op plus          +
+op minus         -
+op star          *
+op slash         /
+op power         **         # exponentiation
+op concat        &          # concatenation (not bitwise AND — that's the keyword)
+
+# Delimiters
+op lparen        (
+op rparen        )
+op lbracket      [
+op rbracket      ]
+op comma         ,
+op dot           .
+op semicolon     ;
+op colon         :
+op bar           |          # choices separator in case
+op tick          '          # attribute tick / qualified expression
+op hash          #          # based literal delimiter
+
+# Shift operators are keywords (sll, srl, sla, sra, rol, ror)
+# Logical operators are keywords (and, or, nand, nor, xor, xnor, not)
+# Relational matching operators (2008): ?=, ?/=, ?<, ?>, ?<=, ?>=
+op meq           ?=
+op mneq          ?/=
+op mlt           ?<
+op mgt           ?>
+op mle           ?<=
+op mge           ?>=
+op condition     ??         # condition operator (2008)

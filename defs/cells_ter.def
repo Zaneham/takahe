@@ -1,0 +1,389 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# cells_ter.def -- Balanced ternary (radix-3) cell definitions
+#
+# Digit set: {-1, 0, +1}  (written as N, Z, P in the literature,
+# or -, 0, + on the Setun front panel).
+#
+# In balanced ternary:
+#   - Negation is FREE: flip all trits. No two's complement.
+#   - Rounding is PERFECT: truncation equals nearest-integer.
+#   - Signed arithmetic needs no special cases.
+#
+# These truth tables define the fundamental ternary gates.
+# When someone builds a CNTFET ternary standard cell library,
+# these are the logical functions their transistors implement.
+# Until then, Takahe can simulate them.
+#
+# Brusentsov would approve. Probably.
+
+# ---- Ternary AND: min(A, B) ----
+# The "cautious" gate. Returns the lesser value.
+# In Kleene/Lukasiewicz 3-valued logic, this is strong conjunction.
+
+cell AND radix 3 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out min(A,B)
+  truth -1 -1 -> -1
+  truth -1  0 -> -1
+  truth -1  1 -> -1
+  truth  0 -1 -> -1
+  truth  0  0 ->  0
+  truth  0  1 ->  0
+  truth  1 -1 -> -1
+  truth  1  0 ->  0
+  truth  1  1 ->  1
+end
+
+# ---- Ternary OR: max(A, B) ----
+# The "optimistic" gate. Returns the greater value.
+
+cell OR radix 3 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out max(A,B)
+  truth -1 -1 -> -1
+  truth -1  0 ->  0
+  truth -1  1 ->  1
+  truth  0 -1 ->  0
+  truth  0  0 ->  0
+  truth  0  1 ->  1
+  truth  1 -1 ->  1
+  truth  1  0 ->  1
+  truth  1  1 ->  1
+end
+
+# ---- Ternary NOT: -A ----
+# Negation. In balanced ternary this is just flipping the sign.
+# The most elegant operation in all of computing:
+# no carry chain, no complement, just invert every trit.
+# Brusentsov called this "the fundamental advantage."
+
+cell NOT radix 3 inputs 1 outputs 1
+  pin A in
+  pin Y out neg(A)
+  truth -1 ->  1
+  truth  0 ->  0
+  truth  1 -> -1
+end
+
+# ---- Ternary BUF: identity ----
+
+cell BUF radix 3 inputs 1 outputs 1
+  pin A in
+  pin Y out A
+  truth -1 -> -1
+  truth  0 ->  0
+  truth  1 ->  1
+end
+
+# ---- Ternary NAND: -min(A, B) = max(-A, -B) ----
+# De Morgan's law works in ternary too. The universe is consistent.
+
+cell NAND radix 3 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out neg(min(A,B))
+  truth -1 -1 ->  1
+  truth -1  0 ->  1
+  truth -1  1 ->  1
+  truth  0 -1 ->  1
+  truth  0  0 ->  0
+  truth  0  1 ->  0
+  truth  1 -1 ->  1
+  truth  1  0 ->  0
+  truth  1  1 -> -1
+end
+
+# ---- Ternary NOR: -max(A, B) = min(-A, -B) ----
+
+cell NOR radix 3 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out neg(max(A,B))
+  truth -1 -1 ->  1
+  truth -1  0 ->  0
+  truth -1  1 -> -1
+  truth  0 -1 ->  0
+  truth  0  0 ->  0
+  truth  0  1 -> -1
+  truth  1 -1 -> -1
+  truth  1  0 -> -1
+  truth  1  1 -> -1
+end
+
+# ---- Ternary XOR: consensus/disagreement ----
+# When A == B, result is 0 (agreement).
+# When A != B, result is the one further from zero,
+# preserving the "direction" of disagreement.
+# This is ternary multiplication: A * B.
+# Beautiful property: XOR(A, NOT(A)) = NOT(A*A) = NOT(|A|)
+
+cell XOR radix 3 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out mul(A,B)
+  truth -1 -1 ->  1
+  truth -1  0 ->  0
+  truth -1  1 -> -1
+  truth  0 -1 ->  0
+  truth  0  0 ->  0
+  truth  0  1 ->  0
+  truth  1 -1 -> -1
+  truth  1  0 ->  0
+  truth  1  1 ->  1
+end
+
+# ---- Ternary XNOR: -mul(A, B) ----
+
+cell XNOR radix 3 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out neg(mul(A,B))
+  truth -1 -1 -> -1
+  truth -1  0 ->  0
+  truth -1  1 ->  1
+  truth  0 -1 ->  0
+  truth  0  0 ->  0
+  truth  0  1 ->  0
+  truth  1 -1 ->  1
+  truth  1  0 ->  0
+  truth  1  1 -> -1
+end
+
+# ---- Ternary MUX: 3-way select ----
+# The jewel of ternary. A single trit selects from THREE inputs.
+# Binary needs a 2-bit selector + decoder for the same thing.
+# sel=-1 -> D0, sel=0 -> D1, sel=1 -> D2
+#
+# This is why ternary multiplexers are fundamentally more
+# efficient: one trit of control, three data paths.
+# Brusentsov's Setun used this extensively.
+
+cell MUX radix 3 inputs 4 outputs 1
+  pin S in
+  pin D0 in
+  pin D1 in
+  pin D2 in
+  pin Y out sel(S,D0,D1,D2)
+  truth -1 -1 -1 -1 -> -1
+  truth -1 -1 -1  0 -> -1
+  truth -1 -1 -1  1 -> -1
+  truth -1 -1  0 -1 -> -1
+  truth -1 -1  0  0 -> -1
+  truth -1 -1  0  1 -> -1
+  truth -1 -1  1 -1 -> -1
+  truth -1 -1  1  0 -> -1
+  truth -1 -1  1  1 -> -1
+  truth -1  0 -1 -1 ->  0
+  truth -1  0 -1  0 ->  0
+  truth -1  0 -1  1 ->  0
+  truth -1  0  0 -1 ->  0
+  truth -1  0  0  0 ->  0
+  truth -1  0  0  1 ->  0
+  truth -1  0  1 -1 ->  0
+  truth -1  0  1  0 ->  0
+  truth -1  0  1  1 ->  0
+  truth -1  1 -1 -1 ->  1
+  truth -1  1 -1  0 ->  1
+  truth -1  1 -1  1 ->  1
+  truth -1  1  0 -1 ->  1
+  truth -1  1  0  0 ->  1
+  truth -1  1  0  1 ->  1
+  truth -1  1  1 -1 ->  1
+  truth -1  1  1  0 ->  1
+  truth -1  1  1  1 ->  1
+  truth  0 -1 -1 -1 -> -1
+  truth  0 -1 -1  0 -> -1
+  truth  0 -1 -1  1 -> -1
+  truth  0 -1  0 -1 ->  0
+  truth  0 -1  0  0 ->  0
+  truth  0 -1  0  1 ->  0
+  truth  0 -1  1 -1 ->  1
+  truth  0 -1  1  0 ->  1
+  truth  0 -1  1  1 ->  1
+  truth  0  0 -1 -1 -> -1
+  truth  0  0 -1  0 -> -1
+  truth  0  0 -1  1 -> -1
+  truth  0  0  0 -1 ->  0
+  truth  0  0  0  0 ->  0
+  truth  0  0  0  1 ->  0
+  truth  0  0  1 -1 ->  1
+  truth  0  0  1  0 ->  1
+  truth  0  0  1  1 ->  1
+  truth  0  1 -1 -1 -> -1
+  truth  0  1 -1  0 -> -1
+  truth  0  1 -1  1 -> -1
+  truth  0  1  0 -1 ->  0
+  truth  0  1  0  0 ->  0
+  truth  0  1  0  1 ->  0
+  truth  0  1  1 -1 ->  1
+  truth  0  1  1  0 ->  1
+  truth  0  1  1  1 ->  1
+  truth  1 -1 -1 -1 -> -1
+  truth  1 -1 -1  0 ->  0
+  truth  1 -1 -1  1 ->  1
+  truth  1 -1  0 -1 -> -1
+  truth  1 -1  0  0 ->  0
+  truth  1 -1  0  1 ->  1
+  truth  1 -1  1 -1 -> -1
+  truth  1 -1  1  0 ->  0
+  truth  1 -1  1  1 ->  1
+  truth  1  0 -1 -1 -> -1
+  truth  1  0 -1  0 ->  0
+  truth  1  0 -1  1 ->  1
+  truth  1  0  0 -1 -> -1
+  truth  1  0  0  0 ->  0
+  truth  1  0  0  1 ->  1
+  truth  1  0  1 -1 -> -1
+  truth  1  0  1  0 ->  0
+  truth  1  0  1  1 ->  1
+  truth  1  1 -1 -1 -> -1
+  truth  1  1 -1  0 ->  0
+  truth  1  1 -1  1 ->  1
+  truth  1  1  0 -1 -> -1
+  truth  1  1  0  0 ->  0
+  truth  1  1  0  1 ->  1
+  truth  1  1  1 -1 -> -1
+  truth  1  1  1  0 ->  0
+  truth  1  1  1  1 ->  1
+end
+
+# ---- Ternary CONSENSUS: agreement detector ----
+# If A == B, output A. If A != B, output 0 (unknown).
+# From Bochvar's internal logic. Used in the epistemic system
+# for merging knowledge from multiple sources.
+# Not a standard binary gate — unique to ternary.
+
+cell CONSENSUS radix 3 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out cons(A,B)
+  truth -1 -1 -> -1
+  truth -1  0 ->  0
+  truth -1  1 ->  0
+  truth  0 -1 ->  0
+  truth  0  0 ->  0
+  truth  0  1 ->  0
+  truth  1 -1 ->  0
+  truth  1  0 ->  0
+  truth  1  1 ->  1
+end
+
+# ---- Ternary ANY: Kleene's "strong" disjunction ----
+# Returns non-zero input if one is non-zero and other is zero.
+# Both non-zero and different → 0 (conflict).
+# Both same → that value. One zero → the other.
+# Like CONSENSUS but propagates instead of suppressing.
+
+cell ANY radix 3 inputs 2 outputs 1
+  pin A in
+  pin B in
+  pin Y out any(A,B)
+  truth -1 -1 -> -1
+  truth -1  0 -> -1
+  truth -1  1 ->  0
+  truth  0 -1 -> -1
+  truth  0  0 ->  0
+  truth  0  1 ->  1
+  truth  1 -1 ->  0
+  truth  1  0 ->  1
+  truth  1  1 ->  1
+end
+
+# ---- Ternary DFF: trit register ----
+# Stores one balanced ternary digit on clock edge.
+
+cell DFF radix 3 inputs 1 outputs 1
+  pin D in
+  pin Q out D
+  truth -1 -> -1
+  truth  0 ->  0
+  truth  1 ->  1
+end
+
+# ---- Ternary DFFR: trit register with reset to 0 ----
+# Reset forces output to 0 (the ternary "neutral").
+
+cell DFFR radix 3 inputs 2 outputs 1
+  pin D in
+  pin R in
+  pin Q out
+  truth -1 -1 -> -1
+  truth -1  0 -> -1
+  truth -1  1 ->  0
+  truth  0 -1 ->  0
+  truth  0  0 ->  0
+  truth  0  1 ->  0
+  truth  1 -1 ->  1
+  truth  1  0 ->  1
+  truth  1  1 ->  0
+end
+
+# ---- Ternary CONST ----
+
+cell CONST radix 3 inputs 0 outputs 1
+  pin Y out
+  truth -> -1
+  truth ->  0
+  truth ->  1
+end
+
+# ---- Ternary INCREMENT: A + 1 with carry ----
+# Single-trit half adder for +1. The carry is the second output.
+# This is the building block of ternary counters.
+# -1 + 1 = 0, carry 0
+#  0 + 1 = 1, carry 0
+#  1 + 1 = -1, carry 1  (3^0 overflows to 3^1)
+
+cell INCR radix 3 inputs 1 outputs 2
+  pin A in
+  pin S out
+  pin C out
+  truth -1 ->  0  0
+  truth  0 ->  1  0
+  truth  1 -> -1  1
+end
+
+# ---- Ternary FULL ADDER ----
+# A + B + Cin, producing Sum and Carry.
+# The foundation of ternary arithmetic.
+
+cell FADD radix 3 inputs 3 outputs 2
+  pin A in
+  pin B in
+  pin Ci in
+  pin S out
+  pin Co out
+  truth -1 -1 -1 ->  0 -1
+  truth -1 -1  0 -> -1 -1
+  truth -1 -1  1 ->  0 -1
+  truth -1  0 -1 -> -1  0
+  truth -1  0  0 -> -1  0
+  truth -1  0  1 ->  0  0
+  truth -1  1 -1 ->  0  0
+  truth -1  1  0 ->  0  0
+  truth -1  1  1 ->  1  0
+  truth  0 -1 -1 -> -1  0
+  truth  0 -1  0 -> -1  0
+  truth  0 -1  1 ->  0  0
+  truth  0  0 -1 -> -1  0
+  truth  0  0  0 ->  0  0
+  truth  0  0  1 ->  1  0
+  truth  0  1 -1 ->  0  0
+  truth  0  1  0 ->  1  0
+  truth  0  1  1 -> -1  1
+  truth  1 -1 -1 ->  0  0
+  truth  1 -1  0 ->  0  0
+  truth  1 -1  1 ->  1  0
+  truth  1  0 -1 ->  0  0
+  truth  1  0  0 ->  1  0
+  truth  1  0  1 -> -1  1
+  truth  1  1 -1 -> -1  1
+  truth  1  1  0 -> -1  1
+  truth  1  1  1 ->  0  1
+end

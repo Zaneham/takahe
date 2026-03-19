@@ -1,0 +1,38 @@
+# Takahe message catalogue — English
+# Format: TK<NNN> <message text with %s/%u/%d format specifiers>
+# Lines starting with # are comments.
+# The engine loads this at startup. Adding a message means
+# adding one line here, not touching C.
+
+# ---- Lexer / Parser (001-009) ----
+TK001 cannot open file '%s'
+TK002 file too large (%u bytes, max %u)
+TK003 parse error at %u:%u: %s
+TK004 AST node pool exhausted (%u nodes)
+
+# ---- Elaboration (010-019) ----
+TK010 unresolved parameter '%s'
+TK011 cannot resolve width for '%s'
+
+# ---- RTL / Lowering (020-029) ----
+TK020 net pool exhausted (%u nets, max %u)
+TK021 cell pool exhausted (%u cells, max %u)
+TK022 output '%s' has no driver
+
+# ---- Timing (030-039) ----
+TK030 no cell library loaded (use --lib)
+TK031 cell type %s not bound to library gate
+TK032 setup violation: data arrives %.3f ns after clock (need %.3f ns before)
+TK033 hold violation: data changes %.3f ns after clock (must hold %.3f ns)
+TK034 timing violated: slack = %.3f ns on path '%s'
+TK035 combinational loop at net '%s' (%u nets in loops)
+
+# ---- Mapping (040-049) ----
+TK040 bit-blast overflow: %u cells exceed pool
+TK041 Espresso: cone has %d inputs (max %d)
+
+# ---- ABEND ----
+TK090 Module
+TK091 Reason
+TK092 The takahē was declared extinct in 1898.
+TK093 It came back. So can your design.
