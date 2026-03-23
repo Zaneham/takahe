@@ -779,8 +779,8 @@ pk_for(tk_parse_t *P)
     pk_achld(P, n, cond);
     pk_eop(P, ";");
 
-    /* Increment: i = i + 1 (assignment, not expression).
-     * Parse as LHS = RHS, same as blocking assignment. */
+    /* Increment: i = i + 1 or i++ or i--
+     * C-style ++ is syntactic sugar for i = i + 1. */
     {
         uint32_t incr_lhs = pk_expr(P);
         if (is_op(P, "=")) {
@@ -789,6 +789,44 @@ pk_for(tk_parse_t *P)
             uint32_t incr_rhs = pk_expr(P);
             pk_achld(P, asgn, incr_lhs);
             pk_achld(P, asgn, incr_rhs);
+            pk_achld(P, n, asgn);
+        } else if (is_op(P, "++") || is_op(P, "--")) {
+            /* i++ → i = i + 1, i-- → i = i - 1 */
+            int is_inc = is_op(P, "++");
+            uint32_t asgn = pk_alloc(P, TK_AST_BLOCK_ASSIGN);
+            uint32_t bop  = pk_alloc(P, TK_AST_BINARY_OP);
+            uint32_t one  = pk_alloc(P, TK_AST_INT_LIT);
+            uint32_t lhs2 = pk_alloc(P, TK_AST_IDENT);
+            advance(P); /* eat ++/-- */
+            /* Clone the LHS ident for the RHS */
+            P->nodes[lhs2].d.text.off = P->nodes[incr_lhs].d.text.off;
+            P->nodes[lhs2].d.text.len = P->nodes[incr_lhs].d.text.len;
+            /* Create literal 1 */
+            {
+                tk_lex_t *ml = (tk_lex_t *)P->lex;
+                uint32_t off = ml->str_len;
+                if (off + 2 <= ml->str_max) {
+                    ml->strs[off] = '1';
+                    ml->strs[off+1] = '\0';
+                    ml->str_len += 2;
+                }
+                P->nodes[one].d.text.off = off;
+                P->nodes[one].d.text.len = 1;
+            }
+            /* Find the + or - operator index */
+            {
+                uint32_t oi;
+                for (oi = 0; oi < P->lex->n_op; oi++) {
+                    const char *oc = P->lex->strs + P->lex->ops[oi].chars_off;
+                    if (P->lex->ops[oi].chars_len == 1 &&
+                        oc[0] == (is_inc ? '+' : '-'))
+                        { P->nodes[bop].op = (uint16_t)oi; break; }
+                }
+            }
+            pk_achld(P, bop, lhs2);
+            pk_achld(P, bop, one);
+            pk_achld(P, asgn, incr_lhs);
+            pk_achld(P, asgn, bop);
             pk_achld(P, n, asgn);
         } else {
             pk_achld(P, n, incr_lhs);
@@ -1263,9 +1301,16 @@ pk_mbdy2(tk_parse_t *P, uint32_t mod, int stop_end)
             uint32_t td = pk_alloc(P, TK_AST_TYPEDEF);
             uint32_t last_id_off = 0;
             uint16_t last_id_len = 0;
+            int brace_depth = 0;
+            /* Skip typedef body, tracking braces for struct/enum.
+             * typedef struct packed { logic a; logic b; } name_t;
+             * The last IDENT before ; is the type name. */
             KA_GUARD(gs, 1000);
-            while (!is_op(P, ";") && pk_ctyp(P) != TK_TOK_EOF && gs--) {
-                if (pk_ctyp(P) == TK_TOK_IDENT) {
+            while (pk_ctyp(P) != TK_TOK_EOF && gs--) {
+                if (is_op(P, "{")) { brace_depth++; advance(P); continue; }
+                if (is_op(P, "}")) { brace_depth--; advance(P); continue; }
+                if (is_op(P, ";") && brace_depth <= 0) break;
+                if (pk_ctyp(P) == TK_TOK_IDENT && brace_depth == 0) {
                     last_id_off = cur(P)->off;
                     last_id_len = cur(P)->len;
                 }
