@@ -1,7 +1,5 @@
 # Takahe -- Open-Source Universal Synthesis
-#
-# Binary. Ternary. Stochastic. Quantum.
-# JPL-grade build. Zero warnings under -Werror.
+
 
 CC = gcc
 
