@@ -233,4 +233,14 @@ This cell library carries NO WARRANTY regarding copper quality. If your intercon
 
 ## License
 
+## Support the Takahē
+
+This tool is named after the takahē, a flightless bird declared extinct in 1898 and rediscovered alive in New Zealand's Murchison Mountains in 1948. The population is still under 500. DOC's Takahē Recovery Programme is the reason the bird exists today.
+
+If this project is useful to you, consider helping keep them alive.
+
+**[Donate to the Takahē Recovery Programme](https://www.doc.govt.nz/our-work/takahe-recovery-programme/donate/)**
+
+## License
+
 MPL 2.0. Modify Takahe's files and share your modifications, build around it and your code stays yours. Because chip design shouldn't cost more than a house and alternative computing shouldn't be locked behind anyone's paywall.
