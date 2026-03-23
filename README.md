@@ -134,6 +134,7 @@ takahe [flags] <source.sv|.vhd>
   --lex           dump tokens
   --parse         dump AST + RTL
   --opt           optimise (cprop + pattern match + DCE)
+  --equiv         equivalence check (pre-opt vs post-opt)
   --blif <f>      emit BLIF netlist
   --yosys <f>     emit Yosys JSON netlist
   --lib <f>       Liberty .lib cell library
@@ -155,6 +156,10 @@ takahe [flags] <source.sv|.vhd>
 
 # Ternary synthesis
 ./takahe --radix 3 --opt --parse design.sv
+
+# Equivalence check: prove optimisation didn't break anything
+# ≤24 input bits = exhaustive (formal proof), >24 = random simulation
+./takahe --equiv --parse design.sv
 ```
 
 ## ABEND Dumps and Error Codes
