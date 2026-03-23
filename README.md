@@ -2,9 +2,7 @@
 
 Universal hardware synthesis tool supporting binary, ternary, stochastic, quantum, duodecimal, nucleotide, epistemic, cellular automata, affective, I Ching, chromatic music theory, particle physics, and Arrow's impossibility theorem.
 
-One engine. Thirteen computing paradigms. All evaluated by the same four-line function.
-
-Named after the takahē (*Porphyrio hochstetteri*), declared extinct in 1898 and rediscovered alive in the Murchison Mountains in 1948. Like open-source chip design, everyone assumed it was impossible until someone did it.
+Named after the takahē (*Porphyrio hochstetteri*), declared extinct in 1898 and rediscovered alive in the Murchison Mountains in 1948. 
 
 ## What It Does
 
