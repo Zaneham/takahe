@@ -788,6 +788,9 @@ int  op_espro(rt_mod_t *M);
 
 /* Equivalence checking — combinational simulation */
 int  eq_check(const rt_mod_t *A, const rt_mod_t *B);
+
+/* FPGA mapping — emit nextpnr JSON for iCE40 */
+int  fp_json(const rt_mod_t *M, FILE *fp);
 int  es_cone(const rt_mod_t *M, uint32_t out_net,
              uint32_t *onm, int *non,
              uint32_t *offm, int *noff,

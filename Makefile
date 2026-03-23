@@ -15,7 +15,7 @@ WARN += -Wno-unused-parameter
 INCS    = -Iinclude -Isrc \
           -Isrc/lex -Isrc/parse -Isrc/elab \
           -Isrc/rtl -Isrc/opt \
-          -Isrc/xform -Isrc/tech -Isrc/emit
+          -Isrc/xform -Isrc/tech -Isrc/map -Isrc/emit
 CFLAGS  = $(WARN) -std=c99 -O2 $(INCS)
 TFLAGS  = $(WARN) -std=c99 -O0 -g $(INCS)
 
@@ -55,6 +55,7 @@ SRCS = src/main.c \
        src/tech/tk_pchip.c \
        src/tech/tk_sta.c \
        src/tech/tk_tdopt.c \
+       src/map/tk_fpga.c \
        src/emit/tk_blif.c \
        src/emit/tk_yosys.c \
        src/emit/tk_vlog.c

@@ -31,6 +31,7 @@ usage(const char *prog)
     printf("  --parse     dump AST + RTL IR\n");
     printf("  --opt       optimise (constant propagation + DCE)\n");
     printf("  --equiv     equivalence check (pre-opt vs post-opt)\n");
+    printf("  --fpga <f>  emit nextpnr JSON for iCE40 FPGA\n");
     printf("  --lib <f>   Liberty .lib cell library for technology mapping\n");
     printf("  --map <f>   emit mapped gate-level Verilog\n\n");
     printf("output formats:\n");
@@ -61,6 +62,7 @@ main(int argc, char **argv)
     const char *map_path = NULL;
     int mode_vhdl = 0;
     int mode_equiv = 0;
+    const char *fpga_path = NULL;
     int radix = TK_RADIX_BIN;
     int sta_mhz = 0;
     int i;
@@ -99,6 +101,10 @@ main(int argc, char **argv)
             mode_parse = 1;
         } else if (strcmp(argv[i], "--sta") == 0 && i + 1 < argc) {
             sta_mhz = atoi(argv[++i]);
+            mode_opt = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--fpga") == 0 && i + 1 < argc) {
+            fpga_path = argv[++i];
             mode_opt = 1;
             mode_parse = 1;
         } else if (strcmp(argv[i], "--equiv") == 0) {
@@ -424,6 +430,19 @@ main(int argc, char **argv)
                                         fprintf(stderr,
                                             "takahe: cannot write '%s'\n",
                                             yosys_path);
+                                    }
+                                }
+                                if (fpga_path) {
+                                    FILE *ff = fopen(fpga_path, "w");
+                                    if (ff) {
+                                        fp_json(rtl, ff);
+                                        fclose(ff);
+                                        printf("takahe: wrote %s (nextpnr JSON)\n",
+                                               fpga_path);
+                                    } else {
+                                        fprintf(stderr,
+                                            "takahe: cannot write '%s'\n",
+                                            fpga_path);
                                     }
                                 }
                                 if (map_path) {
