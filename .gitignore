@@ -27,3 +27,12 @@ tests/emit_test.v
 # AI assistants
 .claude/
 CLAUDE.md
+.cursor/
+.copilot/
+.codeium/
+.tabnine/
+.aider*
+.continue/
+.windsurf/
+.sourcegraph/
+.cody/
