@@ -229,7 +229,7 @@ docs/            situation reports, audit logs
 
 This cell library carries NO WARRANTY regarding copper quality. If your interconnect is of substandard grade you have only yourself to blame for buying from Ea-nasir. You were warned. Nanni was warned. Nobody listens.
 
-## License
+
 
 ## Support the Takahē
 
