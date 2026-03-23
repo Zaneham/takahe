@@ -55,7 +55,7 @@ The optimiser is radix-aware. Ternary constant propagation, identity detection, 
 | `cells_qc.def` | Quantum (Clifford) | 2 | Feynman, 1982 |
 | `cells_doz.def` | Duodecimal | 12 | Sumer, 3000 BCE |
 | `cells_dna.def` | Nucleotide | 4 | LUCA, 3.7 Gya |
-| `cells_epist.def` | Epistemic | 7 | Bochvar, 1938 |
+| `cells_epist.def` | Epistemic | 7 | Inspired by Bochvar, 1938 |
 | `cells_life.def` | Cellular automata | 2 | Conway/Wolfram |
 | `cells_affect.def` | Affective | 8 | Plutchik, 1980 |
 | `cells_iching.def` | I Ching trigrams | 8 | 伏羲, ~3000 BCE |
@@ -73,7 +73,7 @@ The optimiser is radix-aware. Ternary constant propagation, identity detection, 
 
 **DNA**: Watson-Crick complement serves as the NOT gate, the CODON cell maps three nucleotides to an amino acid index, and the MATCH cell detects base pairing. Your body runs 37 trillion instances of this cell library.
 
-**Epistemic**: Seven values from Bochvar's three-valued logic covering not just true and false but *justified* true, *believed* true, and *defeated* true. The CONSENSUS gate merges knowledge from multiple sources while the DEFEAT gate revokes warrants when counter-evidence arrives.
+**Epistemic**: Seven values inspired by Bochvar's original three-valued logic (true, false, indeterminate), extended to include *justified* true, *believed* true, and *defeated* true. The CONSENSUS gate merges knowledge from multiple sources while the DEFEAT gate revokes warrants when counter-evidence arrives. The extension beyond Bochvar's original three values is original work.
 
 **Duodecimal**: The Mesopotamians counted in base-12 five thousand years ago and we still use their system for hours, months, and music. The half-adder correctly computes 7 sheep + 8 sheep = 3 sheep carry 1 dozen.
 
@@ -89,6 +89,17 @@ The optimiser is radix-aware. Ternary constant propagation, identity detection, 
 | IHP SG13G2 | 130nm BiCMOS | Supported |
 | GF180MCU | 180nm | Supported |
 | ASAP7 | 7nm (predictive) | Supported |
+
+## FPGA Targeting
+
+Takahe also targets FPGAs via nextpnr JSON output:
+
+```bash
+./takahe --opt --fpga output.json design.sv
+# Then: nextpnr-ice40 --json output.json --pcf pins.pcf --asc out.asc
+```
+
+Currently targets Lattice iCE40 (4-LUT architecture).
 
 ## Tested Designs
 

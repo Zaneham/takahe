@@ -5,7 +5,8 @@
 
 # cells_epist.def -- Epistemic logic (radix-7) cell definitions
 #
-# Bochvar's three-valued logic (1938) meets hardware.
+# Inspired by Bochvar's three-valued logic (1938), extended
+# to seven values. The extension is original work.
 #
 # Seven epistemic states — not just true/false, but HOW
 # you know it and WHETHER your justification survived scrutiny:
