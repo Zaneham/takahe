@@ -44,6 +44,7 @@ SRCS = src/main.c \
        src/opt/tk_cprop.c \
        src/opt/tk_dce.c \
        src/opt/tk_opt.c \
+       src/opt/tk_equiv.c \
        src/xform/tk_bblst.c \
        src/xform/tk_pmatch.c \
        src/xform/tk_espresso.c \

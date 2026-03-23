@@ -30,6 +30,7 @@ usage(const char *prog)
     printf("  --lex       dump tokens\n");
     printf("  --parse     dump AST + RTL IR\n");
     printf("  --opt       optimise (constant propagation + DCE)\n");
+    printf("  --equiv     equivalence check (pre-opt vs post-opt)\n");
     printf("  --lib <f>   Liberty .lib cell library for technology mapping\n");
     printf("  --map <f>   emit mapped gate-level Verilog\n\n");
     printf("output formats:\n");
@@ -59,6 +60,7 @@ main(int argc, char **argv)
     const char *lib_path = NULL;
     const char *map_path = NULL;
     int mode_vhdl = 0;
+    int mode_equiv = 0;
     int radix = TK_RADIX_BIN;
     int sta_mhz = 0;
     int i;
@@ -97,6 +99,10 @@ main(int argc, char **argv)
             mode_parse = 1;
         } else if (strcmp(argv[i], "--sta") == 0 && i + 1 < argc) {
             sta_mhz = atoi(argv[++i]);
+            mode_opt = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--equiv") == 0) {
+            mode_equiv = 1;
             mode_opt = 1;
             mode_parse = 1;
         } else if (strcmp(argv[i], "--vhdl") == 0) {
@@ -356,10 +362,43 @@ main(int argc, char **argv)
                                 }
                             }
                             if (rtl) {
+                                /* Save pre-opt copy for equiv check */
+                                rt_mod_t *rtl_pre = NULL;
+                                if (mode_equiv) {
+                                    rtl_pre = (rt_mod_t *)calloc(1, sizeof(rt_mod_t));
+                                    if (rtl_pre) {
+                                        memcpy(rtl_pre, rtl, sizeof(rt_mod_t));
+                                        /* Deep copy nets/cells/strs */
+                                        rtl_pre->nets = (rt_net_t *)malloc(
+                                            rtl->max_net * sizeof(rt_net_t));
+                                        rtl_pre->cells = (rt_cell_t *)malloc(
+                                            rtl->max_cell * sizeof(rt_cell_t));
+                                        rtl_pre->strs = (char *)malloc(rtl->str_max);
+                                        if (rtl_pre->nets && rtl_pre->cells && rtl_pre->strs) {
+                                            memcpy(rtl_pre->nets, rtl->nets,
+                                                   rtl->n_net * sizeof(rt_net_t));
+                                            memcpy(rtl_pre->cells, rtl->cells,
+                                                   rtl->n_cell * sizeof(rt_cell_t));
+                                            memcpy(rtl_pre->strs, rtl->strs, rtl->str_len);
+                                        } else {
+                                            free(rtl_pre->nets); free(rtl_pre->cells);
+                                            free(rtl_pre->strs); free(rtl_pre);
+                                            rtl_pre = NULL;
+                                        }
+                                    }
+                                }
+
                                 if (mode_opt) {
                                     int nopt = op_opt(rtl, cdlib);
                                     printf("takahe: %d optimisations\n",
                                            nopt);
+                                }
+
+                                /* Equivalence check: pre-opt vs post-opt */
+                                if (mode_equiv && rtl_pre) {
+                                    eq_check(rtl_pre, rtl);
+                                    rt_free(rtl_pre);
+                                    free(rtl_pre);
                                 }
                                 if (blif_path) {
                                     FILE *bf = fopen(blif_path, "w");

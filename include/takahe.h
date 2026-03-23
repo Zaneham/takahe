@@ -785,6 +785,9 @@ int          mp_bblst(rt_mod_t *M);
 int  es_mini(const uint32_t *onm, int non, const uint32_t *offm,
              int noff, int nin, void *cover);
 int  op_espro(rt_mod_t *M);
+
+/* Equivalence checking — combinational simulation */
+int  eq_check(const rt_mod_t *A, const rt_mod_t *B);
 int  es_cone(const rt_mod_t *M, uint32_t out_net,
              uint32_t *onm, int *non,
              uint32_t *offm, int *noff,
