@@ -4,22 +4,21 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_equiv.c -- Combinational equivalence checking for Takahe
+ * tk_equiv.c -- Equivalence checking for Takahe
  *
- * Simulates two RTL netlists with identical inputs and compares
- * outputs. For circuits with ≤24 input bits, exhaustive simulation
- * provides a formal proof of equivalence. For larger circuits,
- * random simulation provides statistical confidence.
+ * Feeds the same inputs to two netlists (pre-opt and post-opt)
+ * and checks the outputs match. If they don't, someone broke
+ * something and we tell you exactly which input caused it.
  *
- * The miter circuit approach (XOR outputs, check for SAT) would
- * be more elegant but requires a SAT solver. Simulation requires
- * nothing but arithmetic. JPL would approve.
+ * For small circuits (≤24 input bits) we enumerate every single
+ * possible input — thats an actual formal proof, not a guess.
+ * For bigger circuits we throw 100K random vectors at it and
+ * hope for the best. Statistics, not maths.
  *
- * If the two netlists produce different outputs for ANY input,
- * the optimisation pass introduced a bug. The failing input
- * vector is printed for debugging.
+ * A proper SAT-based miter would be more elegant but honestly
+ * exhaustive simulation on small circuits is just as strong
+ * and doesn't need a SAT solver. Sometimes brute force wins.
  *
- * JPL Power of 10: bounded, no alloc in hot path, no recursion.
  */
 
 #include "takahe.h"

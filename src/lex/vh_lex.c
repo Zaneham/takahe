@@ -17,7 +17,6 @@
  * said for most programming languages. And unlike the $600
  * toilet seats, the language itself is free.
  *
- * JPL Power of 10: bounded loops, no alloc, no recursion.
  */
 
 #include "takahe.h"

@@ -16,7 +16,6 @@
  * Like a customs officer who doesn't care what's in the
  * container, only that the paperwork is in order.
  *
- * JPL Power of 10: no alloc after init, bounded loops.
  */
 
 #define KAURI_IMPL

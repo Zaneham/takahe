@@ -21,7 +21,6 @@
  * Handles are Burroughs-style tagged references with generation
  * counters. Use-after-delete returns error, not corruption.
  *
- * JPL Power of 10: no alloc after init, bounded everything.
  */
 
 #include "takahe.h"

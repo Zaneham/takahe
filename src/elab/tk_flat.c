@@ -37,7 +37,6 @@
  * The RTL lowerer (Tier 2) will use this annotation to
  * process each module independently and wire them up.
  *
- * JPL Power of 10: bounded, no alloc, fixed tables.
  */
 
 #include "takahe.h"

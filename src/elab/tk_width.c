@@ -25,7 +25,6 @@
  *   - {a, b}         -> width(a) + width(b)
  *   - {N{a}}         -> N * width(a)
  *
- * JPL Power of 10: no alloc, bounded, no recursion deeper
  * than the AST nesting depth.
  */
 

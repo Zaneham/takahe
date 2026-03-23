@@ -21,9 +21,6 @@
  * strongly typed, and verbose enough to fill a procurement
  * binder. They got all three. The Sumerians described their
  * hardware with clay — less verbose, equally durable.
- *
- * JPL Power of 10: bounded loops, no alloc, no recursion
- * deeper than VHDL nesting depth.
  */
 
 #include "takahe.h"

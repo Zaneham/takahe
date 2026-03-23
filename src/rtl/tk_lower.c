@@ -20,7 +20,6 @@
  * words say "mix ingredients" but the hardware needs a
  * specific bowl, a specific whisk, and a specific order.
  *
- * JPL Power of 10: bounded, no alloc (uses pre-allocated IR).
  */
 
 #include "takahe.h"

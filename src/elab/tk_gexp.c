@@ -24,8 +24,6 @@
  * decommissioning a reactor: the building stays, but nothing
  * inside works anymore.
  *
- * JPL Power of 10: bounded, no alloc, no recursion via
- * explicit work stack.
  */
 
 #include "takahe.h"

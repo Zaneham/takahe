@@ -20,7 +20,6 @@
  * Does NOT support: reals, strings, or anything that
  * requires runtime information.
  *
- * JPL Power of 10: no alloc, bounded recursion via
  * explicit stack, no floats in the evaluator.
  */
 

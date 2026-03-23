@@ -18,9 +18,7 @@
  * (f7_parse.c): peek/advance/expect/match on token stream,
  * pk_alloc for AST nodes, pk_achld for tree construction.
  *
- * JPL Power of 10: bounded loops, no alloc, no recursion
- * deeper than the language nesting depth (which IEEE 1800
- * mercifully doesn't make infinite).
+ *
  */
 
 #include "takahe.h"

@@ -28,7 +28,6 @@
  * Like a customs inspector reading passports — we don't care
  * what's in the luggage, just whether you're allowed in.
  *
- * JPL Power of 10: bounded loops, no recursion, fixed pools.
  */
 
 #include "takahe.h"

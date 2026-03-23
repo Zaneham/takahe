@@ -20,7 +20,6 @@
  * Parameters are the passports. Generate blocks are the
  * conditional entry lanes.
  *
- * JPL Power of 10: no alloc, bounded loops, no recursion.
  */
 
 #include "takahe.h"

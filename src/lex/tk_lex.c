@@ -14,7 +14,6 @@
  * Like a postal worker who sorts letters by postcode without
  * knowing where any of the addresses actually are.
  *
- * JPL Power of 10: bounded loops, no alloc, no recursion.
  */
 
 #include "takahe.h"

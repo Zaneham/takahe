@@ -6,26 +6,20 @@
 /*
  * tk_fpga.c -- FPGA LUT mapping for Takahe
  *
- * Maps the bit-blasted RTL netlist to 4-LUTs (iCE40 style).
- * Each LUT implements any boolean function of up to 4 inputs,
- * encoded as a 16-bit INIT value (truth table).
+ * Maps the bit-blasted netlist to 4-LUTs for iCE40 FPGAs.
+ * A 4-LUT is just a 16-entry ROM addressed by 4 wires —
+ * it can implement literally any boolean function of 4 inputs.
+ * The INIT value IS the truth table, packed into 16 bits.
  *
- * Algorithm:
- *   1. Walk cells in topological order
- *   2. For 1-input gates (NOT, BUF): pack into 1-input LUT
- *   3. For 2-input gates (AND, OR, XOR, ...): pack into 2-input LUT
- *   4. For 3-input gates (MUX): pack into 3-input LUT
- *   5. Compute INIT value by evaluating the truth table
- *   6. CONST cells become tied LUTs (INIT=0x0000 or 0xFFFF)
- *   7. DFFs pass through as SB_DFF cells
+ * The output is nextpnr JSON, which feeds straight into
+ * nextpnr-ice40 for place and route. No Yosys needed.
+ * A $5 Lattice board can run your ternary ALU. The future
+ * is weird and I'm here for it.
  *
- * Output: nextpnr JSON format for iCE40.
+ * The Sumerians had lookup tables too. Theirs were clay
+ * tablets with multiplication results. Same prinicple,
+ * different substrate.
  *
- * A 4-LUT is like a 16-entry ROM addressed by 4 input wires.
- * The Sumerians had lookup tables too — they were clay, not
- * silicon, but the principle is the same.
- *
- * JPL Power of 10: bounded, no alloc in hot path.
  */
 
 #include "takahe.h"
