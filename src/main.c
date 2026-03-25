@@ -31,6 +31,8 @@ usage(const char *prog)
     printf("  --parse     dump AST + RTL IR\n");
     printf("  --opt       optimise (constant propagation + DCE)\n");
     printf("  --equiv     equivalence check (pre-opt vs post-opt)\n");
+    printf("  --tmr       radiation hardening (triplicate DFFs + voters)\n");
+    printf("  --tmr-full  radiation hardening (triplicate everything)\n");
     printf("  --fpga <f>  emit nextpnr JSON for iCE40 FPGA\n");
     printf("  --lib <f>   Liberty .lib cell library for technology mapping\n");
     printf("  --map <f>   emit mapped gate-level Verilog\n\n");
@@ -63,6 +65,8 @@ main(int argc, char **argv)
     int mode_vhdl = 0;
     int mode_equiv = 0;
     const char *fpga_path = NULL;
+    int mode_tmr = 0;
+    int tmr_full = 0;
     int radix = TK_RADIX_BIN;
     int sta_mhz = 0;
     int i;
@@ -105,6 +109,15 @@ main(int argc, char **argv)
             mode_parse = 1;
         } else if (strcmp(argv[i], "--fpga") == 0 && i + 1 < argc) {
             fpga_path = argv[++i];
+            mode_opt = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--tmr") == 0) {
+            mode_tmr = 1;
+            mode_opt = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--tmr-full") == 0) {
+            mode_tmr = 1;
+            tmr_full = 1;
             mode_opt = 1;
             mode_parse = 1;
         } else if (strcmp(argv[i], "--equiv") == 0) {
@@ -406,6 +419,14 @@ main(int argc, char **argv)
                                     rt_free(rtl_pre);
                                     free(rtl_pre);
                                 }
+                                /* TMR: triplicate DFFs, insert voters */
+                                if (mode_tmr) {
+                                    int ntmr = tm_tmr(rtl, tmr_full);
+                                    if (ntmr < 0)
+                                        fprintf(stderr,
+                                            "takahe: TMR failed\n");
+                                }
+
                                 if (blif_path) {
                                     FILE *bf = fopen(blif_path, "w");
                                     if (bf) {

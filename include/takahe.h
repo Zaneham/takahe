@@ -796,6 +796,9 @@ int  es_mini(const uint32_t *onm, int non, const uint32_t *offm,
              int noff, int nin, void *cover);
 int  op_espro(rt_mod_t *M);
 
+/* TMR radiation hardening */
+int  tm_tmr(rt_mod_t *M, int full);
+
 /* Equivalence checking — combinational simulation */
 int  eq_check(const rt_mod_t *A, const rt_mod_t *B);
 

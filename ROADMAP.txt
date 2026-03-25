@@ -1,6 +1,15 @@
 ROADMAP
 =======
 
+Done
+  - TMR radiation hardening (--tmr, --tmr-full)
+  - Package/import support with typedef enum width propagation
+  - FPGA targeting (iCE40 via nextpnr JSON)
+  - Combinational equivalence checking (--equiv)
+  - VHDL frontend
+  - Four ASIC PDKs (SKY130, IHP, GF180, ASAP7)
+  - 13 computing paradigms
+
 Near term
   - More SV: procedural for loops through lowering, multi-clock
   - Enum values usable in case items and expressions

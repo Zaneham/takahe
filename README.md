@@ -101,6 +101,20 @@ Takahe also targets FPGAs via nextpnr JSON output:
 
 Currently targets Lattice iCE40 (4-LUT architecture).
 
+## Radiation Hardening
+
+Takahe can automatically harden designs for space, nuclear, and defence applications using Triple Modular Redundancy:
+
+```bash
+# Triplicate all flip-flops, insert majority voters
+./takahe --tmr --opt --parse design.sv
+
+# Full TMR (triplicate everything including combinational logic)
+./takahe --tmr-full --opt --parse design.sv
+```
+
+Every DFF is tripled. A majority voter `(a & b) | (b & c) | (a & c)` masks single-event upsets. The voter decomposes to standard AND/OR gates so it works with all backends, all PDKs, and FPGA targeting without any special handling.
+
 ## Tested Designs
 
 All synthesise with zero parse errors and zero multi-driver nets:

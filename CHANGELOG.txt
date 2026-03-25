@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+2026-03-25  Radiation hardening (TMR)
+  - --tmr triplicates all DFFs and inserts majority voters
+  - --tmr-full triplicates all cells including combinational
+  - Voter is standard AND/OR (no new cell types)
+  - Works with all backends: ASIC, FPGA, all PDKs
+  - Voyager FDS: 15 DFFs -> 45 DFFs + 15 voters (172 cells)
+  - Minuteman D17B: 11 DFFs -> 33 DFFs + 11 voters (120 cells)
+  - Pool overflow detection with graceful failure
+
 2026-03-25  Package support, typedef enum width propagation
   - package ... endpackage parsed at top level
   - import pkg::* and import pkg::item accepted
