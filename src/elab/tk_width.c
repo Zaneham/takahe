@@ -62,6 +62,24 @@ wi_tdef(const tk_parse_t *P, uint32_t nidx)
     if (strcmp(tn, "time") == 0)    return 64;
     if (strcmp(tn, "realtime") == 0) return 64;
 
+    /* Check user-defined type names (typedef enum/struct).
+     * If someone typedef'd a 2-bit enum, the port that uses
+     * it should be 2 bits wide. Obvious, but took us a while
+     * to get here. */
+    {
+        uint32_t ti;
+        uint16_t tlen = n->d.text.len;
+        for (ti = 0; ti < P->n_tname; ti++) {
+            if (P->tnames[ti].len == tlen &&
+                memcmp(P->lex->strs + P->tnames[ti].off,
+                       tn, tlen) == 0) {
+                if (P->tnames[ti].width > 0)
+                    return P->tnames[ti].width;
+                break;
+            }
+        }
+    }
+
     return 1; /* default: single bit */
 }
 

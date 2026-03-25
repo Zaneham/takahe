@@ -312,6 +312,8 @@ typedef struct {
     uint16_t endgenerate;  uint16_t genvar;
     uint16_t kw_default;   uint16_t posedge;
     uint16_t negedge;      uint16_t kw_or;
+    uint16_t kw_package;   uint16_t endpackage;
+    uint16_t kw_import;
     uint16_t kw_typedef;   uint16_t kw_enum;
     uint16_t kw_struct;    uint16_t kw_union;
     uint16_t packed;       uint16_t signed_kw;
@@ -397,7 +399,15 @@ typedef struct {
      * foo_t here. Later, when it sees `foo_t x;` it knows
      * foo_t is a type, not an identifier. Same problem as
      * BarraCUDA's tnames[] for C cast disambiguation. */
-    struct { uint32_t off; uint16_t len; } tnames[TK_MAX_TNAMES];
+    struct {
+        uint32_t off;          /* name string offset */
+        uint16_t len;          /* name string length */
+        uint16_t width;        /* bit width (0 = unknown) */
+        uint32_t enum_noff[16]; /* enum value name offsets */
+        uint16_t enum_nlen[16]; /* enum value name lengths */
+        int32_t  enum_vals[16]; /* enum constant values */
+        uint8_t  n_enum;       /* number of enum values */
+    } tnames[TK_MAX_TNAMES];
     uint32_t          n_tname;
 
     /* Errors */

@@ -1050,6 +1050,7 @@ pk_mbdy2(tk_parse_t *P, uint32_t mod, int stop_end)
     KA_GUARD(g, 100000);
     while (!pk_iskw(P, P->kw.endmodule) &&
            !pk_iskw(P, P->kw.endgenerate) &&
+           !pk_iskw(P, P->kw.endpackage) &&
            !(stop_end && pk_iskw(P, P->kw.end)) &&
            pk_ctyp(P) != TK_TOK_EOF && g--) {
 
@@ -1299,26 +1300,122 @@ pk_mbdy2(tk_parse_t *P, uint32_t mod, int stop_end)
             uint32_t td = pk_alloc(P, TK_AST_TYPEDEF);
             uint32_t last_id_off = 0;
             uint16_t last_id_len = 0;
+            uint16_t td_width = 0;
             int brace_depth = 0;
-            /* Skip typedef body, tracking braces for struct/enum.
-             * typedef struct packed { logic a; logic b; } name_t;
-             * The last IDENT before ; is the type name. */
+            int is_enum = 0;
+            int enum_count = 0;
+            int32_t enum_auto = 0;
+            uint32_t enum_noff[16];
+            uint16_t enum_nlen[16];
+            int32_t  enum_vals[16];
+
+            /* Check for enum keyword */
+            if (pk_iskw(P, P->kw.kw_enum)) {
+                is_enum = 1;
+                advance(P); /* eat 'enum' */
+
+                /* Optional base type: logic [N:M] */
+                if (pk_iskw(P, P->kw.logic) ||
+                    pk_iskw(P, P->kw.reg) ||
+                    pk_iskw(P, P->kw.bit)) {
+                    advance(P); /* eat type keyword */
+                    /* Check for range [hi:lo] */
+                    if (is_op(P, "[")) {
+                        advance(P); /* eat [ */
+                        {
+                            int hi = 0, lo = 0;
+                            if (pk_ctyp(P) == TK_TOK_INT_LIT) {
+                                hi = atoi(P->lex->strs + cur(P)->off);
+                                advance(P);
+                            }
+                            pk_mop(P, ":");
+                            if (pk_ctyp(P) == TK_TOK_INT_LIT) {
+                                lo = atoi(P->lex->strs + cur(P)->off);
+                                advance(P);
+                            }
+                            pk_mop(P, "]");
+                            td_width = (uint16_t)(hi - lo + 1);
+                        }
+                    }
+                }
+            }
+
+            /* Skip body, tracking braces. Collect enum values
+             * from inside { IDLE, RUN = 2, DONE }. */
             KA_GUARD(gs, 1000);
             while (pk_ctyp(P) != TK_TOK_EOF && gs--) {
-                if (is_op(P, "{")) { brace_depth++; advance(P); continue; }
-                if (is_op(P, "}")) { brace_depth--; advance(P); continue; }
+                if (is_op(P, "{")) {
+                    brace_depth++;
+                    advance(P);
+                    continue;
+                }
+                if (is_op(P, "}")) {
+                    brace_depth--;
+                    advance(P);
+                    continue;
+                }
                 if (is_op(P, ";") && brace_depth <= 0) break;
-                if (pk_ctyp(P) == TK_TOK_IDENT && brace_depth == 0) {
+
+                /* Inside braces: collect enum value names */
+                if (is_enum && brace_depth == 1 &&
+                    pk_ctyp(P) == TK_TOK_IDENT &&
+                    enum_count < 16) {
+                    enum_noff[enum_count] = cur(P)->off;
+                    enum_nlen[enum_count] = cur(P)->len;
+                    advance(P);
+                    /* Check for explicit value: = N */
+                    if (is_op(P, "=")) {
+                        advance(P); /* eat = */
+                        if (pk_ctyp(P) == TK_TOK_INT_LIT) {
+                            enum_auto = atoi(
+                                P->lex->strs + cur(P)->off);
+                            advance(P);
+                        }
+                    }
+                    enum_vals[enum_count] = enum_auto;
+                    enum_auto++;
+                    enum_count++;
+                    /* Skip comma */
+                    if (is_op(P, ",")) advance(P);
+                    continue;
+                }
+
+                /* Outside braces: last ident is the type name */
+                if (pk_ctyp(P) == TK_TOK_IDENT &&
+                    brace_depth == 0) {
                     last_id_off = cur(P)->off;
                     last_id_len = cur(P)->len;
                 }
                 advance(P);
             }
+
             if (last_id_len > 0) {
                 P->nodes[td].d.text.off = last_id_off;
                 P->nodes[td].d.text.len = last_id_len;
                 pk_rtm(P, last_id_off, last_id_len);
+
+                /* Store width and enum values in tname entry */
+                if (P->n_tname > 0) {
+                    uint32_t ti = P->n_tname - 1;
+                    int ei;
+                    P->tnames[ti].width = td_width;
+                    P->tnames[ti].n_enum = (uint8_t)enum_count;
+                    for (ei = 0; ei < enum_count && ei < 16; ei++) {
+                        P->tnames[ti].enum_noff[ei] = enum_noff[ei];
+                        P->tnames[ti].enum_nlen[ei] = enum_nlen[ei];
+                        P->tnames[ti].enum_vals[ei] = enum_vals[ei];
+                    }
+                    /* If no explicit width but has enum values,
+                     * compute minimum width to hold all values */
+                    if (td_width == 0 && enum_count > 0) {
+                        int mx = enum_count - 1;
+                        uint16_t bits = 1;
+                        while ((1 << bits) <= mx) bits++;
+                        P->tnames[ti].width = bits;
+                    }
+                }
             }
+
             pk_mop(P, ";");
             pk_achld(P, mod, td);
             continue;
@@ -1706,6 +1803,9 @@ tk_pinit(tk_parse_t *P, const tk_lex_t *L)
     P->kw.posedge     = pk_kwfn(L, "posedge");
     P->kw.negedge     = pk_kwfn(L, "negedge");
     P->kw.kw_or       = pk_kwfn(L, "or");
+    P->kw.kw_package  = pk_kwfn(L, "package");
+    P->kw.endpackage  = pk_kwfn(L, "endpackage");
+    P->kw.kw_import   = pk_kwfn(L, "import");
     P->kw.kw_typedef  = pk_kwfn(L, "typedef");
     P->kw.kw_enum     = pk_kwfn(L, "enum");
     P->kw.kw_struct   = pk_kwfn(L, "struct");
@@ -1744,25 +1844,135 @@ tk_parse(tk_parse_t *P)
 
     KA_GUARD(g, 10000);
     while (pk_ctyp(P) != TK_TOK_EOF && g--) {
-        /* Top-level typedef */
+        /* Package: parse contents as module body items.
+         * package pkg_name; ... endpackage
+         * Typedefs inside get the full enum/width treatment. */
+        if (pk_iskw(P, P->kw.kw_package)) {
+            advance(P); /* eat 'package' */
+            if (pk_ctyp(P) == TK_TOK_IDENT) advance(P); /* eat name */
+            pk_mop(P, ";");
+            /* Parse package body using module body parser
+             * which handles typedef enum properly */
+            pk_mbdy2(P, root, 0);
+            pk_mkw(P, P->kw.endpackage);
+            continue;
+        }
+
+        /* import pkg::* or import pkg::item — skip gracefully */
+        if (pk_iskw(P, P->kw.kw_import)) {
+            advance(P); /* eat 'import' */
+            KA_GUARD(gi, 100);
+            while (!is_op(P, ";") && pk_ctyp(P) != TK_TOK_EOF && gi--)
+                advance(P);
+            pk_mop(P, ";");
+            continue;
+        }
+
+        /* Top-level typedef (outside package). Fake a one-shot
+         * module body parse: add 'module' stop condition so
+         * pk_mbdy2 doesn't eat the next module declaration. */
         if (pk_iskw(P, P->kw.kw_typedef)) {
+            /* Parse exactly one typedef by letting pk_mbdy2
+             * run but it will stop at the next 'module' keyword
+             * because it's not a valid module body construct,
+             * triggering the "unexpected" handler which breaks.
+             * ... actually that would emit a spurious error.
+             *
+             * Simpler: just inline the typedef parse here. */
             uint32_t td = pk_alloc(P, TK_AST_TYPEDEF);
             uint32_t last_id_off = 0;
             uint16_t last_id_len = 0;
-            advance(P);
+            uint16_t td_width = 0;
+            int brace_depth = 0;
+            int is_enum = 0;
+            int enum_count = 0;
+            int32_t enum_auto = 0;
+            uint32_t enum_noff[16];
+            uint16_t enum_nlen[16];
+            int32_t  enum_vals[16];
+
+            advance(P); /* eat 'typedef' */
+
+            if (pk_iskw(P, P->kw.kw_enum)) {
+                is_enum = 1;
+                advance(P);
+                if (pk_iskw(P, P->kw.logic) ||
+                    pk_iskw(P, P->kw.reg) ||
+                    pk_iskw(P, P->kw.bit)) {
+                    advance(P);
+                    if (is_op(P, "[")) {
+                        advance(P);
+                        {
+                            int hi = 0, lo = 0;
+                            if (pk_ctyp(P) == TK_TOK_INT_LIT) {
+                                hi = atoi(P->lex->strs + cur(P)->off);
+                                advance(P);
+                            }
+                            pk_mop(P, ":");
+                            if (pk_ctyp(P) == TK_TOK_INT_LIT) {
+                                lo = atoi(P->lex->strs + cur(P)->off);
+                                advance(P);
+                            }
+                            pk_mop(P, "]");
+                            td_width = (uint16_t)(hi - lo + 1);
+                        }
+                    }
+                }
+            }
+
             KA_GUARD(gs, 1000);
-            while (!is_op(P, ";") && pk_ctyp(P) != TK_TOK_EOF && gs--) {
-                if (pk_ctyp(P) == TK_TOK_IDENT) {
+            while (pk_ctyp(P) != TK_TOK_EOF && gs--) {
+                if (is_op(P, "{")) { brace_depth++; advance(P); continue; }
+                if (is_op(P, "}")) { brace_depth--; advance(P); continue; }
+                if (is_op(P, ";") && brace_depth <= 0) break;
+                if (is_enum && brace_depth == 1 &&
+                    pk_ctyp(P) == TK_TOK_IDENT && enum_count < 16) {
+                    enum_noff[enum_count] = cur(P)->off;
+                    enum_nlen[enum_count] = cur(P)->len;
+                    advance(P);
+                    if (is_op(P, "=")) {
+                        advance(P);
+                        if (pk_ctyp(P) == TK_TOK_INT_LIT) {
+                            enum_auto = atoi(P->lex->strs + cur(P)->off);
+                            advance(P);
+                        }
+                    }
+                    enum_vals[enum_count] = enum_auto;
+                    enum_auto++;
+                    enum_count++;
+                    if (is_op(P, ",")) advance(P);
+                    continue;
+                }
+                if (pk_ctyp(P) == TK_TOK_IDENT && brace_depth == 0) {
                     last_id_off = cur(P)->off;
                     last_id_len = cur(P)->len;
                 }
                 advance(P);
             }
+
             if (last_id_len > 0) {
                 P->nodes[td].d.text.off = last_id_off;
                 P->nodes[td].d.text.len = last_id_len;
                 pk_rtm(P, last_id_off, last_id_len);
+                if (P->n_tname > 0) {
+                    uint32_t ti = P->n_tname - 1;
+                    int ei;
+                    P->tnames[ti].width = td_width;
+                    P->tnames[ti].n_enum = (uint8_t)enum_count;
+                    for (ei = 0; ei < enum_count && ei < 16; ei++) {
+                        P->tnames[ti].enum_noff[ei] = enum_noff[ei];
+                        P->tnames[ti].enum_nlen[ei] = enum_nlen[ei];
+                        P->tnames[ti].enum_vals[ei] = enum_vals[ei];
+                    }
+                    if (td_width == 0 && enum_count > 0) {
+                        int mx = enum_count - 1;
+                        uint16_t bits = 1;
+                        while ((1 << bits) <= mx) bits++;
+                        P->tnames[ti].width = bits;
+                    }
+                }
             }
+
             pk_mop(P, ";");
             pk_achld(P, root, td);
             continue;
