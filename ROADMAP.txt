@@ -1,0 +1,21 @@
+ROADMAP
+=======
+
+Near term
+  - More SV: procedural for loops through lowering, multi-clock
+  - Enum values usable in case items and expressions
+  - SAT-based formal equivalence (replace simulation)
+  - Fix dozenal/qsim equivalence checker failures (optimiser bugs)
+
+Medium term
+  - SV interfaces and modports
+  - Memory inference (RAM/ROM from arrays)
+  - ABC integration or equivalent for better gate count
+  - More FPGA targets (ECP5, Gowin)
+  - CI/CD with regression suite
+
+Long term
+  - Timing closure loop (STA feeds back into synthesis)
+  - Power estimation
+  - FPGA bitstream generation (skip nextpnr)
+  - TCL scripting interface

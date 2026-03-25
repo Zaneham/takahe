@@ -1,0 +1,58 @@
+CHANGELOG
+=========
+
+2026-03-25  Package support, typedef enum width propagation
+  - package ... endpackage parsed at top level
+  - import pkg::* and import pkg::item accepted
+  - typedef enum with explicit base type (logic [N:M]) now
+    propagates bit width to all ports and signals using that type
+  - enum values (IDLE=0, RUN=1, etc.) extracted and stored
+  - tname registry extended: width, enum names, enum values
+  - width resolver checks user-defined type names before defaulting
+  - 70 tests pass, all 10 designs at zero errors
+
+2026-03-24  FPGA targeting, equivalence checker, SV features
+  - --fpga <f> emits nextpnr JSON for iCE40 (4-LUT mapping)
+    Setun ALU: 9 LUTs. Voyager FDS: 16 LUTs, 9 DFFs.
+  - --equiv combinational equivalence checking
+    Exhaustive (formal proof) for <=24 input bits, random for larger
+    Voyager FDS and Setun ALU formally proved equivalent
+  - typedef struct packed { ... } name_t parsed (brace tracking)
+  - C-style i++/i-- in for loops desugared to i = i + 1
+  - function/endfunction skipped gracefully
+
+2026-03-23  VHDL frontend, multi-PDK, generate-for, PicoRV32 clean
+  - VHDL parser (IEEE 1076-2008 synthesisable subset)
+    Entity/architecture, process, signal <=, case/when, if/elsif
+  - IHP SG13G2, GF180MCU, ASAP7 PDK support (Liberty parsing)
+  - Generate-for unrolling with constant evaluation
+  - Multi-assign case MUX chains with priority encoding
+  - Sequential redirect chaining for if/else in always blocks
+  - Partial bit-field read-modify-write
+  - Universal cell binding (normalised Liberty functions)
+  - Instance port wiring scope fix
+  - PicoRV32: 45 parse errors -> 0, 1592 multi-drivers -> 0
+  - All 10 designs at zero parse errors
+
+2026-03-22  Preprocessor fix
+  - `define values now strip trailing // comments
+    Was bleeding comments into macro expansions, eating code
+    qsim: 27 errors -> 0. dozenal_alu: 15 errors -> 0.
+
+2026-03-19  Initial release (v0.1.0)
+  - SystemVerilog parser (IEEE 1800-2017 subset)
+  - Lexer with 247 keywords, 65 operators from sv_tok.def
+  - Preprocessor: `define, `ifdef, `include
+  - Elaboration: parameter resolution, $clog2, width inference
+  - RTL lowering: always_comb, always_ff, assign, case, if/else
+  - Optimisation: constant propagation, DCE, pattern matching
+  - Bit-blasting and Espresso minimisation
+  - Technology mapping with Liberty .lib cell libraries
+  - Static timing analysis
+  - Timing-driven optimisation
+  - CICS-style transaction journaling with rollback
+  - ABEND dumps in English and Te Reo Maori
+  - BLIF, Yosys JSON, and gate-level Verilog output
+  - SKY130 PDK: PicoRV32 synthesised to 3,305 cells
+  - 13 computing paradigms via definition-driven truth tables
+  - 70 tests, zero failures
