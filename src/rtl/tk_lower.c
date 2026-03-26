@@ -48,6 +48,11 @@ typedef struct {
     #define LW_RDIR_MAX 512
     struct { uint32_t net, cur, cell; } rdir[LW_RDIR_MAX];
     uint32_t n_rdir;
+
+    /* Current write-enable condition for memory writes.
+     * Set by lw_ifmux when descending into an if body,
+     * cleared when leaving. 0 = unconditional. */
+    uint32_t mem_we;
 } lw_ctx_t;
 
 /* ---- Sequential redirect helpers ---- */
@@ -598,15 +603,27 @@ lw_asgn(lw_ctx_t *C, uint32_t nidx, int is_reg)
             uint32_t mw = C->M->mems[mi].data_w;
             uint32_t ci2;
 
-            /* Lower address and data */
+            /* Both sides of mem[addr] <= data need evaluating
+             * before we can build the write cell */
             anet = idx_n ? lw_expr(C, idx_n) : 0;
             dnet = lw_expr(C, rhs_n);
             if (anet == 0 || dnet == 0) return;
 
-            /* MEMWR: side-effecting, output is a dummy net */
+            /* If we're inside an if(we) block, the condition
+             * net rides along as a third input so the emitter
+             * can reconstruct the conditional write */
             onet = rt_anet(C->M, "mwr", 3, mw, 0, C->radix);
-            ins[0] = anet; ins[1] = dnet;
-            ci2 = rt_acell(C->M, RT_MEMWR, onet, ins, 2, mw);
+            {
+                uint32_t mins[3];
+                uint8_t mn = 2;
+                mins[0] = anet;
+                mins[1] = dnet;
+                if (C->mem_we > 0) {
+                    mins[2] = C->mem_we;
+                    mn = 3;
+                }
+                ci2 = rt_acell(C->M, RT_MEMWR, onet, mins, mn, mw);
+            }
             if (ci2 > 0 && ci2 < C->M->n_cell)
                 C->M->cells[ci2].param = (int64_t)mi;
             return;
@@ -925,14 +942,18 @@ lw_ifmux(lw_ctx_t *C, uint32_t nidx, int is_reg)
     }
 
 flat:
-    /* Pattern didn't match: lower all children flat */
+    /* Pattern didn't match: lower all children flat.
+     * Set mem_we so memory writes inside the if body
+     * pick up the condition as their write-enable. */
     {
-        uint32_t c = C->P->nodes[nidx].first_child;
-        KA_GUARD(g, 100);
-        while (c && g--) {
-            lw_stms(C, c, is_reg);
-            c = C->P->nodes[c].next_sib;
-        }
+        uint32_t saved_we = C->mem_we;
+        uint32_t cnet = cond_n ? lw_expr(C, cond_n) : 0;
+        if (cnet > 0)
+            C->mem_we = cnet;
+
+        if (then_n) lw_stms(C, then_n, is_reg);
+        C->mem_we = saved_we;
+        if (else_n) lw_stms(C, else_n, is_reg);
     }
 }
 

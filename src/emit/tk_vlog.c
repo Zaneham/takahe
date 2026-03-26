@@ -390,6 +390,99 @@ wires:
     }
     fprintf(fp, "\n");
 
+    /* ---- Inferred memories ---- */
+    for (i = 0; i < M->n_mem; i++) {
+        const char *mnam = M->strs + M->mems[i].name_off;
+        uint32_t dw = M->mems[i].data_w;
+        uint32_t dp = M->mems[i].depth;
+
+        fprintf(fp, "// Memory: %.*s (%ux%u)\n",
+                (int)M->mems[i].name_len, mnam, dp, dw);
+        fprintf(fp, "reg [%u:0] %.*s [0:%u];\n",
+                dw - 1, (int)M->mems[i].name_len, mnam, dp - 1);
+
+        /* Memory writes are synchronous, so we need a clock.
+         * Borrow it from the first DFF we find — they all
+         * share the same clock in a single-clock design. */
+        {
+            uint32_t clk_net = 0;
+            uint32_t ci;
+            for (ci = 1; ci < M->n_cell; ci++) {
+                if ((M->cells[ci].type == RT_DFF ||
+                     M->cells[ci].type == RT_DFFR) &&
+                    M->cells[ci].n_in >= 2) {
+                    clk_net = M->cells[ci].ins[1];
+                    break;
+                }
+            }
+
+            /* Reconstruct the always block from MEMWR cells.
+             * The third input, if present, is the write-enable. */
+            {
+                uint32_t waddr = 0, wdata = 0, we_net = 0;
+                uint32_t ci2;
+                for (ci2 = 1; ci2 < M->n_cell; ci2++) {
+                    if (M->cells[ci2].type == RT_MEMWR &&
+                        M->cells[ci2].param == (int64_t)i) {
+                        waddr = M->cells[ci2].ins[0];
+                        wdata = M->cells[ci2].ins[1];
+                        if (M->cells[ci2].n_in >= 3)
+                            we_net = M->cells[ci2].ins[2];
+                        break;
+                    }
+                }
+
+                if (waddr > 0 && wdata > 0) {
+                    char ab[64], db[64], cb[64];
+
+                    if (clk_net > 0)
+                        fprintf(fp, "always @(posedge %s) begin\n",
+                                em_cin(M, clk_net, cb, 64));
+                    else
+                        fprintf(fp, "always @(*) begin\n");
+
+                    if (we_net > 0) {
+                        char wb[64];
+                        fprintf(fp, "    if (%s)\n    ",
+                                em_cin(M, we_net, wb, 64));
+                    }
+
+                    fprintf(fp, "    %.*s[%s] <= %s;\n",
+                            (int)M->mems[i].name_len, mnam,
+                            em_cin(M, waddr, ab, 64),
+                            em_cin(M, wdata, db, 64));
+
+                    fprintf(fp, "end\n");
+                }
+            }
+
+            /* Read port is combinational — assign, not always.
+             * The DFF on the output handles the registration. */
+            {
+                uint32_t raddr = 0, rout = 0;
+                uint32_t ci3;
+                for (ci3 = 1; ci3 < M->n_cell; ci3++) {
+                    if (M->cells[ci3].type == RT_MEMRD &&
+                        M->cells[ci3].param == (int64_t)i) {
+                        raddr = M->cells[ci3].ins[0];
+                        rout = M->cells[ci3].out;
+                        break;
+                    }
+                }
+
+                if (raddr > 0 && rout > 0) {
+                    char ab2[64], ob[64];
+                    fprintf(fp, "assign %s = %.*s[%s];\n",
+                            em_cnet(M, rout, ob, 64),
+                            (int)M->mems[i].name_len, mnam,
+                            em_cin(M, raddr, ab2, 64));
+                }
+            }
+        }
+
+        fprintf(fp, "\n");
+    }
+
     /* ---- Cell instances ---- */
     for (i = 1; i < M->n_cell; i++) {
         const rt_cell_t *c = &M->cells[i];
@@ -402,6 +495,9 @@ wires:
 
         /* Skip CONST cells — inlined at consumers */
         if (ct == RT_CONST) continue;
+
+        /* Already handled above as reg arrays + always blocks */
+        if (ct == RT_MEMRD || ct == RT_MEMWR) continue;
 
         /* Look up mapped cell */
         if (!tbl[ct].valid) {
