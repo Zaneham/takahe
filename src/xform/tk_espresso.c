@@ -266,6 +266,7 @@ es_mini(const uint32_t *onm, int non, const uint32_t *offm,
      * repeat until it's stuck in your head. */
     KA_GUARD(giter, 20);
     for (iter = 0; giter--; iter++) {
+        (void)iter;
         int e = es_expand(F, offm, noff);
         int r2 = es_irred(F, onm, non);
         int d = es_reduce(F, onm, non);
@@ -391,6 +392,7 @@ es_cone(const rt_mod_t *M, uint32_t out_net,
                 int pass;
                 KA_GUARD(gp, 50);
                 for (pass = 0; gp--; pass++) {
+                    (void)pass;
                     int chg = 0;
                     int ci2;
                     for (ci2 = 0; ci2 < ncone; ci2++) {
