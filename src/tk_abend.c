@@ -131,6 +131,11 @@ tk_gmsg(int id)
 
 /* ---- Format and print a message ---- */
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#endif
+
 void
 tk_emsg(int eid, ...)
 {
@@ -147,6 +152,10 @@ tk_emsg(int eid, ...)
     va_end(ap);
     fprintf(stderr, "\n");
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 /* ---- ABEND dump ---- */
 
