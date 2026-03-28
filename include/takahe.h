@@ -436,11 +436,15 @@ int  tk_preproc(const char *src, uint32_t src_len,
 int  tk_ldinit(tk_lex_t *L, const char *def_path);
 int  tk_lex   (tk_lex_t *L, const char *src, uint32_t len);
 int  vh_lex   (tk_lex_t *L, const char *src, uint32_t len);
+int  ab_lex   (tk_lex_t *L, const char *src, uint32_t len);
 void tk_ldfree(tk_lex_t *L);
 
 /* VHDL parser: init + parse (reuses tk_parse_t and AST) */
 int  vh_pinit (tk_parse_t *P, const tk_lex_t *L);
 int  vh_parse (tk_parse_t *P);
+
+/* ABEL parser: reuses tk_parse_t and AST */
+int  ab_parse (tk_parse_t *P, const tk_lex_t *L);
 
 /* Constant expression evaluator */
 int  ce_eval(const tk_parse_t *P, ce_val_t *vals, uint32_t nvals);

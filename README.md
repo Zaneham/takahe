@@ -6,11 +6,17 @@ Named after the takahē (*Porphyrio hochstetteri*), declared extinct in 1898 and
 
 ## What It Does
 
-Takes SystemVerilog and VHDL source and produces gate-level netlists mapped to real foundry cells:
+Takes SystemVerilog, VHDL, and ABEL-HDL source and produces gate-level netlists mapped to real foundry cells:
 
 ```bash
 # Binary synthesis to SKY130 130nm
 ./takahe --lib sky130.lib --map counter.v design.sv
+
+# VHDL
+./takahe --vhdl --parse design.vhd
+
+# ABEL-HDL (PLD designs from the 1980s-2000s)
+./takahe --parse decoder.abl
 
 # Ternary synthesis (balanced ternary, à la Setun)
 ./takahe --radix 3 --opt --parse design.sv

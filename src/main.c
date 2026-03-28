@@ -22,10 +22,11 @@ static void
 usage(const char *prog)
 {
     printf("takahe v0.1.0 -- open-source hardware synthesis\n\n");
-    printf("usage: %s [flags] <source.sv|.vhd>\n\n", prog);
+    printf("usage: %s [flags] <source.sv|.vhd|.abl>\n\n", prog);
     printf("languages:\n");
     printf("  (default)   SystemVerilog (IEEE 1800-2017)\n");
-    printf("  --vhdl      VHDL (IEEE 1076-2008)\n\n");
+    printf("  --vhdl      VHDL (IEEE 1076-2008)\n");
+    printf("  --abel      ABEL-HDL (Data I/O, 1995)\n\n");
     printf("synthesis:\n");
     printf("  --lex       dump tokens\n");
     printf("  --parse     dump AST + RTL IR\n");
@@ -63,6 +64,7 @@ main(int argc, char **argv)
     const char *lib_path = NULL;
     const char *map_path = NULL;
     int mode_vhdl = 0;
+    int mode_abel = 0;
     int mode_equiv = 0;
     const char *fpga_path = NULL;
     int mode_tmr = 0;
@@ -127,6 +129,9 @@ main(int argc, char **argv)
         } else if (strcmp(argv[i], "--vhdl") == 0) {
             mode_vhdl = 1;
             def_path = "defs/vhdl_tok.def";
+        } else if (strcmp(argv[i], "--abel") == 0) {
+            mode_abel = 1;
+            def_path = "defs/abel_tok.def";
         } else if (strcmp(argv[i], "--defs") == 0 && i + 1 < argc) {
             def_path = argv[++i];
         } else if (argv[i][0] != '-') {
@@ -135,6 +140,18 @@ main(int argc, char **argv)
             fprintf(stderr, "takahe: unknown option '%s'\n", argv[i]);
             usage(argv[0]);
             return 1;
+        }
+    }
+
+    /* Auto-detect language from file extension */
+    if (src_path && !mode_vhdl && !mode_abel) {
+        size_t slen = strlen(src_path);
+        if (slen > 4 && strcmp(src_path + slen - 4, ".abl") == 0) {
+            mode_abel = 1;
+            def_path = "defs/abel_tok.def";
+        } else if (slen > 4 && strcmp(src_path + slen - 4, ".vhd") == 0) {
+            mode_vhdl = 1;
+            def_path = "defs/vhdl_tok.def";
         }
     }
 
@@ -219,6 +236,8 @@ main(int argc, char **argv)
         printf("takahe: lexing %s (%u bytes)\n", src_path, (unsigned)pp_len);
         if (mode_vhdl)
             vh_lex(L, ppbuf, pp_len);
+        else if (mode_abel)
+            ab_lex(L, ppbuf, pp_len);
         else
             tk_lex(L, ppbuf, pp_len);
 
@@ -261,6 +280,22 @@ main(int argc, char **argv)
                 return 1;
             }
 
+            if (mode_abel) {
+                memset(P, 0, sizeof(*P));
+                P->tokens  = L->tokens;
+                P->n_tok   = L->n_tok;
+                P->lex     = L;
+                P->nodes   = (tk_node_t *)calloc(TK_MAX_NODES,
+                                                  sizeof(tk_node_t));
+                if (!P->nodes) {
+                    fprintf(stderr, "takahe: node alloc failed\n");
+                    free(P); free(buf);
+                    tk_ldfree(L); free(L);
+                    return 1;
+                }
+                P->max_node = TK_MAX_NODES;
+                P->n_node   = 1;
+            } else
             if ((mode_vhdl ? vh_pinit(P, L) : tk_pinit(P, L)) != 0) {
                 fprintf(stderr, "takahe: parser init failed\n");
                 free(P);
@@ -272,6 +307,8 @@ main(int argc, char **argv)
 
             if (mode_vhdl)
                 vh_parse(P);
+            else if (mode_abel)
+                ab_parse(P, L);
             else
                 tk_parse(P);
             printf("takahe: %u AST nodes, %u errors\n",

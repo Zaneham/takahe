@@ -31,8 +31,10 @@ SRCS = src/main.c \
        src/lex/vh_lex.c \
        src/lex/tk_dload.c \
        src/lex/tk_pp.c \
+       src/lex/ab_lex.c \
        src/parse/tk_parse.c \
        src/parse/vh_parse.c \
+       src/parse/ab_parse.c \
        src/elab/tk_ceval.c \
        src/elab/tk_elab.c \
        src/elab/tk_width.c \
@@ -79,7 +81,8 @@ $(TARGET): $(OBJS)
 
 # Tests
 TEST_SRCS = tests/tmain.c tests/tlex.c tests/tparse.c tests/telab.c \
-            tests/trtl.c tests/topt.c tests/tmap.c tests/tvhdl.c
+            tests/trtl.c tests/topt.c tests/tmap.c tests/tvhdl.c \
+            tests/tabel.c
 TEST_TARGET = trunner
 
 ifeq ($(OS),Windows_NT)

@@ -1,0 +1,186 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# abel_tok.def -- ABEL-HDL tokeniser definitions
+#
+# From the Synario ABEL-HDL Reference (Data I/O, 1995).
+# The last known copy was on bitsavers.org. Every university
+# link is dead. Every vendor page is gone. This file is
+# part of the preservation effort.
+#
+# Format:
+#   keyword <name>
+#   op <name> <chars>
+#
+# ABEL keywords are case-insensitive for matching but the
+# identifiers are case-sensitive. The lexer handles this.
+
+# ---- Reserved Keywords (Reference p.2-5) ----
+
+keyword async_reset
+keyword case
+keyword declarations
+keyword device
+keyword else
+keyword end
+keyword endcase
+keyword endwith
+keyword equations
+keyword external
+keyword fuses
+keyword functional_block
+keyword goto
+keyword if
+keyword in
+keyword interface
+keyword istype
+keyword library
+keyword macro
+keyword module
+keyword node
+keyword options
+keyword pin
+keyword property
+keyword state
+keyword state_diagram
+keyword state_register
+keyword sync_reset
+keyword test_vectors
+keyword then
+keyword title
+keyword trace
+keyword truth_table
+keyword when
+keyword with
+
+# ---- Obsolete Keywords (still must be recognised) ----
+
+keyword enable
+keyword flag
+
+# ---- Logical Operators (Reference p.2-11, Table 2-3) ----
+# Priority 1 (highest)
+
+op not         !
+op negate      -
+
+# Priority 2
+
+op band        &
+op shl         <<
+op shr         >>
+op mul         *
+op div         /
+op mod         %
+
+# Priority 3
+
+op add         +
+op sub         -
+op bor         #
+op bxor        $
+op bxnor       !$
+
+# Priority 4 (lowest)
+
+op eq          ==
+op neq         !=
+op lt          <
+op le          <=
+op gt          >
+op ge          >=
+
+# ---- Assignment Operators (Reference p.2-14, Table 2-6) ----
+
+op assign      =
+op reg_assign  :=
+op dc_assign   ?=
+op dc_reg      ?:=
+
+# ---- Structural ----
+
+op semi        ;
+op comma       ,
+op dot         .
+op dotdot      ..
+op lbracket    [
+op rbracket    ]
+op lbrace      {
+op rbrace      }
+op lparen      (
+op rparen      )
+op arrow       ->
+op at          @
+op caret       ^
+
+# ---- Special Constants (Reference p.2-6, Table 2-1) ----
+# These are .X. .C. .D. .F. .K. .P. .U. .Z. .SVn.
+# Handled by the lexer as dot-delimited tokens, not keywords.
+# Listed here for documentation:
+#
+#   .C.    clocked input (low-high-low transition)
+#   .D.    clock down edge (high-low transition)
+#   .F.    floating input or output
+#   .K.    clocked input (high-low-high transition)
+#   .P.    register preload
+#   .U.    clock up edge (low-high transition)
+#   .X.    don't care
+#   .Z.    tristate value
+#   .SVn.  super voltage (n = 2..9)
+
+# ---- Dot Extensions (Reference p.3-18, p.6-2) ----
+# Signal attributes accessed via signal.ext syntax.
+# Listed here for documentation / LSP completion:
+#
+#   .AP    async preset
+#   .AR    async reset
+#   .CE    clock enable
+#   .CLK   clock
+#   .CLR   clear
+#   .COM   combinational feedback
+#   .D     D flip-flop input
+#   .DQ    D flip-flop output (buried)
+#   .FB    feedback
+#   .FC    fast clock
+#   .INT   internal node
+#   .J     JK flip-flop J input
+#   .K     JK flip-flop K input
+#   .LE    latch enable
+#   .LH    transparent latch input (low-high)
+#   .OE    output enable
+#   .PIN   pin feedback
+#   .PR    preset
+#   .RE    register enable
+#   .S     SR flip-flop S input
+#   .R     SR flip-flop R input
+#   .SP    sync preset
+#   .SR    sync reset
+#   .T     T flip-flop input
+
+# ---- Directives (Reference p.6-16) ----
+# Prefixed with @ in source. Listed for lexer recognition:
+#
+#   @ALTERNATE    use alternate operator symbols
+#   @CARRY        carry look-ahead optimisation
+#   @DCSET        enable don't-care set
+#   @IF           conditional compilation
+#   @IFNOT       conditional compilation (negated)
+#   @ELSE         conditional compilation else
+#   @ENDIF        conditional compilation end
+#   @INCLUDE      file inclusion
+#   @MESSAGE      compiler message
+#   @RADIX        change default number base
+#   @REPEAT       repeat block
+#   @SETSIZE      set the default set size
+#   @STANDARD     use standard operator symbols
+
+# ---- Number Bases (Reference p.2-9, Table 2-2) ----
+# ^b = binary, ^o = octal, ^d = decimal, ^h = hex
+# Handled by lexer, not defined as tokens.
+
+# ---- Comment Styles ----
+# " to end of line or matching "
+# // to end of line
+# Handled by lexer.

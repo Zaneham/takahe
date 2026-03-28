@@ -1,0 +1,18 @@
+MODULE decoder
+TITLE 'Simple 2-to-4 address decoder'
+
+DECLARATIONS
+  A0 PIN;
+  A1 PIN;
+  Y0 PIN ISTYPE 'com';
+  Y1 PIN ISTYPE 'com';
+  Y2 PIN ISTYPE 'com';
+  Y3 PIN ISTYPE 'com';
+
+EQUATIONS
+  Y0 = !A1 & !A0;
+  Y1 = !A1 &  A0;
+  Y2 =  A1 & !A0;
+  Y3 =  A1 &  A0;
+
+END decoder
