@@ -9,6 +9,7 @@ WARN += -Wformat=2 -Wnull-dereference -Wswitch-enum -Wswitch-default
 WARN += -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes
 WARN += -Wredundant-decls -Wnested-externs -Wcast-align
 WARN += -Wno-unused-parameter
+WARN += -Wno-unused-but-set-variable
 
 INCS    = -Iinclude -Isrc \
           -Isrc/lex -Isrc/parse -Isrc/elab \
