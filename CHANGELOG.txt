@@ -1,6 +1,30 @@
 CHANGELOG
 =========
 
+2026-03-28  ABEL-HDL frontend (third language)
+  - Lexer and parser for ABEL-HDL (Data I/O / Synario, 1995)
+  - Definition file: 37 keywords, 36 operators (abel_tok.def)
+  - Case-insensitive keyword matching per ABEL spec
+  - Comments: " (to matching " or EOL) and //
+  - Numbers: ^b binary, ^o octal, ^d decimal, ^h hex
+  - Special constants: .X. .C. .D. .F. .K. .P. .U. .Z.
+  - Sections: MODULE, DECLARATIONS, EQUATIONS, TRUTH_TABLE,
+    STATE_DIAGRAM, TEST_VECTORS, END
+  - Pin/node declarations with ISTYPE attributes
+  - Dot extensions for signal attributes (.CLK, .OE, etc)
+  - WHEN-THEN-ELSE and IF-THEN-ELSE in equations
+  - State diagram parsing with transitions and output equations
+  - Auto-detection from .abl file extension
+  - Reference manual retrieved from bitsavers.org before the
+    last copy disappeared. Every university link is dead.
+  - 6 new tests (76 total), example decoder.abl design
+  - Three frontends: SystemVerilog, VHDL, ABEL-HDL
+
+2026-03-28  CI
+  - GitHub Actions on Windows, Linux, macOS
+  - Fixed POSIX popen for Linux, clang warnings for macOS
+  - Test buffer bumped to 64KB for cross-platform consistency
+
 2026-03-25  Radiation hardening (TMR)
   - --tmr triplicates all DFFs and inserts majority voters
   - --tmr-full triplicates all cells including combinational

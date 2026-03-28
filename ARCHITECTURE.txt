@@ -20,23 +20,29 @@ takahe/
     kauri.h           Memory safety (arena, bounds, strings).
 
   defs/
-    sv_tok.def        Lexer: keywords, operators, literals.
-    sv_opt.def        Optimiser: boolean identities, transforms.
-    tech_map.def      Mapper: logic pattern -> cell templates.
-    report.def        Reporter: output format definitions.
+    sv_tok.def        SystemVerilog lexer (247 kw, 65 ops).
+    vhdl_tok.def      VHDL lexer (118 kw, 34 ops).
+    abel_tok.def      ABEL-HDL lexer (37 kw, 36 ops).
+    cells.def         Binary cell truth tables.
+    cells_ter.def     Ternary cell truth tables.
+    cells_doz.def     Dozenal cell truth tables.
+    (+ 10 more paradigm defs)
 
   src/
     main.c            CLI driver. Wires stages together.
 
     lex/              STAGE 1: Lexer + Preprocessor
       tk_pp.c           Preprocessor (`ifdef, `define, macro expand)
-      tk_lex.c          Tokeniser (driven by sv_tok.def)
+      tk_lex.c          SystemVerilog tokeniser (sv_tok.def)
+      vh_lex.c          VHDL tokeniser (vhdl_tok.def)
+      ab_lex.c          ABEL-HDL tokeniser (abel_tok.def)
       tk_dload.c        Definition loader (two-pass, string interning)
 
     parse/            STAGE 2: Parser
-      tk_parse.c        Recursive descent -> flat AST
-                        Module, port, param, always, case, if,
-                        for, generate, expressions, instantiation.
+      tk_parse.c        SystemVerilog recursive descent -> flat AST
+      vh_parse.c        VHDL recursive descent -> same flat AST
+      ab_parse.c        ABEL-HDL recursive descent -> same flat AST
+                        Three frontends, one AST format.
 
     elab/             STAGE 3: Elaboration
       tk_elab.c         Parameter resolution, generate expansion.
@@ -74,8 +80,18 @@ takahe/
     trtl.c            RTL IR tests.
     topt.c            Optimiser tests.
     tmap.c            Mapper tests.
+    tvhdl.c           VHDL frontend tests.
+    tabel.c           ABEL-HDL frontend tests.
     smoke.sv          Basic SystemVerilog (counter + ALU).
     bigger.sv         FIFO with enums, structs, generate.
+
+  designs/
+    decoder.abl       ABEL 2-to-4 decoder (test design).
+    dozenal_alu.sv    Dozenal ALU (generates, instances).
+    voyager_fds.sv    Voyager flight computer.
+    ruru.sv           Probabilistic processor.
+    qsim.sv           Quantum circuit accelerator.
+    (+ more)
 
 
 NAMING CONVENTIONS
@@ -85,7 +101,9 @@ NAMING CONVENTIONS
     pp_     preprocessor (lex/)
     lx_     lexer (lex/)
     dl_     def loader (lex/)
-    pk_     parser (parse/)
+    pk_     parser, SystemVerilog (parse/)
+    vh_     parser/lexer, VHDL (parse/, lex/)
+    ab_     parser/lexer, ABEL (parse/, lex/)
     el_     elaboration (elab/)
     ce_     constant eval (elab/)
     wi_     width inference (elab/)
@@ -112,13 +130,13 @@ NAMING CONVENTIONS
 DATA FLOW
 =========
 
-  Source (.sv)
+  Source (.sv / .vhd / .abl)
        |
   [lex/]  tk_pp.c  ->  preprocessed text
        |
-  [lex/]  tk_lex.c ->  tk_token_t[]
+  [lex/]  tk_lex.c / vh_lex.c / ab_lex.c  ->  tk_token_t[]
        |
-  [parse/] tk_parse.c -> tk_node_t[] (flat AST)
+  [parse/] tk_parse.c / vh_parse.c / ab_parse.c -> tk_node_t[] (flat AST)
        |
   [elab/] tk_elab.c  ->  elaborated AST
           tk_ceval.c     (params resolved, generates expanded,
