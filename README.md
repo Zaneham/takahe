@@ -258,7 +258,7 @@ src/
 
 defs/            13 computing paradigm definitions
 lang/            bilingual message catalogues (en, mi)
-docs/            situation reports, audit logs
+docs/            Documentation on the project (will be added over time) 
 ```
 
 ## Quality Notice
