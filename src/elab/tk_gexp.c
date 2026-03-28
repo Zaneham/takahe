@@ -207,7 +207,6 @@ ge_clone(tk_parse_t *P, uint32_t src, uint32_t gvar_off,
     while (ch && g--) {
         uint32_t cln = ge_clone(P, ch, gvar_off, gvar_len, val);
         if (cln == 0) break;
-        cln = cln; /* suppress warning */
         P->nodes[cln].next_sib = 0;
         if (P->nodes[dst].first_child == 0) {
             P->nodes[dst].first_child = cln;
