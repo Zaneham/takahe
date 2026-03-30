@@ -433,6 +433,23 @@ pk_prim(tk_parse_t *P)
                 pk_eop(P, "]");
                 n = idx;
             }
+            else if (is_op(P, "(")) {
+                /* Function call: name(args) */
+                uint32_t call = pk_alloc(P, TK_AST_CALL);
+                P->nodes[call].first_child = n;
+                P->nodes[call].last_child = n;
+                P->nodes[n].next_sib = 0;
+                advance(P);
+                KA_GUARD(gc, 100);
+                while (!is_op(P, ")") &&
+                       pk_ctyp(P) != TK_TOK_EOF && gc--) {
+                    uint32_t arg = pk_expr(P);
+                    pk_achld(P, call, arg);
+                    if (!pk_mop(P, ",")) break;
+                }
+                pk_eop(P, ")");
+                n = call;
+            }
             else if (is_op(P, ".")) {
                 /* Member access: base.field */
                 advance(P);
@@ -1729,6 +1746,12 @@ pk_mod(tk_parse_t *P)
                     P->nodes[name].d.text.len = cur(P)->len;
                     advance(P);
                     pk_achld(P, port, name);
+                }
+                /* Default port value: input logic en = 1'b1 */
+                if (is_op(P, "=")) {
+                    advance(P);
+                    uint32_t def = pk_expr(P);
+                    pk_achld(P, port, def);
                 }
                 pk_achld(P, mod, port);
             } else if (pk_ctyp(P) == TK_TOK_IDENT) {
