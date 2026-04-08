@@ -559,6 +559,9 @@ typedef struct rt_mod_s {
     /* Module name — set by lowerer from AST MODULE node */
     char        mod_name[64];
 
+    /* First net index of the top-level module (for equiv) */
+    uint32_t    top_net_lo;
+
     /* Inferred memories (arrays with read/write ports) */
     struct {
         uint32_t name_off;

@@ -130,8 +130,9 @@ static int
 eq_ports(const rt_mod_t *M, eq_port_t *ports, int max)
 {
     uint32_t i;
+    uint32_t lo = M->top_net_lo > 0 ? M->top_net_lo : 1;
     int np = 0;
-    for (i = 1; i < M->n_net && np < max; i++) {
+    for (i = lo; i < M->n_net && np < max; i++) {
         if (M->nets[i].is_port != 0) {
             ports[np].idx   = i;
             ports[np].width = M->nets[i].width;

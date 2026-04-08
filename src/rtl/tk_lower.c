@@ -1713,17 +1713,23 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
                                 if (pnet && expr) {
                                     enet = lw_expr(C, expr);
                                     if (enet) {
-                                        /* Wire: ASSIGN from parent to child
-                                         * or child to parent based on port dir.
-                                         * For simplicity: input ports get ASSIGN
-                                         * from parent, output ports get ASSIGN
-                                         * to parent. Use bidirectional ASSIGN. */
+                                        /* Wire port by direction:
+                                         * input  → parent drives child
+                                         * output → child drives parent
+                                         * inout  → both (genuine bidir) */
                                         uint32_t ww = C->M->nets[pnet].width;
                                         uint32_t ins2[1];
-                                        ins2[0] = enet;
-                                        rt_acell(C->M, RT_ASSIGN, pnet, ins2, 1, ww);
-                                        ins2[0] = pnet;
-                                        rt_acell(C->M, RT_ASSIGN, enet, ins2, 1, ww);
+                                        uint8_t dir = C->M->nets[pnet].is_port;
+                                        if (dir == 1 || dir == 3) {
+                                            /* input/inout: parent → child */
+                                            ins2[0] = enet;
+                                            rt_acell(C->M, RT_ASSIGN, pnet, ins2, 1, ww);
+                                        }
+                                        if (dir == 2 || dir == 3) {
+                                            /* output/inout: child → parent */
+                                            ins2[0] = pnet;
+                                            rt_acell(C->M, RT_ASSIGN, enet, ins2, 1, ww);
+                                        }
                                     }
                                 }
                             }
@@ -1923,6 +1929,7 @@ lw_core(const tk_parse_t *P, const ce_val_t *cv,
                 if (!used[mi]) {
                     uint32_t nlo = M->n_net;
                     C.net_lo = nlo;
+                    M->top_net_lo = nlo;
                     {
                         const char *mn = P->lex->strs +
                             P->nodes[mods[mi]].d.text.off;
