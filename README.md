@@ -166,6 +166,7 @@ takahe [flags] <source.sv|.vhd>
   --parse         dump AST + RTL
   --opt           optimise (cprop + pattern match + DCE)
   --equiv         equivalence check (pre-opt vs post-opt)
+  --hash          print 64-bit fingerprint of synthesised netlist
   --blif <f>      emit BLIF netlist
   --yosys <f>     emit Yosys JSON netlist
   --lib <f>       Liberty .lib cell library

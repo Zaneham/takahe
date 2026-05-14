@@ -1,6 +1,66 @@
 CHANGELOG
 =========
 
+2026-05-14  Synthesis fingerprint (--hash)
+  - New --hash flag prints a 64-bit deterministic digest of
+    the synthesised netlist to stdout, formatted as
+    "hash: %016x", so that two runs of takahe on the same
+    input source produce byte-identical digests and any
+    divergence between runs surfaces as an immediate hash
+    mismatch rather than as silent non-determinism that only
+    becomes visible when somebody tries to reproduce a build
+    months later.
+  - The underlying algorithm is FNV-1a 64-bit, chosen because
+    it fits in twelve lines, has zero external dependencies,
+    and is more than sufficient for the question being asked,
+    which is "did these two synthesis runs produce the same
+    netlist" rather than "can an adversary forge a collision";
+    a future bump to SHA-256 is a drop-in replacement should
+    a stronger fingerprint ever become necessary.
+  - The canonical byte stream consumed by the hash covers
+    every net's width, radix, port role, and driver index,
+    followed by every cell's type, width, output net, input
+    arity, input net indices, and parameter value, walked in
+    array order with index 0 reserved as the pool sentinel as
+    is the convention everywhere else in the codebase.
+  - Net names and cell names are deliberately excluded from
+    the canonical form because a wire renamed from q to q_r
+    is the same hardware and the fingerprint should agree;
+    generation counters and other runtime bookkeeping are
+    likewise excluded for the same reason.
+  - Slots vacated by deletion passes (cells whose type has
+    been overwritten with the RT_CELL_COUNT sentinel) are
+    folded into the hash as a single zero byte so that
+    deletions remain distinct from rewrites and so that
+    reordering passes never accidentally collide.
+  - The canonical form carries a version byte (HS_VER, set to
+    1 in this release) which must be bumped any time the set
+    of fields included in the hash or the order in which they
+    are emitted changes, on the principle that saved digests
+    become meaningfully invalid the moment the form changes
+    and the version byte ensures the divergence shows up at
+    the very first byte rather than as a confusing mid-stream
+    collision much later.
+  - Smoke verification on tests/smoke.sv produces the digest
+    5e2f63ed79b19097 reproducibly across consecutive runs,
+    tests/bigger.sv produces 8c4d1dacdbf02ee0 reproducibly
+    both before and after optimisation since op_opt finds no
+    work on that particular design, and designs/voyager_fds.sv
+    correctly diverges from 40a6def1e6c5fc0e pre-optimisation
+    to fadd81c343371411 after the optimiser applies its 24
+    transformations, confirming that the hash both holds
+    steady when the netlist holds steady and changes when the
+    netlist changes.
+  - Implementation lives in src/emit/tk_hash.c at roughly 125
+    lines, uses the hs_ file prefix consistent with the rest
+    of the emit directory, exposes mp_hash as the public
+    entry point in include/takahe.h alongside mp_blif and
+    mp_yosys, and compiles cleanly under the full project
+    warning gauntlet of -Wall -Wextra -Werror -pedantic plus
+    twelve additional diagnostics.
+  - All 76 existing tests continue to pass with no regression
+    introduced by the new flag or its supporting code.
+
 2026-03-28  ABEL-HDL frontend (third language)
   - Lexer and parser for ABEL-HDL (Data I/O / Synario, 1995)
   - Definition file: 37 keywords, 36 operators (abel_tok.def)

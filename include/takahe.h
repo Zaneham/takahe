@@ -599,6 +599,7 @@ int          op_dce  (rt_mod_t *M);
 /* Technology mapping / export */
 int          mp_blif (const rt_mod_t *M, FILE *fp);
 int          mp_yosys(const rt_mod_t *M, FILE *fp);
+uint64_t     mp_hash (const rt_mod_t *M);
 
 /* ---- Exact Timing Arithmetic ----
  * Femtoseconds and attofarads. Integer. No floats.

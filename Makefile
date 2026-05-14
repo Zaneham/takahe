@@ -60,7 +60,8 @@ SRCS = src/main.c \
        src/map/tk_fpga.c \
        src/emit/tk_blif.c \
        src/emit/tk_yosys.c \
-       src/emit/tk_vlog.c
+       src/emit/tk_vlog.c \
+       src/emit/tk_hash.c
 
 OBJS = $(SRCS:.c=.o)
 TARGET = takahe

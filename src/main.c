@@ -32,6 +32,7 @@ usage(const char *prog)
     printf("  --parse     dump AST + RTL IR\n");
     printf("  --opt       optimise (constant propagation + DCE)\n");
     printf("  --equiv     equivalence check (pre-opt vs post-opt)\n");
+    printf("  --hash      print 64-bit fingerprint of synthesised netlist\n");
     printf("  --tmr       radiation hardening (triplicate DFFs + voters)\n");
     printf("  --tmr-full  radiation hardening (triplicate everything)\n");
     printf("  --fpga <f>  emit nextpnr JSON for iCE40 FPGA\n");
@@ -66,6 +67,7 @@ main(int argc, char **argv)
     int mode_vhdl = 0;
     int mode_abel = 0;
     int mode_equiv = 0;
+    int mode_hash = 0;
     const char *fpga_path = NULL;
     int mode_tmr = 0;
     int tmr_full = 0;
@@ -125,6 +127,9 @@ main(int argc, char **argv)
         } else if (strcmp(argv[i], "--equiv") == 0) {
             mode_equiv = 1;
             mode_opt = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--hash") == 0) {
+            mode_hash = 1;
             mode_parse = 1;
         } else if (strcmp(argv[i], "--vhdl") == 0) {
             mode_vhdl = 1;
@@ -502,6 +507,10 @@ main(int argc, char **argv)
                                             "takahe: cannot write '%s'\n",
                                             fpga_path);
                                     }
+                                }
+                                if (mode_hash) {
+                                    printf("hash: %016" PRIx64 "\n",
+                                           mp_hash(rtl));
                                 }
                                 if (map_path) {
                                     if (!lib_path) {
