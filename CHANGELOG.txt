@@ -35,6 +35,44 @@ CHANGELOG
     --annot, span-aware opt-pass propagation, and source
     pointers in ABEND dumps.
 
+2026-05-17  Source-location diagnostics plus ABEND wired in
+  - The lowerer's case-fellthrough warning now prints the
+    user's line and column instead of an internal AST node
+    index, which is the first user-visible payoff of the
+    source-span infrastructure. The TMR failure message
+    likewise shows source coordinates when the failing
+    cell carries them and falls back to "?:?" otherwise.
+  - main.c now calls tk_linit("lang") once arguments are
+    parsed, so every run loads the en.txt and mi.txt
+    catalogues at startup and prints the message count.
+    The bilingual infrastructure is now live rather than
+    dormant for the first time since it landed.
+  - File-open and file-too-large errors in main.c switched
+    from ad-hoc fprintf to tk_emsg(TK001) and tk_emsg(TK002).
+    Running with --lang mi now produces those errors in
+    Te Reo Māori rather than English, which was always the
+    promised behaviour but has not actually worked until now.
+  - rt_anet_at and rt_acell_at emit tk_emsg(TK020) and
+    tk_emsg(TK021) on pool overflow, exactly once per pool
+    per synthesis run, using a static flag so a thousand
+    failed allocations do not produce a thousand log lines.
+    rt_init clears the flags so back-to-back synthesis
+    invocations each get a clean slate.
+  - New rt_ovflow() accessor lets the caller ask whether
+    any pool ran out during the most recent run; main.c
+    checks it after the synthesis pipeline completes and
+    fires a real tk_abend() dump with module name, reason,
+    and pool counts when the answer is yes, and propagates
+    the failure through the exit code so CI integrations
+    can react. The dump renders bilingually because tk_abend
+    itself reads from the same catalogue as tk_emsg.
+  - tk_abend.c is unchanged. The dormant ABEND infrastructure
+    is now exercised by the rest of the codebase rather than
+    waiting around for somebody to wire it up, but no edits
+    were needed inside the file itself.
+  - Build clean under the full warning gauntlet, all 87
+    tests still pass.
+
 2026-05-16  Cell budget (--budget) plus hash regression suite
   - --budget <n> refuses to emit if the live cell count
     exceeds the limit. Prints a status line either way and

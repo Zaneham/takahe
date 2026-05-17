@@ -603,6 +603,11 @@ uint32_t     rt_anet_at (rt_mod_t *M, const char *name, uint16_t nlen,
 uint32_t     rt_acell_at(rt_mod_t *M, rt_ctype_t type, uint32_t out,
                          const uint32_t *ins, uint8_t n_in, uint32_t width,
                          uint32_t line, uint16_t col);
+
+/* Returns non-zero if any pool overflowed since the most
+ * recent rt_init. Used by main to decide whether to fire a
+ * tk_abend dump at the end of a synthesis run. */
+int          rt_ovflow(void);
 void         rt_dump (const rt_mod_t *M);
 const char  *rt_cname(rt_ctype_t t);
 

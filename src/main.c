@@ -166,6 +166,10 @@ main(int argc, char **argv)
         }
     }
 
+    /* Load the bilingual message catalogue. Errors from now
+     * onwards go through tk_emsg and respect --lang. */
+    tk_linit("lang");
+
     if (!src_path) {
         fprintf(stderr, "takahe: no input file\n");
         usage(argv[0]);
@@ -193,7 +197,7 @@ main(int argc, char **argv)
         size_t nr;
 
         if (!fp) {
-            fprintf(stderr, "takahe: cannot open '%s'\n", src_path);
+            tk_emsg(1, src_path);  /* TK001: cannot open file */
             tk_ldfree(L);
             free(L);
             return 1;
@@ -204,7 +208,11 @@ main(int argc, char **argv)
         fseek(fp, 0, SEEK_SET);
 
         if (fsz <= 0 || (uint32_t)fsz > TK_MAX_SRC) {
-            fprintf(stderr, "takahe: file too large or empty (%ld bytes)\n", fsz);
+            /* TK002: file too large (n bytes, max m). For empty
+             * files we still use TK002; the byte count tells the
+             * whole story. */
+            tk_emsg(2, (uint32_t)(fsz < 0 ? 0 : fsz),
+                    (uint32_t)TK_MAX_SRC);
             fclose(fp);
             tk_ldfree(L);
             free(L);
@@ -473,6 +481,22 @@ main(int argc, char **argv)
                                     if (ntmr < 0)
                                         fprintf(stderr,
                                             "takahe: TMR failed\n");
+                                }
+
+                                /* Pool overflow check: if a pool
+                                 * exhausted itself during lowering
+                                 * or any later pass, the netlist
+                                 * is incomplete and emitting it is
+                                 * worse than aborting. Fire the
+                                 * structured ABEND dump so the user
+                                 * sees what was being built when it
+                                 * fell over, and propagate the
+                                 * failure through exit_code. */
+                                if (rt_ovflow()) {
+                                    tk_abend("rt_lower",
+                                        "pool exhausted during synthesis",
+                                        rtl);
+                                    exit_code = 1;
                                 }
 
                                 if (blif_path) {

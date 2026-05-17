@@ -46,6 +46,17 @@ rt_cname(rt_ctype_t t)
     return "???";
 }
 
+/* ---- Overflow flags ----
+ * Process-global. Set the first time a pool rejects an
+ * allocation so the diagnostic fires exactly once even
+ * though hundreds of subsequent calls also fail. Cleared
+ * by rt_init so a follow-on module gets a clean slate. */
+
+static int rt_net_ovf  = 0;
+static int rt_cell_ovf = 0;
+
+int rt_ovflow(void) { return rt_net_ovf || rt_cell_ovf; }
+
 /* ---- Init / Free ---- */
 
 int
@@ -53,6 +64,11 @@ rt_init(rt_mod_t *M, uint32_t max_net, uint32_t max_cell)
 {
     if (!M) return -1;
     memset(M, 0, sizeof(*M));
+
+    /* Fresh module, fresh slate on the overflow flags so the
+     * tk_emsg fires again if this module exhausts its pools. */
+    rt_net_ovf  = 0;
+    rt_cell_ovf = 0;
 
     M->nets = (rt_net_t *)calloc(max_net, sizeof(rt_net_t));
     M->cells = (rt_cell_t *)calloc(max_cell, sizeof(rt_cell_t));
@@ -111,7 +127,14 @@ rt_anet_at(rt_mod_t *M, const char *name, uint16_t nlen,
     uint32_t idx;
     rt_net_t *n;
 
-    if (M->n_net >= M->max_net) return 0;
+    if (M->n_net >= M->max_net) {
+        if (!rt_net_ovf) {
+            /* TK020: net pool exhausted (n nets, max m). */
+            tk_emsg(20, M->n_net, M->max_net);
+            rt_net_ovf = 1;
+        }
+        return 0;
+    }
 
     idx = M->n_net++;
     n = &M->nets[idx];
@@ -146,7 +169,14 @@ rt_acell_at(rt_mod_t *M, rt_ctype_t type, uint32_t out,
     rt_cell_t *c;
     uint8_t i;
 
-    if (M->n_cell >= M->max_cell) return 0;
+    if (M->n_cell >= M->max_cell) {
+        if (!rt_cell_ovf) {
+            /* TK021: cell pool exhausted (n cells, max m). */
+            tk_emsg(21, M->n_cell, M->max_cell);
+            rt_cell_ovf = 1;
+        }
+        return 0;
+    }
 
     idx = M->n_cell++;
     c = &M->cells[idx];

@@ -175,8 +175,21 @@ tm_tmr(rt_mod_t *M, int full)
 
         if (target) {
             if (tm_dff(M, i) != 0) {
-                fprintf(stderr,
-                    "takahe: TMR: failed at cell %u\n", i);
+                /* Print source location when the lowerer tagged
+                 * the cell with one; otherwise fall back to "?:?"
+                 * so the message degrades gracefully for cells
+                 * coming from passes that don't yet carry spans. */
+                if (M->cells[i].line > 0) {
+                    fprintf(stderr,
+                        "takahe: TMR: failed at cell %u "
+                        "(line %u col %u)\n",
+                        i, M->cells[i].line,
+                        (unsigned)M->cells[i].col);
+                } else {
+                    fprintf(stderr,
+                        "takahe: TMR: failed at cell %u (?:?)\n",
+                        i);
+                }
                 return -1;
             }
             count++;

@@ -1315,8 +1315,8 @@ lw_cmux_d(lw_ctx_t *C, uint32_t nidx, int is_reg,
     return;
 
 flat_c:
-    printf("takahe: warning: case at node %u fell through to flat lowering\n",
-           nidx);
+    printf("takahe: warning: case at line %u col %u fell through to flat lowering\n",
+           lw_line(C, nidx), (unsigned)lw_col(C, nidx));
     {
         uint32_t cc = C->P->nodes[nidx].first_child;
         KA_GUARD(gf, 10000);
