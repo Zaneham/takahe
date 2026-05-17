@@ -83,7 +83,7 @@ $(TARGET): $(OBJS)
 # Tests
 TEST_SRCS = tests/tmain.c tests/tlex.c tests/tparse.c tests/telab.c \
             tests/trtl.c tests/topt.c tests/tmap.c tests/tvhdl.c \
-            tests/tabel.c
+            tests/tabel.c tests/thash.c
 TEST_TARGET = trunner
 
 ifeq ($(OS),Windows_NT)

@@ -33,6 +33,7 @@ usage(const char *prog)
     printf("  --opt       optimise (constant propagation + DCE)\n");
     printf("  --equiv     equivalence check (pre-opt vs post-opt)\n");
     printf("  --hash      print 64-bit fingerprint of synthesised netlist\n");
+    printf("  --budget <n>    refuse to emit if live cell count exceeds n\n");
     printf("  --tmr       radiation hardening (triplicate DFFs + voters)\n");
     printf("  --tmr-full  radiation hardening (triplicate everything)\n");
     printf("  --fpga <f>  emit nextpnr JSON for iCE40 FPGA\n");
@@ -68,6 +69,8 @@ main(int argc, char **argv)
     int mode_abel = 0;
     int mode_equiv = 0;
     int mode_hash = 0;
+    int budget = 0;
+    int exit_code = 0;
     const char *fpga_path = NULL;
     int mode_tmr = 0;
     int tmr_full = 0;
@@ -130,6 +133,9 @@ main(int argc, char **argv)
             mode_parse = 1;
         } else if (strcmp(argv[i], "--hash") == 0) {
             mode_hash = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--budget") == 0 && i + 1 < argc) {
+            budget = atoi(argv[++i]);
             mode_parse = 1;
         } else if (strcmp(argv[i], "--vhdl") == 0) {
             mode_vhdl = 1;
@@ -512,6 +518,24 @@ main(int argc, char **argv)
                                     printf("hash: %016" PRIx64 "\n",
                                            mp_hash(rtl));
                                 }
+                                if (budget > 0) {
+                                    uint32_t live = 0, bi;
+                                    for (bi = 1; bi < rtl->n_cell; bi++)
+                                        if (rtl->cells[bi].type
+                                            != RT_CELL_COUNT)
+                                            live++;
+                                    if (live > (uint32_t)budget) {
+                                        fprintf(stderr,
+                                            "takahe: budget exceeded: "
+                                            "%u live cells > %d limit\n",
+                                            (unsigned)live, budget);
+                                        exit_code = 1;
+                                    } else {
+                                        printf("takahe: %u cells within "
+                                               "%d budget\n",
+                                               (unsigned)live, budget);
+                                    }
+                                }
                                 if (map_path) {
                                     if (!lib_path) {
                                         fprintf(stderr,
@@ -632,5 +656,5 @@ main(int argc, char **argv)
     tk_ldfree(L);
     free(L);
 
-    return 0;
+    return exit_code;
 }

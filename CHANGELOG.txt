@@ -1,6 +1,27 @@
 CHANGELOG
 =========
 
+2026-05-16  Cell budget (--budget) plus hash regression suite
+  - --budget <n> refuses to emit if the live cell count
+    exceeds the limit. Prints a status line either way and
+    exits non-zero on excess so CI can use it without
+    parsing stdout.
+  - Runs at the same pipeline point as --hash, meaning
+    post-opt and post-TMR but pre-mapping, because that
+    is the abstraction level the designer actually
+    controls. Good for FPGA fit checks, ASIC area
+    budgets, and catching the day a refactor accidentally
+    triples the gate count.
+  - tests/thash.c adds six tests under the "hash" category:
+    determinism, structural sensitivity, bit-width
+    sensitivity, null handling, CLI stdout stability, and
+    post-opt stability on voyager_fds.sv where the
+    optimiser applies twenty-four transformations. Total
+    test count now 82. Locks in the canonical-form
+    contract so future non-determinism gets caught by
+    make test rather than by a confused user three months
+    later.
+
 2026-05-14  Synthesis fingerprint (--hash)
   - New --hash flag prints a 64-bit deterministic digest of
     the synthesised netlist to stdout, formatted as
