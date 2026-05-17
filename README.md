@@ -100,6 +100,70 @@ All synthesise with zero parse errors and zero multi-driver nets:
 | **Setun-70** | Ternary processor | 153 | `designs/setun70.sv` |
 | **VHDL ALU** | 8-bit ALU (VHDL) | 107 | `designs/vhdl_alu.vhd` |
 
+## Pipeline
+
+```
+SystemVerilog ─┐
+               ├→ lex → parse → elaborate → lower → optimise → bit-blast → map → emit
+VHDL ──────────┘   ↑                                    ↑                     ↑
+              sv_tok.def                           cells_*.def            *.lib
+              vhdl_tok.def
+```
+
+## Building
+
+```bash
+make            # build takahe
+make test       # run tests (70 tests, zero failures)
+make clean      # clean
+```
+
+Requires GCC and nothing else. Zero dependencies beyond libc. C99.
+
+## CLI
+
+```
+takahe [flags] <source.sv|.vhd|.abl>
+
+  --vhdl          VHDL mode (IEEE 1076-2008)
+  --abel          ABEL-HDL mode (Data I/O, 1995)
+  --lex           dump tokens
+  --parse         dump AST + RTL
+  --opt           optimise (cprop + pattern match + DCE)
+  --equiv         equivalence check (pre-opt vs post-opt)
+  --hash          print 64-bit fingerprint of synthesised netlist
+  --budget <n>    refuse to emit if live cell count exceeds n
+  --tmr           radiation hardening (triplicate DFFs + voters)
+  --tmr-full      radiation hardening (triplicate everything)
+  --fpga <f>      emit nextpnr JSON for iCE40 FPGA
+  --blif <f>      emit BLIF netlist
+  --yosys <f>     emit Yosys JSON netlist
+  --lib <f>       Liberty .lib cell library
+  --map <f>       emit mapped gate-level Verilog
+  --sta <mhz>     static timing analysis at target frequency
+  --radix <n>     synthesis radix (2=binary, 3=ternary, 12=dozenal...)
+  --lang <en|mi>  message language (en=English, mi=Te Reo Māori)
+  --defs <f>      path to sv_tok.def
+  --help          print full usage (also -h)
+```
+
+### Full pipeline example
+
+```bash
+# Synthesise, map to SKY130, run STA at 100MHz
+./takahe --lib sky130.lib --map out.v --sta 100 design.sv
+
+# Same thing, but the errors are in Te Reo Māori
+./takahe --lib sky130.lib --map out.v --sta 100 --lang mi design.sv
+
+# Ternary synthesis
+./takahe --radix 3 --opt --parse design.sv
+
+# Equivalence check: prove optimisation didn't break anything
+# ≤24 input bits = exhaustive (formal proof), >24 = random simulation
+./takahe --equiv --parse design.sv
+```
+
 ## Thirteen Paradigms
 
 | File | Paradigm | Radix | Origin |
@@ -135,65 +199,6 @@ All synthesise with zero parse errors and zero multi-driver nets:
 **Arrow's impossibility**: A `.def` file that documents its own impossibility. The FAIR voting cell is commented out because Arrow proved in 1951 that no truth table satisfying all three fairness axioms can exist, and the file contains the proof.
 
 **I Ching**: Closes the historical loop. Leibniz saw the trigrams in 1703 and recognised binary arithmetic, Shannon formalised it in 1938, and Takahe generalised beyond it in 2026. The I Ching was a truth table lookup three millennia before anyone called it that.
-
-## Pipeline
-
-```
-SystemVerilog ─┐
-               ├→ lex → parse → elaborate → lower → optimise → bit-blast → map → emit
-VHDL ──────────┘   ↑                                    ↑                     ↑
-              sv_tok.def                           cells_*.def            *.lib
-              vhdl_tok.def
-```
-
-## Building
-
-```bash
-make            # build takahe
-make test       # run tests (70 tests, zero failures)
-make clean      # clean
-```
-
-Requires GCC and nothing else. Zero dependencies beyond libc. C99.
-
-## CLI
-
-```
-takahe [flags] <source.sv|.vhd>
-
-  --vhdl          VHDL mode (IEEE 1076-2008)
-  --lex           dump tokens
-  --parse         dump AST + RTL
-  --opt           optimise (cprop + pattern match + DCE)
-  --equiv         equivalence check (pre-opt vs post-opt)
-  --hash          print 64-bit fingerprint of synthesised netlist
-  --budget <n>    refuse to emit if live cell count exceeds n
-  --blif <f>      emit BLIF netlist
-  --yosys <f>     emit Yosys JSON netlist
-  --lib <f>       Liberty .lib cell library
-  --map <f>       emit mapped gate-level Verilog
-  --sta <mhz>     static timing analysis at target frequency
-  --radix <n>     synthesis radix (2=binary, 3=ternary, 12=dozenal...)
-  --lang <en|mi>  message language (en=English, mi=Te Reo Māori)
-  --defs <f>      path to sv_tok.def
-```
-
-### Full pipeline example
-
-```bash
-# Synthesise, map to SKY130, run STA at 100MHz
-./takahe --lib sky130.lib --map out.v --sta 100 design.sv
-
-# Same thing, but the errors are in Te Reo Māori
-./takahe --lib sky130.lib --map out.v --sta 100 --lang mi design.sv
-
-# Ternary synthesis
-./takahe --radix 3 --opt --parse design.sv
-
-# Equivalence check: prove optimisation didn't break anything
-# ≤24 input bits = exhaustive (formal proof), >24 = random simulation
-./takahe --equiv --parse design.sv
-```
 
 ## ABEND Dumps and Error Codes
 
