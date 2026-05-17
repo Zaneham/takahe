@@ -524,6 +524,13 @@ typedef struct {
     uint8_t   is_reg;      /* 1=registered (has DFF driver)     */
     uint16_t  gen;         /* generation counter                 */
     uint32_t  driver;      /* cell index that drives this net    */
+    /* Source location of the AST node that produced this net.
+     * Zero means "no provenance" (synthesised by a later pass
+     * or simply not populated yet). Self-contained on purpose:
+     * the AST is freed long before opt/xform/tech run. */
+    uint32_t  line;
+    uint16_t  col;
+    uint16_t  pad;
 } rt_net_t;
 
 /* ---- RTL Cell ---- */
@@ -536,6 +543,13 @@ typedef struct {
     uint32_t   width;      /* operation width                    */
     int64_t    param;      /* cell parameter (const value, etc.) */
     uint16_t   gen;        /* generation counter                 */
+    /* Source location, same contract as rt_net_t. Zero means
+     * the cell was synthesised by a pass that did not preserve
+     * provenance, which is fine for now and will be tightened
+     * pass by pass over time. */
+    uint32_t   line;
+    uint16_t   col;
+    uint16_t   pad;
 } rt_cell_t;
 
 /* ---- RTL Module ---- */
@@ -580,6 +594,15 @@ uint32_t     rt_anet (rt_mod_t *M, const char *name, uint16_t nlen,
                       uint32_t width, uint8_t port, uint8_t radix);
 uint32_t     rt_acell(rt_mod_t *M, rt_ctype_t type, uint32_t out,
                       const uint32_t *ins, uint8_t n_in, uint32_t width);
+/* Source-tagged variants. Same semantics, plus the cell or
+ * net is marked with the AST line/col it came from. The
+ * untagged forms above are thin wrappers that pass zero. */
+uint32_t     rt_anet_at (rt_mod_t *M, const char *name, uint16_t nlen,
+                         uint32_t width, uint8_t port, uint8_t radix,
+                         uint32_t line, uint16_t col);
+uint32_t     rt_acell_at(rt_mod_t *M, rt_ctype_t type, uint32_t out,
+                         const uint32_t *ins, uint8_t n_in, uint32_t width,
+                         uint32_t line, uint16_t col);
 void         rt_dump (const rt_mod_t *M);
 const char  *rt_cname(rt_ctype_t t);
 

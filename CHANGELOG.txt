@@ -1,6 +1,40 @@
 CHANGELOG
 =========
 
+2026-05-17  Source-span plumbing
+  - rt_net_t and rt_cell_t gain line and column fields,
+    self-contained so opt and xform passes can read source
+    locations after the AST has long been freed. Eight extra
+    bytes per net and per cell, well within the existing
+    pool budget.
+  - New rt_anet_at and rt_acell_at variants accept source
+    line and column; the untagged rt_anet and rt_acell are
+    now thin wrappers that pass zero, so every existing
+    caller compiles unchanged and gradually migrates as each
+    pass learns to carry provenance forward.
+  - Lowerer updated at six high-value callsites: named
+    identifiers via lw_fnet, port declarations, integer
+    literals, binary operations, unary operations, and
+    ternary expressions. Every cell or net produced by
+    these now remembers where in the source it came from.
+  - tests/tspans.c lands five regression tests under the
+    "spans" category, taking the total to 87. Covers port
+    line numbers, literal line numbers, binary-op line
+    numbers, ternary line numbers, and the strongest
+    property of all: two CONST cells from literals on
+    different source lines must carry different line
+    numbers, so anybody who accidentally hardcodes zero
+    in the future gets caught immediately.
+  - Hash digest unchanged because line and column are
+    deliberately not part of the canonical form. They
+    are provenance, not structure, so cosmetic source
+    reformatting still produces the same fingerprint.
+  - Remaining lowerer callsites still use the untagged
+    variants for now and will migrate as the surrounding
+    code is touched, after which the new fields can feed
+    --annot, span-aware opt-pass propagation, and source
+    pointers in ABEND dumps.
+
 2026-05-16  Cell budget (--budget) plus hash regression suite
   - --budget <n> refuses to emit if the live cell count
     exceeds the limit. Prints a status line either way and

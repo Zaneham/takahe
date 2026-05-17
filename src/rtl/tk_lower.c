@@ -109,6 +109,26 @@ lw_width(const lw_ctx_t *C, uint32_t nidx)
     return 1;  /* default 1-bit */
 }
 
+/* ---- Source location pull from an AST node ----
+ * Used at the rt_*_at callsites so newly created nets and
+ * cells remember where in the user's source they came from.
+ * Out-of-range or sentinel nidx yields zero, which downstream
+ * code treats as "no provenance," same as the untagged path. */
+
+static uint32_t
+lw_line(const lw_ctx_t *C, uint32_t nidx)
+{
+    if (nidx == 0 || nidx >= C->P->n_node) return 0;
+    return C->P->nodes[nidx].line;
+}
+
+static uint16_t
+lw_col(const lw_ctx_t *C, uint32_t nidx)
+{
+    if (nidx == 0 || nidx >= C->P->n_node) return 0;
+    return (uint16_t)C->P->nodes[nidx].col;
+}
+
 /* ---- ceil(log2(n)) — address bits for n elements ---- */
 
 static uint32_t
@@ -240,7 +260,8 @@ lw_fnet(lw_ctx_t *C, uint32_t ast_id)
     }
 
     /* Create new net */
-    ni = rt_anet(C->M, nm, nlen, w, 0, C->radix);
+    ni = rt_anet_at(C->M, nm, nlen, w, 0, C->radix,
+                    lw_line(C, ast_id), lw_col(C, ast_id));
     C->nmap[ast_id] = ni;
     return ni;
 }
@@ -271,8 +292,10 @@ lw_expr(lw_ctx_t *C, uint32_t nidx)
             val = C->cv[nidx].val;
             if (C->cv[nidx].width > 0) cw = C->cv[nidx].width;
         }
-        onet = rt_anet(C->M, "const", 5, cw, 0, C->radix);
-        ci = rt_acell(C->M, RT_CONST, onet, NULL, 0, cw);
+        onet = rt_anet_at(C->M, "const", 5, cw, 0, C->radix,
+                          lw_line(C, nidx), lw_col(C, nidx));
+        ci = rt_acell_at(C->M, RT_CONST, onet, NULL, 0, cw,
+                         lw_line(C, nidx), lw_col(C, nidx));
         if (ci > 0 && ci < C->M->n_cell)
             C->M->cells[ci].param = val;
         return onet;
@@ -329,9 +352,11 @@ lw_expr(lw_ctx_t *C, uint32_t nidx)
             ow = lw > rw ? lw : rw;
         }
 
-        onet = rt_anet(C->M, "tmp", 3, ow, 0, C->radix);
+        onet = rt_anet_at(C->M, "tmp", 3, ow, 0, C->radix,
+                          lw_line(C, nidx), lw_col(C, nidx));
         ins[0] = l; ins[1] = r;
-        rt_acell(C->M, ct, onet, ins, 2, ow);
+        rt_acell_at(C->M, ct, onet, ins, 2, ow,
+                    lw_line(C, nidx), lw_col(C, nidx));
         return onet;
     }
 
@@ -352,16 +377,20 @@ lw_expr(lw_ctx_t *C, uint32_t nidx)
             /* Bitwise NOT: same width as operand */
             uint32_t ow = operand < C->M->n_net ?
                 C->M->nets[operand].width : 1;
-            uint32_t onet = rt_anet(C->M, "tmp", 3, ow, 0, C->radix);
+            uint32_t onet = rt_anet_at(C->M, "tmp", 3, ow, 0, C->radix,
+                                       lw_line(C, nidx), lw_col(C, nidx));
             uint32_t ins[1] = { operand };
-            rt_acell(C->M, RT_NOT, onet, ins, 1, ow);
+            rt_acell_at(C->M, RT_NOT, onet, ins, 1, ow,
+                        lw_line(C, nidx), lw_col(C, nidx));
             return onet;
         }
         if (strcmp(op, "!") == 0) {
             /* Logical NOT: always 1-bit */
-            uint32_t onet = rt_anet(C->M, "tmp", 3, 1, 0, C->radix);
+            uint32_t onet = rt_anet_at(C->M, "tmp", 3, 1, 0, C->radix,
+                                       lw_line(C, nidx), lw_col(C, nidx));
             uint32_t ins[1] = { operand };
-            rt_acell(C->M, RT_NOT, onet, ins, 1, 1);
+            rt_acell_at(C->M, RT_NOT, onet, ins, 1, 1,
+                        lw_line(C, nidx), lw_col(C, nidx));
             return onet;
         }
         return operand;  /* +a is just a */
@@ -535,9 +564,11 @@ lw_expr(lw_ctx_t *C, uint32_t nidx)
         dw0 = d0 < C->M->n_net ? C->M->nets[d0].width : 1;
         ow = dw1 > dw0 ? dw1 : dw0;
 
-        onet = rt_anet(C->M, "tmp", 3, ow, 0, C->radix);
+        onet = rt_anet_at(C->M, "tmp", 3, ow, 0, C->radix,
+                          lw_line(C, nidx), lw_col(C, nidx));
         ins[0] = sel; ins[1] = d0; ins[2] = d1;
-        rt_acell(C->M, RT_MUX, onet, ins, 3, ow);
+        rt_acell_at(C->M, RT_MUX, onet, ins, 3, ow,
+                    lw_line(C, nidx), lw_col(C, nidx));
         return onet;
     }
 
@@ -1455,9 +1486,10 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
             }
 
             if (name_n) {
-                uint32_t ni = rt_anet(C->M,
+                uint32_t ni = rt_anet_at(C->M,
                     lw_text(C, name_n), lw_tlen(C, name_n),
-                    w, dir, C->radix);
+                    w, dir, C->radix,
+                    lw_line(C, c), lw_col(C, c));
                 C->nmap[name_n] = ni;
             }
             break;

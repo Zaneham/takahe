@@ -98,11 +98,15 @@ rt_sint(rt_mod_t *M, const char *s, uint16_t len)
     return off;
 }
 
-/* ---- Add net ---- */
+/* ---- Add net (source-tagged) ----
+ * The real function. Untagged rt_anet below is the thin
+ * wrapper that passes zero, which is fine for callers that
+ * have nothing to say about provenance. */
 
 uint32_t
-rt_anet(rt_mod_t *M, const char *name, uint16_t nlen,
-        uint32_t width, uint8_t port, uint8_t radix)
+rt_anet_at(rt_mod_t *M, const char *name, uint16_t nlen,
+           uint32_t width, uint8_t port, uint8_t radix,
+           uint32_t line, uint16_t col)
 {
     uint32_t idx;
     rt_net_t *n;
@@ -118,15 +122,25 @@ rt_anet(rt_mod_t *M, const char *name, uint16_t nlen,
     n->is_port  = port;
     n->radix    = radix ? radix : TK_RADIX_BIN;
     n->gen      = 1;
+    n->line     = line;
+    n->col      = col;
 
     return idx;
 }
 
-/* ---- Add cell ---- */
+uint32_t
+rt_anet(rt_mod_t *M, const char *name, uint16_t nlen,
+        uint32_t width, uint8_t port, uint8_t radix)
+{
+    return rt_anet_at(M, name, nlen, width, port, radix, 0, 0);
+}
+
+/* ---- Add cell (source-tagged) ---- */
 
 uint32_t
-rt_acell(rt_mod_t *M, rt_ctype_t type, uint32_t out,
-         const uint32_t *ins, uint8_t n_in, uint32_t width)
+rt_acell_at(rt_mod_t *M, rt_ctype_t type, uint32_t out,
+            const uint32_t *ins, uint8_t n_in, uint32_t width,
+            uint32_t line, uint16_t col)
 {
     uint32_t idx;
     rt_cell_t *c;
@@ -142,6 +156,8 @@ rt_acell(rt_mod_t *M, rt_ctype_t type, uint32_t out,
     c->n_in  = n_in > RT_MAX_PIN ? RT_MAX_PIN : n_in;
     c->width = width;
     c->gen   = 1;
+    c->line  = line;
+    c->col   = col;
 
     for (i = 0; i < c->n_in; i++)
         c->ins[i] = ins[i];
@@ -151,6 +167,13 @@ rt_acell(rt_mod_t *M, rt_ctype_t type, uint32_t out,
         M->nets[out].driver = idx;
 
     return idx;
+}
+
+uint32_t
+rt_acell(rt_mod_t *M, rt_ctype_t type, uint32_t out,
+         const uint32_t *ins, uint8_t n_in, uint32_t width)
+{
+    return rt_acell_at(M, type, out, ins, n_in, width, 0, 0);
 }
 
 /* ---- Dump RTL for debugging ---- */
