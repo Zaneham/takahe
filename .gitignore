@@ -36,3 +36,6 @@ CLAUDE.md
 .windsurf/
 .sourcegraph/
 .cody/
+
+# Local planning scratchpads
+list.txt

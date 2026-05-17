@@ -167,6 +167,7 @@ takahe [flags] <source.sv|.vhd>
   --opt           optimise (cprop + pattern match + DCE)
   --equiv         equivalence check (pre-opt vs post-opt)
   --hash          print 64-bit fingerprint of synthesised netlist
+  --budget <n>    refuse to emit if live cell count exceeds n
   --blif <f>      emit BLIF netlist
   --yosys <f>     emit Yosys JSON netlist
   --lib <f>       Liberty .lib cell library
