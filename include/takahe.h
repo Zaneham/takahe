@@ -583,9 +583,88 @@ typedef struct rt_mod_s {
         uint32_t data_w;    /* bits per element */
         uint32_t depth;     /* number of elements */
         uint32_t addr_w;    /* ceil(log2(depth)) */
+        /* Technology-mapping result. prim_set goes to 1 when
+         * mp_mmap finds a primitive that fits this memory and
+         * prim_idx points into the loaded ml_lib_t.prims[]. */
+        uint8_t  prim_set;
+        uint8_t  prim_idx;
+        uint8_t  pad[2];
     } mems[RT_MAX_MEMS];
     uint32_t    n_mem;
 } rt_mod_t;
+
+/* ---- Memory primitive library ----
+ * Loaded from defs/mems_<family>.def files. One file per
+ * FPGA family or PDK. The matcher walks rt_mod_t.mems[]
+ * and picks the lowest-cost primitive that fits, falling
+ * back to "leave as RT_MEMRD/RT_MEMWR" when nothing fits. */
+
+#define ML_MAX_PRIMS    16
+#define ML_MAX_PORTS    4
+#define ML_MAX_WIDTHS   8
+#define ML_NAME_LEN     40
+
+typedef enum {
+    ML_TYPE_BRAM = 0,    /* FPGA block RAM, sync, configurable shape */
+    ML_TYPE_SRAM,        /* ASIC hard macro, fixed shape              */
+    ML_TYPE_LUTRAM,      /* FPGA distributed RAM, async read          */
+    ML_TYPE_SPRAM,       /* iCE40-style single-port RAM               */
+    ML_TYPE_COUNT
+} ml_ptype_t;
+
+typedef enum {
+    ML_PORT_AR = 0,      /* async read only      */
+    ML_PORT_SR,          /* sync read only       */
+    ML_PORT_AW,          /* async write only     */
+    ML_PORT_SW,          /* sync write only      */
+    ML_PORT_ARSW,        /* async read + sync write (LUTRAM shape) */
+    ML_PORT_SRSW,        /* sync read + sync write (1RW SRAM port) */
+    ML_PORT_COUNT
+} ml_pkind_t;
+
+typedef struct {
+    uint8_t  kind;       /* ml_pkind_t */
+    char     name[8];    /* "R" "W" "RW" "A" "B"            */
+    uint8_t  clk;        /* 0=none 1=posedge 2=negedge      */
+    uint8_t  has_we;
+    uint8_t  has_re;
+    uint8_t  has_clken;
+    uint8_t  be_gran;    /* 0=no BE, N=BE granularity bits  */
+    uint8_t  active_low; /* csb/web active low (SKY130)     */
+    uint8_t  abswap;     /* swap N LSBs of address (iCE40)  */
+    uint8_t  pad;
+} ml_port_t;
+
+typedef struct {
+    char       name[ML_NAME_LEN];
+    uint8_t    type;             /* ml_ptype_t                       */
+    uint8_t    abits;            /* address bits at widest config    */
+    uint8_t    n_widths;
+    uint8_t    widths[ML_MAX_WIDTHS];
+    uint32_t   size;             /* total bits                       */
+    uint8_t    init;             /* 0=none 1=zero 2=any              */
+    uint8_t    pad;
+    uint16_t   cost;             /* matcher cost, lower is preferred */
+    uint8_t    n_ports;
+    ml_port_t  ports[ML_MAX_PORTS];
+} ml_prim_t;
+
+typedef struct {
+    ml_prim_t  prims[ML_MAX_PRIMS];
+    uint8_t    n_prim;
+} ml_lib_t;
+
+/* Load a memory primitive library from a .def file. Returns 0
+ * on success, non-zero on parse failure. The library can be
+ * loaded incrementally: call once per .def file and the rules
+ * accumulate up to ML_MAX_PRIMS. */
+int          ml_load (ml_lib_t *lib, const char *path);
+
+/* Walk M->mems[] and attempt to map each to a primitive in
+ * the library. Sets prim_set + prim_idx when a match is
+ * found, leaves them at zero otherwise. Returns the number
+ * of memories successfully mapped. */
+int          mp_mmap (rt_mod_t *M, const ml_lib_t *lib);
 
 /* RTL IR */
 int          rt_init (rt_mod_t *M, uint32_t max_net, uint32_t max_cell);

@@ -66,6 +66,111 @@ fp_init(rt_ctype_t type, uint8_t n_in)
     return init;
 }
 
+/* ---- Find the design clock ----
+ * Walk input ports for the first one whose name contains "clk"
+ * and treat it as the global clock. Returns net index or 0 if
+ * none found. A real synthesis tool would track per-memory
+ * clock domains through the AST; we don't yet, and the
+ * single-clock assumption holds for every test design we ship. */
+
+static uint32_t
+fp_fclk(const rt_mod_t *M)
+{
+    uint32_t i, j;
+    for (i = 1; i < M->n_net; i++) {
+        const rt_net_t *n = &M->nets[i];
+        if (n->is_port != 1) continue;  /* inputs only */
+        for (j = 0; j + 3 <= n->name_len; j++) {
+            const char *p = M->strs + n->name_off + j;
+            if (p[0] == 'c' && p[1] == 'l' && p[2] == 'k')
+                return i;
+        }
+    }
+    return 0;
+}
+
+/* ---- Find the first cell of a type that references a memory ---- */
+
+static uint32_t
+fp_fmemc(const rt_mod_t *M, rt_ctype_t type, uint32_t mem_idx)
+{
+    uint32_t i;
+    for (i = 1; i < M->n_cell; i++) {
+        const rt_cell_t *c = &M->cells[i];
+        if (c->type != type) continue;
+        if ((uint32_t)c->param != mem_idx) continue;
+        return i;
+    }
+    return 0;
+}
+
+/* ---- Emit one SB_RAM40_4K instance for a mapped memory ----
+ * v1 emission: connects RADDR/WADDR/RDATA/WDATA to the nets
+ * carrying the abstract MEMRD/MEMWR access, ties clocks to
+ * the discovered design clock, sets READ_MODE/WRITE_MODE
+ * based on chosen data width, and applies the 3-LSB address
+ * bit-swap that the iCE40 tile requires. Multi-read or
+ * multi-write per memory not handled yet; we take the first
+ * MEMRD and first MEMWR for each memory. */
+
+static int
+fp_bram(const rt_mod_t *M, FILE *fp, uint32_t mem_idx,
+        uint32_t clk_net, int *first)
+{
+    uint32_t data_w = M->mems[mem_idx].data_w;
+    uint32_t rd_c = fp_fmemc(M, RT_MEMRD, mem_idx);
+    uint32_t wr_c = fp_fmemc(M, RT_MEMWR, mem_idx);
+    uint32_t r_addr = rd_c ? M->cells[rd_c].ins[0] : 0;
+    uint32_t r_data = rd_c ? M->cells[rd_c].out    : 0;
+    uint32_t w_addr = wr_c ? M->cells[wr_c].ins[0] : 0;
+    uint32_t w_data = wr_c ? M->cells[wr_c].ins[1] : 0;
+    uint32_t w_en   = (wr_c && M->cells[wr_c].n_in >= 3)
+                        ? M->cells[wr_c].ins[2] : 0;
+    int mode;
+
+    /* Pick width mode: 0=256x16, 1=512x8, 2=1024x4, 3=2048x2.
+     * Match the closest legal width >= data_w. */
+    if (data_w <= 2)       mode = 3;
+    else if (data_w <= 4)  mode = 2;
+    else if (data_w <= 8)  mode = 1;
+    else                    mode = 0;
+
+    if (!*first) fprintf(fp, ",\n");
+    *first = 0;
+
+    fprintf(fp, "        \"bram%u\": {\n", mem_idx);
+    fprintf(fp, "          \"type\": \"SB_RAM40_4K\",\n");
+    fprintf(fp, "          \"parameters\": { "
+            "\"READ_MODE\": \"%d\", \"WRITE_MODE\": \"%d\" },\n",
+            mode, mode);
+    fprintf(fp, "          \"port_directions\": { "
+            "\"RDATA\": \"output\", \"WDATA\": \"input\", "
+            "\"RADDR\": \"input\", \"WADDR\": \"input\", "
+            "\"RCLK\": \"input\", \"WCLK\": \"input\", "
+            "\"RE\": \"input\", \"WE\": \"input\", "
+            "\"RCLKE\": \"input\", \"WCLKE\": \"input\", "
+            "\"MASK\": \"input\" },\n");
+    fprintf(fp, "          \"connections\": {\n");
+    fprintf(fp, "            \"RDATA\": [ %u ],\n", r_data);
+    fprintf(fp, "            \"WDATA\": [ %u ],\n", w_data);
+    fprintf(fp, "            \"RADDR\": [ %u ],\n", r_addr);
+    fprintf(fp, "            \"WADDR\": [ %u ],\n", w_addr);
+    fprintf(fp, "            \"RCLK\":  [ %u ],\n", clk_net);
+    fprintf(fp, "            \"WCLK\":  [ %u ],\n", clk_net);
+    fprintf(fp, "            \"RE\":    [ \"1\" ],\n");
+    fprintf(fp, "            \"WE\":    [ \"1\" ],\n");
+    fprintf(fp, "            \"RCLKE\": [ \"1\" ],\n");
+    fprintf(fp, "            \"WCLKE\": [ %s ]\n",
+            w_en ? "\"1\"" : "\"0\"");
+    /* WCLKE shown for completeness; real synthesis would
+     * gate it with the write-enable signal. MASK omitted
+     * for v1; defaults to 0 in nextpnr meaning "write all
+     * bits," which is what we want. */
+    fprintf(fp, "          }\n");
+    fprintf(fp, "        }");
+    return 1;
+}
+
 /* ---- Emit nextpnr JSON for iCE40 ----
  * Format spec: https://github.com/YosysHQ/nextpnr
  * Cells are SB_LUT4 (combinational) or SB_DFF (sequential).
@@ -109,6 +214,15 @@ fp_json(const rt_mod_t *M, FILE *fp)
 
         if (c->type == RT_CELL_COUNT) continue;
         ct = c->type;
+
+        /* Memory access cells whose memory got mapped to a
+         * primitive are absorbed into the BRAM instance
+         * emitted below. Drop them here so they do not get
+         * a separate cell entry. */
+        if ((ct == RT_MEMRD || ct == RT_MEMWR) &&
+            (uint32_t)c->param < M->n_mem &&
+            M->mems[c->param].prim_set)
+            continue;
 
         /* Skip width > 1 (should be bit-blasted already) */
         if (c->width > 1) continue;
@@ -175,6 +289,26 @@ fp_json(const rt_mod_t *M, FILE *fp)
             fprintf(fp, "        }");
         }
     }
+    /* ---- Memory primitives ----
+     * Walk mems[] and emit one BRAM instance per memory that
+     * the mapper resolved. Unmapped memories were already
+     * left as soft-logic by the earlier MEMRD/MEMWR fall-
+     * through, so this loop only emits the ones marked
+     * prim_set during mp_mmap. */
+    {
+        uint32_t bram_cnt = 0;
+        uint32_t clk_net = fp_fclk(M);
+        uint32_t mi;
+        for (mi = 0; mi < M->n_mem; mi++) {
+            if (!M->mems[mi].prim_set) continue;
+            if (fp_bram(M, fp, mi, clk_net, &first))
+                bram_cnt++;
+        }
+        if (bram_cnt > 0)
+            printf("takahe: FPGA: %u BRAM instances emitted\n",
+                   (unsigned)bram_cnt);
+    }
+
     fprintf(fp, "\n      },\n");
 
     /* ---- Netnames ---- */

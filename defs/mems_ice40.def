@@ -1,0 +1,81 @@
+# Copyright (c) 2026 Zane Hambly
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+# mems_ice40.def -- Memory primitives for Lattice iCE40 FPGAs
+#
+# Grammar (kept deliberately small, see include/takahe.h
+# for the ml_*_t structs the parser fills):
+#
+#   mem <NAME>
+#     type   <bram|sram|lutram|spram>
+#     abits  <N>
+#     widths <W1> [W2 ...]
+#     size   <BITS>
+#     init   <none|zero|any>
+#     cost   <N>            (optional, default 100)
+#     port <kind> <name>
+#       clock     <posedge|negedge|none>
+#       has_we
+#       has_re
+#       has_clken
+#       has_be    <GRANULARITY>
+#       active_low_en
+#       addr_bswap <N>
+#     end
+#   end
+#
+# Comments start with hash. Blank lines fine. One primitive
+# per mem block. New families go in their own .def file.
+# The takahē was once thought extinct; cleaner architectures
+# are a similar story.
+
+# ---- SB_RAM40_4K ----
+# The bread-and-butter iCE40 BRAM tile. 4096 bits, configurable
+# 256x16, 512x8, 1024x4, or 2048x2. Independent read and write
+# clocks, byte-mask write at 16-bit width, an address bit-swap
+# on the three LSBs that Yosys's brams_map.v handles for us
+# (we replicate the same swap in our connection layer).
+
+mem SB_RAM40_4K
+  type   bram
+  abits  11
+  widths 2 4 8 16
+  size   4096
+  init   any
+  cost   100
+  port sr R
+    clock      posedge
+    has_clken
+    addr_bswap 3
+  end
+  port sw W
+    clock      posedge
+    has_clken
+    has_be     16
+    addr_bswap 3
+  end
+end
+
+# ---- SB_SPRAM256KA ----
+# The forgotten cousin. 256K bits single-port, found on the
+# UP5K device, ideal for medium memories that don't fit in a
+# BRAM but don't justify shoehorning a soft-logic fallback.
+
+mem SB_SPRAM256KA
+  type   spram
+  abits  14
+  widths 16
+  size   262144
+  init   none
+  cost   200          # higher than BRAM so BRAM wins when both fit;
+                      # SPRAM only kicks in for memories too large for
+                      # a BRAM (BRAM tile is 4096 bits, SPRAM is 256K)
+  port srsw RW
+    clock     posedge
+    has_we
+    has_be    4
+    has_clken
+  end
+end

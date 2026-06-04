@@ -526,6 +526,22 @@ main(int argc, char **argv)
                                     }
                                 }
                                 if (fpga_path) {
+                                    /* Memory tech-mapping. Run the library
+                                     * against the iCE40 primitives before
+                                     * emitting the JSON, so any inferred
+                                     * memory that fits a BRAM gets marked.
+                                     * Memories that do not fit get left
+                                     * alone (soft-logic emit). */
+                                    {
+                                        ml_lib_t *mlib = (ml_lib_t *)
+                                            calloc(1, sizeof(ml_lib_t));
+                                        if (mlib) {
+                                            if (ml_load(mlib,
+                                                "defs/mems_ice40.def") == 0)
+                                                mp_mmap(rtl, mlib);
+                                            free(mlib);
+                                        }
+                                    }
                                     FILE *ff = fopen(fpga_path, "w");
                                     if (ff) {
                                         fp_json(rtl, ff);

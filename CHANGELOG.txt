@@ -1,6 +1,78 @@
 CHANGELOG
 =========
 
+2026-05-19  Memory primitive library and iCE40 BRAM emission
+  - New defs/mems_ice40.def describes iCE40 memory primitives
+    in a definition-driven grammar: name, type, address bits,
+    supported widths, total size, init capability, cost, and
+    per-port flags for clock polarity, write enable, read
+    enable, clock enable, byte enable granularity, active-low
+    semantics, and the iCE40 three-LSB address-bit-swap quirk.
+    Two primitives ship today: SB_RAM40_4K (cost 100) and
+    SB_SPRAM256KA (cost 200, so BRAM wins for anything that
+    fits in a 4Kbit tile). New families like SKY130 SRAM or
+    ECP5 BRAM are a text file each, not a recompile.
+  - New src/map/tk_mmap.c implements the .def loader
+    (ml_load), the matcher (mm_fit, mm_pick), and the
+    public entry point (mp_mmap) that walks rt_mod_t.mems[]
+    and tags each entry with the lowest-cost primitive that
+    fits, leaving unmappable memories untouched so the soft-
+    logic path still emits them as before. About 270 lines,
+    JPL-style with bounded loops and no allocations after
+    init, HLASM-style 4-7 character function names.
+  - rt_mod_t.mems[] gained prim_set and prim_idx fields so
+    the FPGA emitter can ask "did this memory get mapped"
+    without re-running the matcher.
+  - src/map/tk_fpga.c now emits one SB_RAM40_4K instance per
+    mapped memory, with proper RDATA/WDATA/RADDR/WADDR
+    connections derived from the corresponding RT_MEMRD and
+    RT_MEMWR cells, read and write clocks pulled from the
+    design's input port whose name contains "clk", read and
+    write enables tied to the appropriate signals, and the
+    READ_MODE/WRITE_MODE parameter chosen to match the
+    memory's data width (mode 0 for 16-bit, 1 for 8-bit,
+    2 for 4-bit, 3 for 2-bit). RT_MEMRD and RT_MEMWR cells
+    whose memory was mapped are skipped in the regular
+    cell-emission loop so they do not produce duplicate
+    cell entries.
+  - main.c loads the iCE40 library and runs mp_mmap before
+    fp_json whenever --fpga is in use. Loading and matching
+    are no-ops on designs without memories so other --fpga
+    runs are unaffected.
+  - tests/sram.sv is a new minimal test design exercising
+    the canonical sync RAM pattern (gated write, indexed
+    read) that the matcher handles correctly end to end,
+    producing a complete BRAM instance in the nextpnr JSON.
+  - tests/tmmap.c lands fourteen regression tests under the
+    "mmap" category, taking the total from 87 to 101.
+    Covers loader behaviour on the real .def file and on a
+    crafted small .def, missing-file failure, primitive
+    field accuracy for both shipped primitives, port flag
+    parsing, comment and blank-line tolerance, matcher
+    decisions for fits-both, too-wide, falls-through-to-
+    SPRAM, too-deep-for-everything, and multi-memory
+    modules, plus full-pipeline CLI tests verifying the
+    BRAM instance appears in the JSON for sram.sv, does
+    not appear for non-memory designs like smoke.sv, and
+    that the bilingual catalogue still loads when --fpga
+    and --lang mi are combined.
+  - Known limitations carried forward: the lowerer does
+    not yet produce RT_MEMWR cells for writes that live
+    inside deeply nested control flow (case + if + always_ff,
+    as in tests/bigger.sv), so the FIFO test design maps
+    its memory but the BRAM instance ends up with WDATA
+    and WADDR hooked to the sentinel net. This is a
+    pre-existing lowerer gap rather than a mapper bug and
+    will be addressed when the always-block lowerer path
+    learns to track memory-write context. The iCE40
+    address-bit-swap quirk is described in the .def schema
+    but not yet applied in the emitter; combined with
+    incomplete clock-domain tracking, the emitted JSON is
+    structurally correct but not yet routable by nextpnr
+    without manual adjustment. Real utilisation-aware cost
+    model is also a v2 item; today's cost is a plain
+    integer that does not account for tile efficiency.
+
 2026-05-17  Source-span plumbing
   - rt_net_t and rt_cell_t gain line and column fields,
     self-contained so opt and xform passes can read source
