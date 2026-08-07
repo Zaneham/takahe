@@ -194,3 +194,89 @@ static void sa_lut(void)
     PASS();
 }
 TH_REG("sat", sa_lut)
+
+/* ---- Miter: equivalent designs are unsatisfiable ----
+ * Build two little modules by hand, one a XOR built from AND/OR/NOT,
+ * the other a plain XOR. Same function, different gates. The miter
+ * should find no input that tells them apart. */
+
+static rt_mod_t *
+sat_mk(int as_xor)
+{
+    rt_mod_t *M = (rt_mod_t *)calloc(1, sizeof(rt_mod_t));
+    uint32_t a, b, y, ins[2];
+
+    if (!M) return NULL;
+    if (rt_init(M, 64, 64) != 0) { free(M); return NULL; }
+    a = rt_anet(M, "a", 1, 1, 1, TK_RADIX_BIN);
+    b = rt_anet(M, "b", 1, 1, 1, TK_RADIX_BIN);
+    y = rt_anet(M, "y", 1, 1, 2, TK_RADIX_BIN);
+
+    if (as_xor) {
+        ins[0] = a; ins[1] = b;
+        rt_acell(M, RT_XOR, y, ins, 2, 1);
+    } else {
+        /* y = (a|b) & !(a&b) */
+        uint32_t o = rt_anet(M, "o", 1, 1, 0, TK_RADIX_BIN);
+        uint32_t n = rt_anet(M, "n", 1, 1, 0, TK_RADIX_BIN);
+        ins[0] = a; ins[1] = b; rt_acell(M, RT_OR,   o, ins, 2, 1);
+        ins[0] = a; ins[1] = b; rt_acell(M, RT_NAND, n, ins, 2, 1);
+        ins[0] = o; ins[1] = n; rt_acell(M, RT_AND,  y, ins, 2, 1);
+    }
+    return M;
+}
+
+static void sa_mitr_eq(void)
+{
+    cn_t C;
+    rt_mod_t *A = sat_mk(1), *B = sat_mk(0);
+    uint8_t *m;
+
+    CHECK(A != NULL && B != NULL);
+    CHECK(cn_init(&C, 100000, 800000) == 0);
+    CHECK(cn_mitr(&C, A, B, NULL) != 0);
+
+    m = (uint8_t *)calloc(C.n_var + 2, 1);
+    CHECK(m != NULL);
+    /* UNSAT means nothing distinguishes them, which is the proof */
+    CHECK(sa_solve(&C, m, 1000000) == 0);
+
+    free(m); cn_free(&C);
+    rt_free(A); free(A); rt_free(B); free(B);
+    PASS();
+}
+TH_REG("sat", sa_mitr_eq)
+
+/* ---- Miter: a real difference must be found ----
+ * Same test, except one module computes OR instead of XOR. The solver
+ * has to produce the input that separates them, and a miter that says
+ * UNSAT here would be proving equivalence that isn't there. */
+
+static void sa_mitr_ne(void)
+{
+    cn_t C;
+    rt_mod_t *A = sat_mk(1), *B;
+    uint8_t *m;
+    uint32_t a, b, y, ins[2];
+
+    B = (rt_mod_t *)calloc(1, sizeof(rt_mod_t));
+    CHECK(A != NULL && B != NULL);
+    CHECK(rt_init(B, 64, 64) == 0);
+    a = rt_anet(B, "a", 1, 1, 1, TK_RADIX_BIN);
+    b = rt_anet(B, "b", 1, 1, 1, TK_RADIX_BIN);
+    y = rt_anet(B, "y", 1, 1, 2, TK_RADIX_BIN);
+    ins[0] = a; ins[1] = b;
+    rt_acell(B, RT_OR, y, ins, 2, 1);   /* differs when a and b are both 1 */
+
+    CHECK(cn_init(&C, 100000, 800000) == 0);
+    CHECK(cn_mitr(&C, A, B, NULL) != 0);
+    m = (uint8_t *)calloc(C.n_var + 2, 1);
+    CHECK(m != NULL);
+    CHECK(sa_solve(&C, m, 1000000) == 1);
+    CHECK(sat_ok(&C, m));
+
+    free(m); cn_free(&C);
+    rt_free(A); free(A); rt_free(B); free(B);
+    PASS();
+}
+TH_REG("sat", sa_mitr_ne)

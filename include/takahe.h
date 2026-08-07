@@ -976,6 +976,18 @@ int      cn_lut (cn_t *C, const cd_cell_t *t, uint8_t outsel,
                  const uint32_t *ins, uint8_t n_in, uint32_t out);
 int      cn_dmcs(const cn_t *C, FILE *fp);
 
+/* Encode a combinational bit-level module. vars[] must have room for
+ * M->n_net entries and comes back mapping net -> variable. Returns -1 if
+ * the module holds a cell it cannot encode (a wide operator that was
+ * never bit-blasted, a latch, a memory), because a partial encoding
+ * would prove the wrong thing. */
+int      cn_mod (cn_t *C, const rt_mod_t *M, const cd_lib_t *cd,
+                 uint32_t *vars);
+/* Miter of two modules: same inputs, assert some output differs.
+ * UNSAT means equivalent. Returns the variable asserted, or 0. */
+uint32_t cn_mitr(cn_t *C, const rt_mod_t *A, const rt_mod_t *B,
+                 const cd_lib_t *cd);
+
 /* ---- SAT (tk_sat.c) ----
  * CDCL with watched literals, VSIDS and Luby restarts. Returns 1 for
  * satisfiable and fills model[1..n_var] with 0/1, 0 for unsatisfiable,

@@ -2,6 +2,8 @@ ROADMAP
 =======
 
 Done
+  - SAT-backed equivalence checking via a miter, for bit-level
+    designs, falling back to vectors where it cannot encode
   - Negative-edge clocks (VHDL falling_edge) via a clock inverter,
     so RT_DFF stays posedge-only
   - Structural netlist reading (--netlist), sequential structure
@@ -21,8 +23,9 @@ Done
 Near term
   - More SV: procedural for loops through lowering, multi-clock
   - Enum values usable in case items and expressions
-  - Wire tk_sat.c into --equiv so equivalence is proved rather
-    than sampled (the solver exists; equiv still simulates)
+  - Wire mp_bblst into the flow so --equiv's SAT path applies to
+    ordinary word-level RTL. The miter is in and proves bit-level
+    designs; wide operators still fall back to vectors
   - tk_sat.c needs learnt clause deletion. Heap and phase saving
     are in; a 695k-clause instance solves in 16.5s against
     Cadical's 0.8s, and the clause database still grows unbounded

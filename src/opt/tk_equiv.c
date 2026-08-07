@@ -148,6 +148,47 @@ eq_ports(const rt_mod_t *M, eq_port_t *ports, int max)
  * equivalent, -1 if a mismatch is found, -2 on error.
  * Prints the failing vector on mismatch. */
 
+/* ---- Prove it, if we can ----
+ * Simulation samples the input space. A miter searches it. Where the
+ * design is bit-level and combinational the solver settles the question
+ * outright, so try that first and fall back to vectors when it meets
+ * something it cannot encode. Returns 1 equivalent, 0 different,
+ * -1 could not encode. */
+
+static int
+eq_sat(const rt_mod_t *A, const rt_mod_t *B)
+{
+    cn_t C;
+    uint32_t diff;
+    uint8_t *model;
+    int rc, ret = -1;
+
+    if (cn_init(&C, 4000000u, 40000000u) != 0) return -1;
+    diff = cn_mitr(&C, A, B, NULL);
+    if (diff == 0) { cn_free(&C); return -1; }
+
+    model = (uint8_t *)calloc(C.n_var + 2, 1);
+    if (!model) { cn_free(&C); return -1; }
+
+    rc = sa_solve(&C, model, 20000000ull);
+    if (rc == 0) {
+        printf("takahe: equiv: PASS — proved equivalent "
+               "(%u vars, %u clauses, no distinguishing input exists)\n",
+               C.n_var, C.n_cls);
+        ret = 1;
+    } else if (rc == 1) {
+        printf("takahe: equiv: FAIL — the solver found an input that "
+               "tells them apart\n");
+        ret = 0;
+    }
+    /* rc < 0 means it gave up, which is not an answer, so fall through
+     * to simulation rather than claim one. */
+
+    free(model);
+    cn_free(&C);
+    return ret;
+}
+
 int
 eq_check(const rt_mod_t *A, const rt_mod_t *B)
 {
@@ -166,6 +207,15 @@ eq_check(const rt_mod_t *A, const rt_mod_t *B)
 
     if (!A || !B) return -2;
     if (A->n_net > EQ_MAXNET || B->n_net > EQ_MAXNET) return -2;
+
+    /* A proof beats a sample, so ask the solver first. */
+    {
+        int s = eq_sat(A, B);
+        if (s == 1) return 0;
+        if (s == 0) return -1;
+        printf("takahe: equiv: not encodable for SAT "
+               "(wide or sequential cells), falling back to vectors\n");
+    }
 
     npa = eq_ports(A, pa, 128);
     npb = eq_ports(B, pb, 128);

@@ -1,6 +1,29 @@
 CHANGELOG
 =========
 
+2026-08-08  SAT-backed equivalence checking
+  - cn_mod encodes a bit-level combinational module to CNF, and
+    cn_mitr builds a miter of two of them: inputs tied together,
+    outputs XORed, assert some pair differs. Unsatisfiable means
+    no input tells them apart, which is what equivalence means.
+    Gate clauses come from a computed truth-table mask reusing the
+    same row generator the library cells go through, so there is
+    one place to be wrong rather than nine.
+  - --equiv now tries the miter before falling back to vectors.
+    Where it applies, "PASS" stops meaning "100,000 random vectors
+    failed to find a counterexample" and starts meaning proved.
+  - It refuses rather than guesses. A module holding wide operators
+    that were never bit-blasted, or latches or memories, returns
+    "not encodable for SAT" and drops to simulation with that said
+    out loud. Ordinary word-level RTL still takes the vector path,
+    so the proof currently applies to bit-level designs: recovered
+    netlists, and anything already bit-blasted. Wiring mp_bblst
+    into the flow is what would extend it to the rest.
+  - Two miter tests: one proves a XOR equivalent to (a|b)&!(a&b),
+    one checks a XOR against an OR and requires the solver to
+    produce the distinguishing input. A miter that cannot fail is
+    not a proof of anything. 126 tests.
+
 2026-08-07  SAT solver: decision heap and phase saving
   - tk_sat.c picked its branching variable by scanning every
     variable's activity. Fine at a few hundred variables, ruinous
