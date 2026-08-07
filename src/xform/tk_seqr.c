@@ -32,6 +32,7 @@ sq_comb(rt_ctype_t t)
     switch ((int)t) {
     case RT_DFF:
     case RT_DFFR:
+    case RT_DFFS:
     case RT_DLAT:
         return 0;
     default:
@@ -111,7 +112,8 @@ sq_scan(const rt_mod_t *M, sq_res_t *R)
     /* Collect flops, index them by their Q net */
     for (i = 1; i < M->n_cell; i++) {
         const rt_cell_t *c = &M->cells[i];
-        if (c->type != RT_DFF && c->type != RT_DFFR) continue;
+        if (c->type != RT_DFF && c->type != RT_DFFR &&
+            c->type != RT_DFFS) continue;
         if (R->n_ff >= SQ_MAX_FF) break;
         R->ff[R->n_ff].cell = i;
         R->ff[R->n_ff].q    = c->out;

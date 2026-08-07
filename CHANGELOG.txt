@@ -1,6 +1,40 @@
 CHANGELOG
 =========
 
+2026-08-07  SAT solving, CNF encoding, and preset flops
+  - New src/opt/tk_cnf.c: Tseitin encoding of a recovered netlist
+    into CNF, with k-cycle unrolling so a question about a
+    sequential design becomes a question a solver can answer.
+    Time becomes space. Each cell contributes 2^n clauses from
+    its truth table, which for standard cells is 32 at worst.
+    cn_unrl takes a list of input nets to make free and a list
+    of nets to watch, so constraints can be placed on what the
+    design does over time and not only on one signal at the end.
+    DIMACS output via cn_dmcs for feeding external solvers.
+  - New src/opt/tk_sat.c: CDCL SAT solver. Two watched literals,
+    VSIDS activity, first-UIP conflict learning, Luby restarts.
+    In-tree and dependency-free, because pulling in MiniSat would
+    mean a C++ toolchain for about four hundred lines of
+    bookkeeping. Solves the warm-up inversion (find the input that
+    asserts an output) correctly.
+  - Known limitation, stated plainly: tk_sat.c has no learnt
+    clause deletion, no phase saving, and picks its branching
+    variable by linear scan over activity. That is fine for small
+    instances and gives up on a 700k-clause one, where Cadical
+    finishes in under a second. A decision heap and clause
+    database reduction are the next work.
+  - FIX: preset flops were modelled as starting at zero. sky130's
+    dfstp has `preset : "!SET_B"` in its ff group, so it comes up
+    at ONE. The Liberty loader looked for a pin called RESET_B,
+    found SET_B, and emitted a plain flop with no asynchronous
+    input at all. lb_cell_t gained set_pin, there is a new RT_DFFS
+    cell type carrying the async set, and both tk_sim.c and
+    cn_unrl now start those flops high. Same shape as the
+    falling-edge binding bug: Liberty said so, the loader parsed
+    it, and the value was discarded.
+  - tk_seqr.c and the emitters know about RT_DFFS.
+  - 122 tests, up from 117.
+
 2026-08-07  Netlist reading, cell semantics from Liberty, and a
             cycle simulator
   - New src/tech/tk_lfn.c parses Liberty function expressions

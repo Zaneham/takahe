@@ -314,7 +314,7 @@ lw_scel(lw_ctx_t *C, uint32_t n)
     const lb_cell_t *lc;
     uint32_t ins[RT_MAX_PIN];
     uint32_t onet[CD_MAX_VALS];   /* net per output pin, 0 = unused */
-    uint32_t out = 0, ch, dn = 0, cn = 0, rn = 0;
+    uint32_t out = 0, ch, dn = 0, cn = 0, rn = 0, sn = 0;
     uint8_t  n_in = 0, j, made = 0;
     int      seq;
 
@@ -347,6 +347,7 @@ lw_scel(lw_ctx_t *C, uint32_t n)
                     if ((uint8_t)pi == lc->d_pin)        dn = net;
                     else if ((uint8_t)pi == lc->clk_pin) cn = net;
                     else if ((uint8_t)pi == lc->rst_pin) rn = net;
+                    else if ((uint8_t)pi == lc->set_pin) sn = net;
                 } else if (ord < RT_MAX_PIN) {
                     ins[ord] = net;
                     if (ord + 1 > n_in) n_in = (uint8_t)(ord + 1);
@@ -364,6 +365,12 @@ lw_scel(lw_ctx_t *C, uint32_t n)
         if (rn != 0) {
             ins[2] = rn;
             cx = rt_acell(C->M, RT_DFFR, out, ins, 3, 1);
+        } else if (sn != 0) {
+            /* Async set: this one powers up at one. Calling it a plain
+             * flop starts it at zero and corrupts everything downstream
+             * from the first cycle onward. */
+            ins[2] = sn;
+            cx = rt_acell(C->M, RT_DFFS, out, ins, 3, 1);
         } else {
             cx = rt_acell(C->M, RT_DFF, out, ins, 2, 1);
         }

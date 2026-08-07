@@ -36,7 +36,7 @@ static const char *ctnames[] = {
     "SHL", "SHR", "SHRA",
     "EQ", "NE", "LT", "LE", "GT", "GE",
     "CONST", "ASSIGN", "CONCAT", "SELECT", "PMUX",
-    "MEMRD", "MEMWR", "LUT"
+    "MEMRD", "MEMWR", "LUT", "DFFS"
 };
 
 /* This table shadows rt_ctype_t and nothing forced them to agree,

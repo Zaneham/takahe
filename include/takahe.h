@@ -512,6 +512,10 @@ typedef enum {
                         * the cd library at rt_cell_t.cdix.
                         * How a31o gets to be a first-class
                         * citizen instead of an also-ran.    */
+    RT_DFFS,           /* DFF with async SET: comes up at 1.
+                        * ins[2] is SET_B, active low, same
+                        * shape as RT_DFFR but the opposite
+                        * opinion about where it starts.     */
     RT_CELL_COUNT
 } rt_ctype_t;
 
@@ -813,6 +817,10 @@ typedef struct {
     uint8_t   d_pin;     /* index for D input             */
     uint8_t   q_pin;     /* index for Q output            */
     uint8_t   rst_pin;   /* index for reset (0xFF=none)  */
+    /* Asynchronous set. A cell with `preset` in its ff group comes up at
+     * one, not zero, and calling that "a flop with no reset" quietly
+     * corrupts whatever it feeds from the very first cycle. */
+    uint8_t   set_pin;   /* index for set (0xFF=none)    */
     /* Isolation, level shifter, always-on, integrated clock
      * gate. These compute ordinary functions and are emphatically
      * not ordinary gates, so they stay out of the binding table.
@@ -943,6 +951,46 @@ typedef struct {
 
 int  sq_scan(const rt_mod_t *M, sq_res_t *R);
 void sq_rep (const rt_mod_t *M, const sq_res_t *R);
+
+/* ---- CNF construction (tk_cnf.c) ----
+ * Tseitin encoding of a recovered netlist, optionally unrolled over time,
+ * so a question about the circuit becomes a question for a SAT solver.
+ * Literals follow the DIMACS convention: +v is v, -v is NOT v, and 0 is
+ * not a variable. */
+
+typedef struct {
+    int32_t  *lits;      /* literal pool, clauses laid end to end */
+    uint32_t *cls;       /* start offset of each clause           */
+    uint32_t  n_lit, max_lit;
+    uint32_t  n_cls, max_cls;
+    uint32_t  n_var;
+} cn_t;
+
+int      cn_init(cn_t *C, uint32_t max_cls, uint32_t max_lit);
+void     cn_free(cn_t *C);
+uint32_t cn_var (cn_t *C);
+int      cn_add (cn_t *C, const int32_t *lits, uint32_t n);
+int      cn_unit(cn_t *C, int32_t lit);
+/* Encode one cell's truth table: ins[] are variables, out is a variable. */
+int      cn_lut (cn_t *C, const cd_cell_t *t, uint8_t outsel,
+                 const uint32_t *ins, uint8_t n_in, uint32_t out);
+int      cn_dmcs(const cn_t *C, FILE *fp);
+
+/* ---- SAT (tk_sat.c) ----
+ * CDCL with watched literals, VSIDS and Luby restarts. Returns 1 for
+ * satisfiable and fills model[1..n_var] with 0/1, 0 for unsatisfiable,
+ * and -1 if it gave up on the conflict budget. */
+int      sa_solve(const cn_t *C, uint8_t *model, uint64_t max_conf);
+
+/* Unroll M over k cycles. Every input port named in inets[] gets a fresh
+ * variable each cycle, recorded in inv[t * n_in + j]; every other input
+ * port is held at zero, so pin the ones you care about with unit clauses.
+ * Returns the variable carrying `net` at the last cycle. Flops start at
+ * zero, which is where reset leaves them. */
+uint32_t cn_unrl(cn_t *C, const rt_mod_t *M, const cd_lib_t *cd,
+                 uint32_t k, const uint32_t *inets, uint32_t n_in,
+                 uint32_t net, uint32_t *inv,
+                 const uint32_t *wnets, uint32_t n_w, uint32_t *wv);
 
 /* ---- Cycle simulation of a recovered netlist (tk_sim.c) ----
  * Two-valued, zero-delay, one posedge clock domain. sm_eval

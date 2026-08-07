@@ -148,6 +148,16 @@ sm_eval(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S)
             if (c->out == 0 || c->out >= S->n_net) continue;
 
             if (c->type == RT_DFF) continue;
+            if (c->type == RT_DFFS) {
+                /* Async preset, active low: pulls Q up, not down */
+                uint32_t sp = c->n_in > 2 ? c->ins[2] : 0;
+                if (sp != 0 && sp < S->n_net && S->val[sp] == 0 &&
+                    S->val[c->out] != 1) {
+                    S->val[c->out] = 1;
+                    moved = 1;
+                }
+                continue;
+            }
             if (c->type == RT_DFFR) {
                 uint32_t r = c->n_in > 2 ? c->ins[2] : 0;
                 if (r != 0 && r < S->n_net && S->val[r] == 0 &&
@@ -191,7 +201,8 @@ sm_tick(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S)
 
     for (i = 1; i < M->n_cell; i++) {
         const rt_cell_t *c = &M->cells[i];
-        if (c->type != RT_DFF && c->type != RT_DFFR) continue;
+        if (c->type != RT_DFF && c->type != RT_DFFR &&
+            c->type != RT_DFFS) continue;
         d[i] = (c->n_in > 0 && c->ins[0] < S->n_net) ?
                S->val[c->ins[0]] : 0;
         n++;
@@ -199,12 +210,13 @@ sm_tick(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S)
 
     for (i = 1; i < M->n_cell; i++) {
         const rt_cell_t *c = &M->cells[i];
-        if (c->type != RT_DFF && c->type != RT_DFFR) continue;
+        if (c->type != RT_DFF && c->type != RT_DFFR &&
+            c->type != RT_DFFS) continue;
         if (c->out == 0 || c->out >= S->n_net) continue;
-        if (c->type == RT_DFFR) {
+        if (c->type == RT_DFFR || c->type == RT_DFFS) {
             uint32_t r = c->n_in > 2 ? c->ins[2] : 0;
             if (r != 0 && r < S->n_net && S->val[r] == 0) {
-                S->val[c->out] = 0;
+                S->val[c->out] = (uint8_t)(c->type == RT_DFFS ? 1 : 0);
                 continue;
             }
         }

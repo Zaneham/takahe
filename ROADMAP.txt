@@ -2,6 +2,12 @@ ROADMAP
 =======
 
 Done
+  - Structural netlist reading (--netlist), sequential structure
+    recovery (--seq), cycle simulation of recovered designs
+  - Liberty function expressions parsed into truth tables, so
+    complex cells (a31o, o221a) are understood not just matched
+  - CNF encoding with k-cycle unrolling, plus an in-tree CDCL
+    SAT solver
   - TMR radiation hardening (--tmr, --tmr-full)
   - Package/import support with typedef enum width propagation
   - FPGA targeting (iCE40 via nextpnr JSON)
@@ -13,7 +19,13 @@ Done
 Near term
   - More SV: procedural for loops through lowering, multi-clock
   - Enum values usable in case items and expressions
-  - SAT-based formal equivalence (replace simulation)
+  - Wire tk_sat.c into --equiv so equivalence is proved rather
+    than sampled (the solver exists; equiv still simulates)
+  - tk_sat.c needs a decision heap, learnt clause deletion and
+    phase saving before it can face large instances
+  - VHDL clocked processes hardcode posedge (vh_parse.c), so
+    falling_edge() synthesises wrong. Same bug class as the
+    dfrtn/dfrtp binding fix.
   - Fix dozenal/qsim equivalence checker failures (optimiser bugs)
 
 Medium term

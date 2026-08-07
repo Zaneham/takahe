@@ -418,6 +418,7 @@ lb_load(lb_lib_t *lib, const char *path)
             cell->d_pin = 0xFF;
             cell->q_pin = 0xFF;
             cell->rst_pin = 0xFF;
+            cell->set_pin = 0xFF;
 
             /* Parse cell body */
             depth = 1;
@@ -536,6 +537,7 @@ lb_load(lb_lib_t *lib, const char *path)
                         const char *clkon = NULL; uint16_t cll = 0;
                         const char *nxst = NULL; uint16_t nxl = 0;
                         const char *clr = NULL; uint16_t crl = 0;
+                        const char *pst = NULL; uint16_t pl2 = 0;
                         p++;
                         KA_GUARD(gff, 10000);
                         while (p < end && fdepth > 0 && gff--) {
@@ -549,6 +551,8 @@ lb_load(lb_lib_t *lib, const char *path)
                                 p = lb_cval(p, end, &nxst, &nxl);
                             else if (lb_kw(p, end, "clear", 5))
                                 p = lb_cval(p, end, &clr, &crl);
+                            else if (lb_kw(p, end, "preset", 6))
+                                p = lb_cval(p, end, &pst, &pl2);
                             else {
                                 while (p < end && *p != ';' && *p != '{' && *p != '}') p++;
                                 if (p < end && *p == ';') p++;
@@ -556,7 +560,9 @@ lb_load(lb_lib_t *lib, const char *path)
                         }
                         if (clkon && cll > 0 && clkon[0] == '!')
                             cell->negclk = 1;
-                        (void)nxst; (void)clr;
+                        /* preset says the flop comes up at one; the pin
+                         * itself is found by name below. */
+                        (void)pst; (void)pl2; (void)nxst; (void)clr;
                     }
                 } else if (lb_kw(p, end, "latch", 5)) {
                     cell->kind = LB_DLAT;
@@ -587,6 +593,8 @@ lb_load(lb_lib_t *lib, const char *path)
                         cell->q_pin = j;
                     else if (pl == 7 && memcmp(pn, "RESET_B", 7) == 0)
                         cell->rst_pin = j;
+                    else if (pl == 5 && memcmp(pn, "SET_B", 5) == 0)
+                        cell->set_pin = j;
                 }
             }
 

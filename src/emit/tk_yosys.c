@@ -48,6 +48,7 @@ ys_ctyp(rt_ctype_t t)
     case RT_GE:     return "$ge";
     case RT_DFF:    return "$dff";
     case RT_DFFR:   return "$adff";
+    case RT_DFFS:   return "$adff";   /* async set, polarity in params */
     case RT_DLAT:   return "$dlatch";
     case RT_CONCAT: return "$concat";
     case RT_SELECT: return "$slice";
