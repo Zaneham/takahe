@@ -140,6 +140,8 @@ takahe [flags] <source.sv|.vhd|.abl>
   --yosys <f>     emit Yosys JSON netlist
   --lib <f>       Liberty .lib cell library
   --map <f>       emit mapped gate-level Verilog
+  --netlist       read a structural gate netlist (needs --lib)
+  --seq           report recovered registers and shift chains
   --sta <mhz>     static timing analysis at target frequency
   --radix <n>     synthesis radix (2=binary, 3=ternary, 12=dozenal...)
   --lang <en|mi>  message language (en=English, mi=Te Reo Māori)
@@ -163,6 +165,47 @@ takahe [flags] <source.sv|.vhd|.abl>
 # ≤24 input bits = exhaustive (formal proof), >24 = random simulation
 ./takahe --equiv --parse design.sv
 ```
+
+## Reading Netlists Back In
+
+Synthesis goes source to gates. `--netlist` goes the other way: hand it a
+structural netlist full of standard cells and it rebuilds the design in the
+same IR that synthesis uses.
+
+```bash
+# Read a gate netlist and report what the flops are doing
+./takahe --netlist --seq --lib sky130.lib recovered.v
+```
+
+```
+takahe: RTL: 84 nets, 79 cells
+takahe: seq: 16 flops (2 held, 14 shift, 0 multi-source)
+  chain 0: 8 stages, head net '\a_reg[0]'
+  chain 1: 8 stages, head net '\b_reg[0]'
+  group 0: 8 flops, clock 'clknet_1_1__leaf_clk'
+  group 1: 8 flops, clock 'clknet_1_0__leaf_clk'
+```
+
+Nothing in that netlist says "shift register". `--seq` works it out twice over,
+once by walking each flop's D cone back to whichever flops feed it, and again by
+grouping flops that share control signals. Two 8-bit registers, agreed on by
+both methods.
+
+Cell behaviour comes from the Liberty file rather than from a table of known
+gate names, so a cell like `a31o` (`X = (A1&A2&A3) | B1`) is understood rather
+than merely recognised. 347 of SKY130's 428 cells build an exact truth table;
+the remainder are flops and physical fill, which are handled separately or not
+at all.
+
+Because the same tool synthesises, it can also hand the design back:
+
+```bash
+# Read a netlist, write it out again
+./takahe --netlist --lib sky130.lib --map out.v recovered.v
+```
+
+Read, emit, and re-read gives the same net count, cell count and register
+structure, which is a decent check that nothing was lost in the middle.
 
 ## Thirteen Paradigms
 

@@ -433,6 +433,13 @@ lb_load(lb_lib_t *lib, const char *path)
                     const char *av; uint16_t al;
                     p = lb_cval(p, end, &av, &al);
                     cell->area = (float)strtod(av, NULL);
+                } else if (lb_kw(p, end, "is_isolation_cell", 17) ||
+                           lb_kw(p, end, "is_level_shifter", 16) ||
+                           lb_kw(p, end, "always_on", 9) ||
+                           lb_kw(p, end, "clock_gating_integrated_cell", 28)) {
+                    const char *av; uint16_t al;
+                    p = lb_cval(p, end, &av, &al);
+                    cell->special = 1;
                 } else if (lb_kw(p, end, "pg_pin", 6)) {
                     /* Skip power/ground pins entirely */
                     while (p < end && *p != '{') p++;
@@ -547,7 +554,9 @@ lb_load(lb_lib_t *lib, const char *path)
                                 if (p < end && *p == ';') p++;
                             }
                         }
-                        (void)clkon; (void)nxst; (void)clr;
+                        if (clkon && cll > 0 && clkon[0] == '!')
+                            cell->negclk = 1;
+                        (void)nxst; (void)clr;
                     }
                 } else if (lb_kw(p, end, "latch", 5)) {
                     cell->kind = LB_DLAT;

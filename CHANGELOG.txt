@@ -1,6 +1,80 @@
 CHANGELOG
 =========
 
+2026-08-07  Netlist reading, cell semantics from Liberty, and a
+            cycle simulator
+  - New src/tech/tk_lfn.c parses Liberty function expressions
+    properly and evaluates them into cd_cell_t truth tables.
+    Shunting-yard to RPN then an iterative stack walk, so no
+    recursion and every loop bounded. Handles Liberty's implicit
+    AND ("A1 B1"), postfix negation ("A'"), both spellings of
+    each operator, and bare 0/1 constants. 347 of SKY130's 428
+    cells now build an exact truth table. The 81 that don't are
+    63 sequential and 18 physical fill, which is precisely the
+    set that shouldn't.
+  - tk_bind.c no longer classifies cells by string-matching
+    their function against nineteen hardcoded patterns. It
+    builds the truth table and compares tables instead, which
+    is how a31o and friends stop being invisible. Mapped output
+    for existing designs is unchanged, so this is a change of
+    method rather than of result.
+  - FIX: mp_bind could bind RT_DFF and RT_DFFR to a falling-edge
+    cell. dfrtn_1 is 25.02um2 and clocks on !CLK_N; dfrtp_2 is
+    26.28um2 and clocks on CLK, so choosing on area alone picked
+    the wrong edge. RT_DFF means posedge. lb_cell_t gained
+    negclk, set from the clocked_on expression the loader was
+    already parsing and discarding, and mp_bind skips those
+    cells. tests/out_mapped.v changes accordingly: eight flops
+    that were dfrtn_1 are now dfrtp_1. Designs synthesised
+    before this sampled on the wrong clock edge.
+  - FIX: mp_bind also bound ordinary logic to special-purpose
+    cells. lpflow_inputiso1p_1 is an isolation cell whose
+    function is (A|SLEEP), which is an OR by truth table and
+    emphatically not an OR by intent. lb_cell_t gained special,
+    set from is_isolation_cell, is_level_shifter, always_on and
+    clock_gating_integrated_cell, and those cells stay out of
+    the binding table.
+  - New --netlist mode reads a structural gate netlist. The SV
+    parser already handled module instantiation, so this is a
+    second resolution path in the lowerer: an instance matching
+    no module is looked up in the Liberty library instead of
+    being shrugged off as a black box. Combinational cells
+    become RT_LUT carrying their truth table; flops keep their
+    own type and remember which part they were.
+  - New RT_LUT cell type plus rt_cell_t.cdix, which indexes the
+    cd library. Sits in what used to be padding, so rt_cell_t
+    is the same size it was.
+  - New src/xform/tk_seqr.c recovers sequential structure. Walks
+    each flop's D cone back to whichever flops feed it, then
+    classifies: fed by one other flop is a shift stage, fed by
+    several is real state. Self-reference is tracked separately
+    from external sources, which is what stops an enable mux
+    from obscuring a shift register. Also groups flops by shared
+    control signals, after HAL's DANA. Reported by --seq.
+  - New src/xform/tk_sim.c simulates a recovered netlist.
+    Two-valued, zero-delay, one posedge domain. Combinational
+    logic settles by iterating to a fixed point and reports
+    failure to settle rather than truncating, because a
+    combinational loop is worth knowing about. All D inputs are
+    sampled before any Q moves, so shift registers shift by one
+    rather than racing to the end.
+  - em_vlogn emits recovered cells, so a netlist read in comes
+    back out as the same cells. Read, emit and re-read gives
+    identical net count, cell count and register structure.
+  - FIX: escaped identifiers were emitted without their
+    terminating whitespace. A Verilog escaped identifier runs
+    from the backslash to the next space, so "\a_reg[0]_7)"
+    swallowed the bracket and the paren with it. Anything
+    consuming the emitted netlist, OpenROAD included, would
+    have choked on names carried over from a netlist.
+  - FIX: adding a cell type read one past the end of the
+    ctnames[] table in tk_rtl.c and printed a garbage pointer,
+    because nothing forced that table to agree with rt_ctype_t.
+    There is now a compile-time size assertion, so the next
+    person gets a build error rather than a crash three files
+    away.
+  - 117 tests, up from 106.
+
 2026-05-19  Memory primitive library and iCE40 BRAM emission
   - New defs/mems_ice40.def describes iCE40 memory primitives
     in a definition-driven grammar: name, type, address bits,

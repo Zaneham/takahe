@@ -508,6 +508,10 @@ typedef enum {
     RT_PMUX,           /* Priority mux (case statement)      */
     RT_MEMRD,          /* Memory read port                   */
     RT_MEMWR,          /* Memory write port                  */
+    RT_LUT,            /* Arbitrary function, truth table in
+                        * the cd library at rt_cell_t.cdix.
+                        * How a31o gets to be a first-class
+                        * citizen instead of an also-ran.    */
     RT_CELL_COUNT
 } rt_ctype_t;
 
@@ -549,7 +553,10 @@ typedef struct {
      * pass by pass over time. */
     uint32_t   line;
     uint16_t   col;
-    uint16_t   pad;
+    /* RT_LUT only: index of this cell's truth table in the cd
+     * library. Sits in what used to be padding, so the struct
+     * costs the same as it did yesterday. */
+    uint16_t   cdix;
 } rt_cell_t;
 
 /* ---- RTL Module ---- */
@@ -698,6 +705,8 @@ rt_mod_t  *lw_build(const tk_parse_t *P, const ce_val_t *cv,
 rt_mod_t  *lw_build_r(const tk_parse_t *P, const ce_val_t *cv,
                       const wi_val_t *wv, uint32_t nvals,
                       uint8_t radix);
+/* lw_build_n (structural netlist mode) is declared further down,
+ * once the Liberty and cell-def types exist. */
 
 /* Optimisation — see below for op_cprop/op_opt (need cd_lib_t) */
 uint32_t    *rt_fan  (rt_mod_t *M);
@@ -804,6 +813,16 @@ typedef struct {
     uint8_t   d_pin;     /* index for D input             */
     uint8_t   q_pin;     /* index for Q output            */
     uint8_t   rst_pin;   /* index for reset (0xFF=none)  */
+    /* Isolation, level shifter, always-on, integrated clock
+     * gate. These compute ordinary functions and are emphatically
+     * not ordinary gates, so they stay out of the binding table.
+     * An isolation cell is an OR gate the way a fire door is a
+     * door. */
+    uint8_t   special;
+    /* clocked_on starts with '!', so this one samples on the
+     * falling edge. RT_DFF means posedge, and binding it to a
+     * negedge cell inverts the whole design very quietly. */
+    uint8_t   negclk;
 
     /* Timing — worst-case corners. The pessimist's view
      * of a cell, which is the only safe view when you're
@@ -864,6 +883,83 @@ const cd_cell_t *cd_find(const cd_lib_t *lib, const char *name,
                           uint8_t radix);
 int8_t cd_eval(const cd_cell_t *cell, const int8_t *ins,
                int8_t *outs);
+
+/* Liberty function string into a cd truth table (tk_lfn.c).
+ * Returns -1 for anything not expressible as one, sequential
+ * cells included, rather than guessing. */
+int  lb_fbld(const lb_lib_t *lib, const lb_cell_t *cell,
+             cd_cell_t *out);
+const lb_cell_t *lb_fcel(const lb_lib_t *lib, const char *name,
+                         uint16_t len);
+int  lb_cdix(const lb_lib_t *lib, const lb_cell_t *cell,
+             cd_lib_t *cd);
+
+/* Structural netlist mode: unresolved instances are looked up
+ * in the Liberty library rather than treated as black boxes. */
+rt_mod_t  *lw_build_n(const tk_parse_t *P, const ce_val_t *cv,
+                      const wi_val_t *wv, uint32_t nvals,
+                      const lb_lib_t *lib, cd_lib_t *cdl);
+
+/* ---- Sequential structure recovery (tk_seqr.c) ----
+ * What the flops are doing, worked out from the netlist graph
+ * rather than from a name someone helpfully left behind. */
+
+#define SQ_MAX_FF   1024   /* flops we'll analyse           */
+#define SQ_MAX_SRC     4   /* distinct flop sources stored  */
+#define SQ_MAX_STK  4096   /* cone-walk worklist depth      */
+
+typedef enum {
+    SQ_HOLD = 0,   /* D depends on no flop but possibly itself */
+    SQ_SHIFT,      /* D depends on exactly one other flop      */
+    SQ_FSM         /* D depends on several: real state         */
+} sq_kind_t;
+
+typedef struct {
+    uint32_t cell;              /* flop cell index            */
+    uint32_t q, d;              /* output and D-input nets    */
+    uint32_t clk, rst;          /* control nets               */
+    uint32_t src[SQ_MAX_SRC];   /* other flops feeding D      */
+    uint32_t nsrc;
+    uint32_t indeg, outdeg;     /* degrees in the shift graph */
+    uint8_t  self;              /* D cone includes own Q      */
+    uint8_t  kind;
+    int32_t  chain;             /* chain id, -1 if none       */
+    uint32_t pos;               /* position along that chain  */
+    int32_t  grp;               /* control-signal group id    */
+} sq_ff_t;
+
+typedef struct {
+    sq_ff_t  ff[SQ_MAX_FF];
+    uint32_t n_ff;
+    uint32_t n_chain;
+    uint32_t chlen[SQ_MAX_FF];
+    uint32_t chhead[SQ_MAX_FF];
+    /* Registers grouped by shared control signals, after DANA.
+     * Flops that clock and reset together are usually one word. */
+    uint32_t n_grp;
+    uint32_t grplen[SQ_MAX_FF];
+    uint32_t grpff[SQ_MAX_FF];  /* a representative flop per group */
+} sq_res_t;
+
+int  sq_scan(const rt_mod_t *M, sq_res_t *R);
+void sq_rep (const rt_mod_t *M, const sq_res_t *R);
+
+/* ---- Cycle simulation of a recovered netlist (tk_sim.c) ----
+ * Two-valued, zero-delay, one posedge clock domain. sm_eval
+ * returns 1 if the logic won't settle, which means a loop. */
+
+typedef struct {
+    uint8_t *val;      /* current value per net */
+    uint32_t n_net;
+} sm_st_t;
+
+int      sm_init(sm_st_t *S, const rt_mod_t *M);
+void     sm_free(sm_st_t *S);
+uint32_t sm_net (const rt_mod_t *M, const char *name);
+int      sm_set (sm_st_t *S, uint32_t net, uint8_t v);
+int      sm_get (const sm_st_t *S, uint32_t net);
+int      sm_eval(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S);
+int      sm_tick(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S);
 
 /* Optimisation (cd may be NULL for pure binary) */
 int          op_cprop(rt_mod_t *M, const cd_lib_t *cd);
@@ -929,6 +1025,11 @@ int          op_tdopt(rt_mod_t *M, const lb_lib_t *lib,
                       mp_bind_t *tbl, tk_fs_t clk_fs);
 
 /* Gate-level Verilog emitter */
+/* Emit recovered cells too: cd supplies the original library
+ * gate name behind each RT_LUT. Gates in, HDL back out. */
+int          em_vlogn(const rt_mod_t *M, const lb_lib_t *lib,
+                      const mp_bind_t *tbl, const cd_lib_t *cd,
+                      FILE *fp);
 int          em_vlog(const rt_mod_t *M, const lb_lib_t *lib,
                      const mp_bind_t *tbl, FILE *fp);
 

@@ -38,6 +38,8 @@ usage(const char *prog)
     printf("  --tmr-full  radiation hardening (triplicate everything)\n");
     printf("  --fpga <f>  emit nextpnr JSON for iCE40 FPGA\n");
     printf("  --lib <f>   Liberty .lib cell library for technology mapping\n");
+    printf("  --netlist   read a structural gate netlist (needs --lib)\n");
+    printf("  --seq       report recovered shift registers and state\n");
     printf("  --map <f>   emit mapped gate-level Verilog\n\n");
     printf("output formats:\n");
     printf("  --blif <f>  emit BLIF netlist\n");
@@ -68,6 +70,8 @@ main(int argc, char **argv)
     int mode_vhdl = 0;
     int mode_abel = 0;
     int mode_equiv = 0;
+    int mode_nlst = 0;   /* read a structural netlist, not RTL */
+    int mode_seq = 0;    /* report recovered sequential structure */
     int mode_hash = 0;
     int budget = 0;
     int exit_code = 0;
@@ -100,6 +104,12 @@ main(int argc, char **argv)
             mode_parse = 1;
         } else if (strcmp(argv[i], "--lib") == 0 && i + 1 < argc) {
             lib_path = argv[++i];
+        } else if (strcmp(argv[i], "--netlist") == 0) {
+            mode_nlst = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--seq") == 0) {
+            mode_seq = 1;
+            mode_parse = 1;
         } else if (strcmp(argv[i], "--map") == 0 && i + 1 < argc) {
             map_path = argv[++i];
             mode_opt = 1;
@@ -412,7 +422,28 @@ main(int argc, char **argv)
                         /* RTL Lowering */
                         {
                             rt_mod_t *rtl;
-                            if (radix != TK_RADIX_BIN) {
+                            lb_lib_t *nlib = NULL;
+                            cd_lib_t *ncd = NULL;
+
+                            /* Netlist mode needs the library up front,
+                             * because the cells ARE the design. */
+                            if (mode_nlst && lib_path) {
+                                nlib = (lb_lib_t *)calloc(1, sizeof(lb_lib_t));
+                                ncd = (cd_lib_t *)calloc(1, sizeof(cd_lib_t));
+                                if (!nlib || !ncd ||
+                                    lb_load(nlib, lib_path) != 0) {
+                                    free(nlib); free(ncd);
+                                    nlib = NULL; ncd = NULL;
+                                }
+                            }
+                            if (mode_nlst && !nlib)
+                                fprintf(stderr, "takahe: --netlist needs a "
+                                        "readable --lib <file>\n");
+
+                            if (nlib) {
+                                rtl = lw_build_n(P, cvals, wvals,
+                                                 P->n_node, nlib, ncd);
+                            } else if (radix != TK_RADIX_BIN) {
                                 rtl = lw_build_r(P, cvals, wvals,
                                                  P->n_node, (uint8_t)radix);
                                 printf("takahe: radix %d synthesis\n", radix);
@@ -420,8 +451,8 @@ main(int argc, char **argv)
                                 rtl = lw_build(P, cvals, wvals, P->n_node);
                             }
                             /* Load cell defs — pick file by radix */
-                            cd_lib_t *cdlib = NULL;
-                            {
+                            cd_lib_t *cdlib = ncd;
+                            if (!cdlib) {
                                 cd_lib_t *cl = (cd_lib_t *)calloc(1, sizeof(cd_lib_t));
                                 const char *cdf = "defs/cells.def";
                                 if (radix == 3) cdf = "defs/cells_ter.def";
@@ -434,6 +465,18 @@ main(int argc, char **argv)
                                         cdlib = cl;
                                     else
                                         free(cl);
+                                }
+                            }
+                            /* Report structure before the optimiser
+                             * gets at it — we want what the netlist
+                             * actually says, not a tidied version. */
+                            if (rtl && mode_seq) {
+                                sq_res_t *sr = (sq_res_t *)calloc(1,
+                                                    sizeof(sq_res_t));
+                                if (sr) {
+                                    if (sq_scan(rtl, sr) == 0)
+                                        sq_rep(rtl, sr);
+                                    free(sr);
                                 }
                             }
                             if (rtl) {
@@ -618,7 +661,8 @@ main(int argc, char **argv)
                                             {
                                                 FILE *mf = fopen(map_path, "w");
                                                 if (mf) {
-                                                    em_vlog(rtl, llib, btbl, mf);
+                                                    em_vlogn(rtl, llib, btbl,
+                                                             ncd, mf);
                                                     fclose(mf);
                                                     printf("takahe: wrote %s\n",
                                                            map_path);

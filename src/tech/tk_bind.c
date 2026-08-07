@@ -6,137 +6,108 @@
 /*
  * tk_bind.c -- Cell binding for Takahe
  *
- * Maps each RTL cell type to the best-matching library gate.
- * Classifies Liberty cells by their function strings: (A&B)
- * is AND, (!A|!B) is NAND, etc. Picks the smallest-area
- * variant of each type.
+ * Maps each RTL cell type to the best-matching library gate,
+ * smallest area wins. The binding table is just a lookup,
+ * RT_AND → cell index 42.
  *
- * The binding table is just a lookup: RT_AND → cell index 42.
- * The hard work is classifying function strings, which is
- * substring matching rather than boolean algebra because
- * Liberty function expressions are normalised enough that
- * pattern matching works and saves us writing a parser
- * for a parser for a parser.
+ * The hard work is deciding what a library cell actually does.
+ * That used to be substring matching on the function string,
+ * on the theory that Liberty is normalised enough to get away
+ * with it. It isn't. Every PDK spells things differently and
+ * SKY130 writes xor2 the long way round.
+ *
+ * So the expression gets parsed and evaluated into a truth
+ * table instead, and we compare tables. Boolean algebra doesn't
+ * care how you spell it.
  */
 
 #include "takahe.h"
 
-/* ---- Function string pattern matching ---- */
+/* ---- Classification by truth table ----
+ * We used to substring-match the function string, which worked
+ * for and2 and quietly gave up on everything harder. Now the
+ * expression gets parsed and evaluated (tk_lfn.c) and we compare
+ * the resulting truth table against what each gate should be.
+ * Costs a few hundred microseconds once, and stops SKY130's
+ * habit of writing xor2 longhand from fooling us. */
+
+#define M_NOT   0x1u   /* 1 input:  f(0)=1               */
+#define M_BUF   0x2u   /* 1 input:  f(1)=1               */
+#define M_AND   0x8u   /* 2 inputs, bit i = f(i)         */
+#define M_OR    0xEu
+#define M_XOR   0x6u
+#define M_NAND  0x7u
+#define M_NOR   0x1u
+#define M_XNOR  0x9u
+
+/* Pack the single output column into a bitmask, row index first
+ * input in the low bit. Only meaningful for narrow cells. */
+
+static uint32_t
+fn_mask(const cd_cell_t *c)
+{
+    uint32_t m = 0;
+    uint16_t r;
+
+    for (r = 0; r < c->n_row && r < 32; r++)
+        if (c->rows[r].outs[0]) m |= 1u << r;
+    return m;
+}
+
+/* A mux is a mux whichever order the pins came in, so try each
+ * candidate select line rather than trusting a pin called S. */
 
 static int
-fn_match(const char *fn, uint16_t len, const char *pat)
+fn_mux(const cd_cell_t *c)
 {
-    uint16_t plen = (uint16_t)strlen(pat);
-    uint16_t i;
-    if (len < plen) return 0;
-    for (i = 0; i <= len - plen; i++) {
-        if (memcmp(fn + i, pat, plen) == 0) return 1;
+    uint8_t s, a, b;
+    uint16_t r;
+
+    if (c->n_in != 3) return 0;
+
+    for (s = 0; s < 3; s++) {
+        for (a = 0; a < 3; a++) {
+            if (a == s) continue;
+            b = (uint8_t)(3 - s - a);
+            for (r = 0; r < c->n_row; r++) {
+                const cd_row_t *w = &c->rows[r];
+                int8_t want = w->ins[s] ? w->ins[b] : w->ins[a];
+                if (w->outs[0] != want) break;
+            }
+            if (r == c->n_row) return 1;
+        }
     }
     return 0;
 }
 
-static int
-fn_is(const char *fn, uint16_t len, const char *exact)
-{
-    uint16_t elen = (uint16_t)strlen(exact);
-    while (len > 0 && (*fn == ' ' || *fn == '(')) { fn++; len--; }
-    while (len > 0 && (fn[len-1] == ' ' || fn[len-1] == ')')) len--;
-    return (len == elen && memcmp(fn, exact, elen) == 0);
-}
-
-/* Classify a combinational cell by its output function string */
-
-/* Normalize a Liberty function string for matching.
- * Strips spaces, maps pin names to canonical A/B/C/S,
- * replaces * with & and + with |.
- * GF180 uses A1,A2,I; ASAP7 uses "!A * !B" with spaces;
- * SKY130 uses A,B with &|. After normalization they all
- * look the same. Like translating Sumerian, Akkadian, and
- * Greek prices into the same currency. */
-
-static uint16_t
-fn_norm(const char *fn, uint16_t fl, char *out, uint16_t cap)
-{
-    uint16_t i, o = 0;
-    for (i = 0; i < fl && o < cap - 1; i++) {
-        char c = fn[i];
-        if (c == ' ' || c == '\t') continue; /* strip spaces */
-        if (c == '*') c = '&';  /* normalize AND */
-        if (c == '+') c = '|';  /* normalize OR */
-        /* Map pin names: A1→A, A2→B, B1→C, B2→D, I→A */
-        if (c == 'I' && (i + 1 >= fl || !((fn[i+1] >= 'A' && fn[i+1] <= 'Z') ||
-            (fn[i+1] >= 'a' && fn[i+1] <= 'z') || fn[i+1] == '_'))) {
-            /* Standalone I → A (for inverters like GF180 "(!I)") */
-            c = 'A';
-        }
-        if (c == 'A' && i + 1 < fl && fn[i+1] == '1') { c = 'A'; i++; }
-        else if (c == 'A' && i + 1 < fl && fn[i+1] == '2') { c = 'B'; i++; }
-        else if (c == 'B' && i + 1 < fl && fn[i+1] == '1') { c = 'C'; i++; }
-        else if (c == 'B' && i + 1 < fl && fn[i+1] == '2') { c = 'D'; i++; }
-        out[o++] = c;
-    }
-    out[o] = '\0';
-    return o;
-}
-
 static rt_ctype_t
-fn_cls(const lb_lib_t *lib, const lb_cell_t *cell)
+fn_cls(const lb_lib_t *lib, const lb_cell_t *cell, cd_cell_t *scr)
 {
-    uint8_t j;
-    const char *fn = NULL;
-    uint16_t fl = 0;
-    char nb[128]; /* normalized buffer */
-    uint16_t nl;
+    uint32_t m;
 
-    for (j = 0; j < cell->n_pin; j++) {
-        if (cell->pins[j].dir == LB_DIR_OUT &&
-            cell->pins[j].func_len > 0) {
-            fn = lib->strs + cell->pins[j].func_off;
-            fl = cell->pins[j].func_len;
-            break;
-        }
+    if (lb_fbld(lib, cell, scr) != 0) return RT_CELL_COUNT;
+    if (scr->n_out != 1) return RT_CELL_COUNT;
+
+    m = fn_mask(scr);
+
+    switch ((int)scr->n_in) {
+    case 1:
+        if (m == M_NOT) return RT_NOT;
+        if (m == M_BUF) return RT_BUF;
+        return RT_CELL_COUNT;
+    case 2:
+        if (m == M_AND)  return RT_AND;
+        if (m == M_OR)   return RT_OR;
+        if (m == M_XOR)  return RT_XOR;
+        if (m == M_NAND) return RT_NAND;
+        if (m == M_NOR)  return RT_NOR;
+        if (m == M_XNOR) return RT_XNOR;
+        return RT_CELL_COUNT;
+    case 3:
+        return fn_mux(scr) ? RT_MUX : RT_CELL_COUNT;
+    default:
+        return RT_CELL_COUNT;
     }
-    if (!fn || fl == 0) return RT_CELL_COUNT;
-
-    /* Normalize for matching */
-    nl = fn_norm(fn, fl, nb, 128);
-    fn = nb;
-    fl = nl;
-
-    /* After normalization: & = AND, | = OR, A/B/C = pins.
-     * All PDKs speak the same language now. */
-    if (cell->n_in == 2) {
-        if (fn_is(fn, fl, "A&B"))  return RT_AND;
-        if (fn_is(fn, fl, "A|B") || fn_match(fn, fl, "(A)|(B)"))
-            return RT_OR;
-        if (fn_match(fn, fl, "A^B") ||
-            (fn_match(fn, fl, "A&!B") && fn_match(fn, fl, "!A&B")))
-            return RT_XOR;
-        if (fn_is(fn, fl, "!A|!B") ||
-            fn_match(fn, fl, "!(A&B)") ||
-            fn_is(fn, fl, "(!A)|(!B)"))
-            return RT_NAND;
-        if (fn_is(fn, fl, "!A&!B") ||
-            fn_match(fn, fl, "!(A|B)") ||
-            fn_is(fn, fl, "(!A)&(!B)"))
-            return RT_NOR;
-        if (fn_match(fn, fl, "!(A^B)") ||
-            (fn_match(fn, fl, "!A&!B") && fn_match(fn, fl, "A&B")))
-            return RT_XNOR;
-    }
-
-    if (cell->n_in == 1) {
-        if (fn_is(fn, fl, "!A")) return RT_NOT;
-        if (fn_is(fn, fl, "A"))  return RT_BUF;
-    }
-
-    if (cell->n_in == 3 &&
-        fn_match(fn, fl, "&!S") &&
-        fn_match(fn, fl, "&S") &&
-        !fn_match(fn, fl, "!A"))
-        return RT_MUX;
-
-    return RT_CELL_COUNT;
 }
 
 /* ---- Public: bind library cells to RTL types ---- */
@@ -146,6 +117,9 @@ mp_bind(const lb_lib_t *lib, mp_bind_t *tbl)
 {
     uint32_t i;
     int bound = 0;
+    /* One scratch table reused across the library. 4KB on the
+     * stack rather than a malloc we'd have to justify. */
+    cd_cell_t scr;
 
     memset(tbl, 0, (size_t)RT_CELL_COUNT * sizeof(mp_bind_t));
 
@@ -153,14 +127,26 @@ mp_bind(const lb_lib_t *lib, mp_bind_t *tbl)
         const lb_cell_t *cell = &lib->cells[i];
         rt_ctype_t ct;
 
+        if (cell->special) continue;
+
         if (cell->kind == LB_DFF) {
+            /* RT_DFF is posedge by definition. dfrtn_1 is a whisker
+             * smaller than dfrtp_2, so area alone would happily pick
+             * the falling-edge part and invert the design.
+             *
+             * I sat reading Liberty's ff group semantics for far
+             * longer than I'd like to admit before the penny
+             * dropped: clocked_on is an expression, not a pin, and
+             * a leading ! is the entire difference between rising
+             * and falling. One character, whole design. */
+            if (cell->negclk) continue;
             ct = cell->rst_pin != 0xFF ? RT_DFFR : RT_DFF;
         } else if (cell->kind == LB_DLAT) {
             ct = RT_DLAT;
         } else if (cell->kind == LB_TIE) {
             ct = RT_CONST;
         } else {
-            ct = fn_cls(lib, cell);
+            ct = fn_cls(lib, cell, &scr);
         }
 
         if (ct >= RT_CELL_COUNT) continue;

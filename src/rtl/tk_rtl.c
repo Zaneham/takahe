@@ -36,8 +36,14 @@ static const char *ctnames[] = {
     "SHL", "SHR", "SHRA",
     "EQ", "NE", "LT", "LE", "GT", "GE",
     "CONST", "ASSIGN", "CONCAT", "SELECT", "PMUX",
-    "MEMRD", "MEMWR"
+    "MEMRD", "MEMWR", "LUT"
 };
+
+/* This table shadows rt_ctype_t and nothing forced them to agree,
+ * so adding a cell type used to buy you a read one past the end
+ * and a segfault three files away. Now it won't compile. */
+typedef char rt_ctn_chk[
+    (sizeof(ctnames) / sizeof(ctnames[0]) == RT_CELL_COUNT) ? 1 : -1];
 
 const char *
 rt_cname(rt_ctype_t t)

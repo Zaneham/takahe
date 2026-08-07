@@ -51,9 +51,12 @@ SRCS = src/main.c \
        src/xform/tk_espresso.c \
        src/xform/tk_espro.c \
        src/xform/tk_tmr.c \
+       src/xform/tk_seqr.c \
+       src/xform/tk_sim.c \
        src/tech/tk_cdef.c \
        src/tech/tk_lib.c \
        src/tech/tk_bind.c \
+       src/tech/tk_lfn.c \
        src/tech/tk_pchip.c \
        src/tech/tk_sta.c \
        src/tech/tk_tdopt.c \
@@ -84,7 +87,8 @@ $(TARGET): $(OBJS)
 # Tests
 TEST_SRCS = tests/tmain.c tests/tlex.c tests/tparse.c tests/telab.c \
             tests/trtl.c tests/topt.c tests/tmap.c tests/tvhdl.c \
-            tests/tabel.c tests/thash.c tests/tspans.c tests/tmmap.c
+            tests/tabel.c tests/thash.c tests/tspans.c tests/tmmap.c \
+            tests/tlfn.c tests/tnlst.c
 TEST_TARGET = trunner
 
 ifeq ($(OS),Windows_NT)

@@ -53,6 +53,13 @@ typedef struct {
      * Set by lw_ifmux when descending into an if body,
      * cleared when leaving. 0 = unconditional. */
     uint32_t mem_we;
+
+    /* Netlist mode. When a library is present, an instance that
+     * resolves to no module gets looked up here instead of being
+     * shrugged off as a black box. This is what lets us read a
+     * netlist back in rather than only ever emitting one. */
+    const lb_lib_t *lib;
+    cd_lib_t       *cdl;
 } lw_ctx_t;
 
 /* ---- Sequential redirect helpers ---- */
@@ -264,6 +271,131 @@ lw_fnet(lw_ctx_t *C, uint32_t ast_id)
                     lw_line(C, ast_id), lw_col(C, ast_id));
     C->nmap[ast_id] = ni;
     return ni;
+}
+
+/* ---- Pin lookup on a library cell ----
+ * Returns the pin index, and its position among the inputs in
+ * declaration order, which is the order lb_fbld used when it
+ * built the truth table. */
+
+static int
+lw_lpin(const lb_lib_t *lib, const lb_cell_t *lc, const char *nm,
+        uint16_t nl, uint8_t *ord)
+{
+    uint8_t j, ki = 0, ko = 0;
+
+    for (j = 0; j < lc->n_pin; j++) {
+        const lb_pin_t *p = &lc->pins[j];
+        if (p->name_len == nl &&
+            memcmp(lib->strs + p->name_off, nm, (size_t)nl) == 0) {
+            *ord = (p->dir == LB_DIR_OUT) ? ko : ki;
+            return (int)j;
+        }
+        if (p->dir == LB_DIR_IN) ki++;
+        else if (p->dir == LB_DIR_OUT) ko++;
+    }
+    return -1;
+}
+
+/* ---- Lower a standard-cell instance ----
+ * Port connections arrive as CONN children carrying a pin name
+ * and a net, so we match by name and never have to guess at
+ * positional order.
+ *
+ * Combinational cells become RT_LUT with their truth table
+ * interned in the cd library. Flops keep their own type, state
+ * not being something a truth table has opinions about.
+ *
+ * Returns 1 if a cell was created, 0 if we couldn't. */
+
+static int
+lw_scel(lw_ctx_t *C, uint32_t n)
+{
+    const lb_cell_t *lc;
+    uint32_t ins[RT_MAX_PIN];
+    uint32_t onet[CD_MAX_VALS];   /* net per output pin, 0 = unused */
+    uint32_t out = 0, ch, dn = 0, cn = 0, rn = 0;
+    uint8_t  n_in = 0, j, made = 0;
+    int      seq;
+
+    lc = lb_fcel(C->lib, lw_text(C, n), lw_tlen(C, n));
+    if (!lc) return 0;
+
+    seq = (lc->kind == LB_DFF);
+    memset(ins, 0, sizeof(ins));
+    memset(onet, 0, sizeof(onet));
+
+    ch = C->P->nodes[n].first_child;
+    {
+    KA_GUARD(g, 256);
+    while (ch && g--) {
+        if (C->P->nodes[ch].type == TK_AST_CONN) {
+            uint32_t vn = C->P->nodes[ch].first_child;
+            uint8_t  ord = 0;
+            int      pi = lw_lpin(C->lib, lc, lw_text(C, ch),
+                                  lw_tlen(C, ch), &ord);
+            uint32_t net = vn ? lw_fnet(C, vn) : 0;
+
+            if (pi >= 0 && net != 0) {
+                if (lc->pins[pi].dir == LB_DIR_OUT) {
+                    if (seq) {
+                        if ((uint8_t)pi == lc->q_pin) out = net;
+                    } else if (ord < CD_MAX_VALS) {
+                        onet[ord] = net;
+                    }
+                } else if (seq) {
+                    if ((uint8_t)pi == lc->d_pin)        dn = net;
+                    else if ((uint8_t)pi == lc->clk_pin) cn = net;
+                    else if ((uint8_t)pi == lc->rst_pin) rn = net;
+                } else if (ord < RT_MAX_PIN) {
+                    ins[ord] = net;
+                    if (ord + 1 > n_in) n_in = (uint8_t)(ord + 1);
+                }
+            }
+        }
+        ch = C->P->nodes[ch].next_sib;
+    }
+    }
+
+    if (seq) {
+        uint32_t cx;
+        if (out == 0 || dn == 0 || cn == 0) return 0;
+        ins[0] = dn; ins[1] = cn;
+        if (rn != 0) {
+            ins[2] = rn;
+            cx = rt_acell(C->M, RT_DFFR, out, ins, 3, 1);
+        } else {
+            cx = rt_acell(C->M, RT_DFF, out, ins, 2, 1);
+        }
+        if (cx == 0) return 0;
+        /* Remember which flop it actually was. Re-binding by area
+         * on the way out would swap a rising-edge part for a
+         * falling-edge one, and the design would be wrong in a way
+         * that still simulates. */
+        C->M->cells[cx].param = (int64_t)(lc - C->lib->cells) + 1;
+        C->M->nets[out].is_reg = 1;
+        return 1;
+    }
+
+    /* One cell per connected output. Tie cells hand you HI and LO
+     * from the same instance, and keeping only the last one seen
+     * would be a quiet way to lose half the constants in a design.
+     * param carries which column of the truth table this cell reads. */
+    {
+        int ci = lb_cdix(C->lib, lc, C->cdl);
+        if (ci < 0) return 0;
+
+        for (j = 0; j < CD_MAX_VALS; j++) {
+            uint32_t cx;
+            if (onet[j] == 0) continue;
+            cx = rt_acell(C->M, RT_LUT, onet[j], ins, n_in, 1);
+            if (cx == 0) continue;
+            C->M->cells[cx].cdix = (uint16_t)ci;
+            C->M->cells[cx].param = (int64_t)j;
+            made++;
+        }
+    }
+    return made ? 1 : 0;
 }
 
 /* ---- Lower expression to net index ----
@@ -1587,8 +1719,14 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
         {
             /* Module instantiation: wire port connections.
              * The instance's op field holds (mod_index + 1)
-             * as set by fl_annot. If 0, it's a black box. */
+             * as set by fl_annot. If 0, it's a black box —
+             * unless we're reading a netlist, in which case
+             * the library knows exactly what it is. */
             uint32_t mi = (uint32_t)n->op;
+            if (mi == 0 && C->lib && C->cdl) {
+                lw_scel(C, c);
+                break;
+            }
             if (mi > 0) {
                 /* Find the module definition node */
                 uint32_t mod_def = 0;
@@ -1885,7 +2023,8 @@ lw_dffs(lw_ctx_t *C, uint32_t mod_n, uint32_t net_lo)
 
 static rt_mod_t *
 lw_core(const tk_parse_t *P, const ce_val_t *cv,
-        const wi_val_t *wv, uint32_t nvals, uint8_t radix)
+        const wi_val_t *wv, uint32_t nvals, uint8_t radix,
+        const lb_lib_t *lib, cd_lib_t *cdl)
 {
     lw_ctx_t C;
     rt_mod_t *M;
@@ -1908,6 +2047,8 @@ lw_core(const tk_parse_t *P, const ce_val_t *cv,
     C.nvals = nvals;
     C.M     = M;
     C.radix = radix;
+    C.lib   = lib;
+    C.cdl   = cdl;
 
     /* Net mapping table */
     C.nmap = (uint32_t *)calloc(P->n_node, sizeof(uint32_t));
@@ -2031,7 +2172,11 @@ lw_core(const tk_parse_t *P, const ce_val_t *cv,
                         }
                     }
 
-                    lw_dffs(&C, mods[mi], nlo);
+                    /* DFF inference reads always_ff sensitivity
+                     * lists, which a gate netlist hasn't got. The
+                     * flops are already there as cells, so running
+                     * it would bolt a second one onto each. */
+                    if (!C.lib) lw_dffs(&C, mods[mi], nlo);
                     memset(C.nmap, 0, P->n_node * sizeof(uint32_t));
                 }
             }
@@ -2051,14 +2196,14 @@ rt_mod_t *
 lw_build(const tk_parse_t *P, const ce_val_t *cv,
          const wi_val_t *wv, uint32_t nvals)
 {
-    return lw_core(P, cv, wv, nvals, TK_RADIX_BIN);
+    return lw_core(P, cv, wv, nvals, TK_RADIX_BIN, NULL, NULL);
 }
 
 rt_mod_t *
 lw_build_r(const tk_parse_t *P, const ce_val_t *cv,
            const wi_val_t *wv, uint32_t nvals, uint8_t radix)
 {
-    return lw_core(P, cv, wv, nvals, radix);
+    return lw_core(P, cv, wv, nvals, radix, NULL, NULL);
 }
 
 /* ---- Public: lower, dump, free (original API) ---- */
@@ -2067,11 +2212,24 @@ int
 lw_lower(const tk_parse_t *P, const ce_val_t *cv,
          const wi_val_t *wv, uint32_t nvals)
 {
-    rt_mod_t *M = lw_core(P, cv, wv, nvals, TK_RADIX_BIN);
+    rt_mod_t *M = lw_core(P, cv, wv, nvals, TK_RADIX_BIN, NULL, NULL);
     if (!M) return -1;
 
     rt_dump(M);
     rt_free(M);
     free(M);
     return 0;
+}
+
+/* ---- Public: build RTL from a structural netlist ----
+ * Same lowering, except instances that match no module get
+ * resolved against the Liberty library instead of ignored.
+ * Gates in rather than gates out, for once. */
+
+rt_mod_t *
+lw_build_n(const tk_parse_t *P, const ce_val_t *cv,
+           const wi_val_t *wv, uint32_t nvals,
+           const lb_lib_t *lib, cd_lib_t *cdl)
+{
+    return lw_core(P, cv, wv, nvals, TK_RADIX_BIN, lib, cdl);
 }

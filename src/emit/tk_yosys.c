@@ -56,6 +56,10 @@ ys_ctyp(rt_ctype_t t)
     case RT_MEMWR:  return "$memwr";
     case RT_ASSIGN: return "$buf";
     case RT_CONST:  return NULL;  /* inline, no cell */
+    /* Yosys has no word-level equivalent of an arbitrary truth
+     * table, so a LUT needs $lut with its mask spelled out. Not
+     * emitting a wrong cell until that's written. */
+    case RT_LUT:    return NULL;
     case RT_CELL_COUNT: return NULL;
     default:        return NULL;
     }

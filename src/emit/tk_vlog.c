@@ -49,6 +49,30 @@ em_isrsv(const char *nm, uint16_t len)
     return 0;
 }
 
+/* ---- Terminate an escaped identifier ----
+ * A Verilog escaped identifier runs from the backslash to the
+ * next whitespace, so "\a_reg[0]_7)" quietly eats the bracket
+ * and the paren with it. Names arriving from a netlist already
+ * carry their backslash; what they lose is the trailing space.
+ *
+ * I lost a genuinely embarrassing amount of time to this one.
+ * The emitted file looked perfect. It was the whitespace that
+ * was load-bearing, which is not a sentence I enjoy writing.
+ * IEEE 1800-2017 section 5.6.1 if you want it from the source. */
+
+static void
+em_esc(char *buf, int bsz)
+{
+    size_t l;
+
+    if (!buf || buf[0] != '\\') return;
+    l = strlen(buf);
+    if (l > 0 && buf[l - 1] == ' ') return;
+    if ((int)l + 2 > bsz) return;
+    buf[l] = ' ';
+    buf[l + 1] = '\0';
+}
+
 /* ---- Net name helper ----
  * Handles: empty names, reserved words, bus indexing. */
 
@@ -107,6 +131,7 @@ em_nnam(const rt_mod_t *M, uint32_t ni, char *buf, int bsz)
                 snprintf(buf, (size_t)bsz, "\\%.*s ", (int)nl, nm);
         }
     }
+    em_esc(buf, bsz);
     return buf;
 }
 
@@ -222,6 +247,22 @@ em_opin(const lb_lib_t *lib, const lb_cell_t *lc)
     return "Y";
 }
 
+/* ---- Nth output pin, for cells that drive more than one ----
+ * conb hands you HI and LO, and a recovered LUT knows which of
+ * the two it reads via its param. */
+
+static const char *
+em_opix(const lb_lib_t *lib, const lb_cell_t *lc, uint8_t idx)
+{
+    uint8_t j, k = 0;
+    for (j = 0; j < lc->n_pin && j < LB_MAX_PINS; j++) {
+        if (lc->pins[j].dir != LB_DIR_OUT) continue;
+        if (k == idx) return lib->strs + lc->pins[j].name_off;
+        k++;
+    }
+    return em_opin(lib, lc);
+}
+
 /* ---- Find the design's module name ---- */
 
 static const char *
@@ -235,8 +276,8 @@ em_mname(const rt_mod_t *M)
 /* ---- Public: emit gate-level structural Verilog ---- */
 
 int
-em_vlog(const rt_mod_t *M, const lb_lib_t *lib,
-        const mp_bind_t *tbl, FILE *fp)
+em_vlogn(const rt_mod_t *M, const lb_lib_t *lib,
+         const mp_bind_t *tbl, const cd_lib_t *cd, FILE *fp)
 {
     uint32_t i;
     uint32_t ucnt = 0;
@@ -499,14 +540,32 @@ wires:
         /* Already handled above as reg arrays + always blocks */
         if (ct == RT_MEMRD || ct == RT_MEMWR) continue;
 
-        /* Look up mapped cell */
-        if (!tbl[ct].valid) {
+        /* A recovered cell names its own library gate, so it goes
+         * back out as whatever it came in as. */
+        if (ct == RT_LUT) {
+            const cd_cell_t *tc;
+            if (!cd || c->cdix >= cd->n_cell) {
+                fprintf(fp, "// UNMAPPED: LUT with no truth table\n");
+                continue;
+            }
+            tc = &cd->cells[c->cdix];
+            lc = lb_fcel(lib, tc->name, (uint16_t)strlen(tc->name));
+            if (!lc) {
+                fprintf(fp, "// UNMAPPED: %s not in library\n", tc->name);
+                continue;
+            }
+        } else if (cd && (ct == RT_DFF || ct == RT_DFFR) &&
+                   c->param > 0 &&
+                   (uint32_t)c->param <= lib->n_cell) {
+            /* Recovered flop: emit the part that was actually there */
+            lc = &lib->cells[c->param - 1];
+        } else if (!tbl[ct].valid) {
             fprintf(fp, "// UNMAPPED: %s w=%u\n",
                     rt_cname(ct), c->width);
             continue;
+        } else {
+            lc = &lib->cells[tbl[ct].cell_idx];
         }
-
-        lc = &lib->cells[tbl[ct].cell_idx];
         cname = lib->strs + lc->name_off;
 
         fprintf(fp, "%.*s U%u ( ",
@@ -582,6 +641,30 @@ wires:
                     em_cnet(M, c->out, nb, 64));
             break;
 
+        case RT_LUT:
+        {
+            /* Inputs are in Liberty declaration order, which is
+             * the order lw_scel filled them in. */
+            uint8_t j2;
+            int icnt = 0;
+            for (j2 = 0; j2 < lc->n_pin && j2 < LB_MAX_PINS; j2++) {
+                if (lc->pins[j2].dir != LB_DIR_IN) continue;
+                if (icnt < (int)c->n_in) {
+                    if (icnt > 0) fprintf(fp, ", ");
+                    fprintf(fp, ".%.*s(%s)",
+                            (int)lc->pins[j2].name_len,
+                            lib->strs + lc->pins[j2].name_off,
+                            em_cin(M, c->ins[icnt], n0, 64));
+                }
+                icnt++;
+            }
+            if (icnt > 0) fprintf(fp, ", ");
+            fprintf(fp, ".%s(%s)",
+                    em_opix(lib, lc, (uint8_t)c->param),
+                    em_cnet(M, c->out, nb, 64));
+            break;
+        }
+
         default:
         {
             const char *opin = em_opin(lib, lc);
@@ -613,4 +696,13 @@ wires:
 
     printf("takahe: emitted %u cell instances\n", ucnt);
     return 0;
+}
+
+/* ---- Public: original signature, no recovered cells ---- */
+
+int
+em_vlog(const rt_mod_t *M, const lb_lib_t *lib,
+        const mp_bind_t *tbl, FILE *fp)
+{
+    return em_vlogn(M, lib, tbl, NULL, fp);
 }
