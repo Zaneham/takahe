@@ -18,6 +18,11 @@
  * Literals are encoded as 2*var for the positive and 2*var+1 for the
  * negative, so the watch lists index straight in without a branch. The
  * DIMACS convention stays at the boundary, where it belongs.
+ *
+ * Still missing: learnt clause deletion. The database grows without
+ * bound, so very long runs will exhaust the pool rather than slow down
+ * gracefully. Fine for what it is pointed at today, and the next thing
+ * to add.
  */
 
 #include "takahe.h"
@@ -54,9 +59,81 @@ typedef struct {
     uint32_t *wl;        /* watch lists, flattened               */
     uint32_t *wn, *wcap, *woff;
 
+    /* Decision heap. A linear scan over activity is fine at a few
+     * hundred variables and ruinous at eighty thousand, which is
+     * exactly the size that matters. Binary max-heap, lazy: a
+     * variable may sit in the heap while assigned, and gets skipped
+     * on the way out. */
+    uint32_t *heap;      /* heap of variable indices            */
+    int32_t  *hpos;      /* variable -> index in heap, -1 if out */
+    uint32_t  n_heap;
+
+    uint8_t  *phase;     /* last value each variable took       */
+
     uint64_t  conf;
     double    vinc;
 } sa_t;
+
+/* ---- Decision heap ---- */
+
+static void
+sa_hup(sa_t *S, uint32_t i)
+{
+    uint32_t v = S->heap[i];
+    while (i > 0) {
+        uint32_t p = (i - 1) >> 1;
+        if (S->act[S->heap[p]] >= S->act[v]) break;
+        S->heap[i] = S->heap[p];
+        S->hpos[S->heap[i]] = (int32_t)i;
+        i = p;
+    }
+    S->heap[i] = v;
+    S->hpos[v] = (int32_t)i;
+}
+
+static void
+sa_hdn(sa_t *S, uint32_t i)
+{
+    uint32_t v = S->heap[i];
+    for (;;) {
+        uint32_t c = 2 * i + 1;
+        if (c >= S->n_heap) break;
+        if (c + 1 < S->n_heap && S->act[S->heap[c + 1]] > S->act[S->heap[c]])
+            c++;
+        if (S->act[S->heap[c]] <= S->act[v]) break;
+        S->heap[i] = S->heap[c];
+        S->hpos[S->heap[i]] = (int32_t)i;
+        i = c;
+    }
+    S->heap[i] = v;
+    S->hpos[v] = (int32_t)i;
+}
+
+static void
+sa_hins(sa_t *S, uint32_t v)
+{
+    if (S->hpos[v] >= 0) return;
+    S->heap[S->n_heap] = v;
+    S->hpos[v] = (int32_t)S->n_heap;
+    S->n_heap++;
+    sa_hup(S, S->n_heap - 1);
+}
+
+static uint32_t
+sa_hpop(sa_t *S)
+{
+    uint32_t top;
+    if (S->n_heap == 0) return 0;
+    top = S->heap[0];
+    S->hpos[top] = -1;
+    S->n_heap--;
+    if (S->n_heap > 0) {
+        S->heap[0] = S->heap[S->n_heap];
+        S->hpos[S->heap[0]] = 0;
+        sa_hdn(S, 0);
+    }
+    return top;
+}
 
 
 /* ---- Watch lists ----
@@ -104,6 +181,7 @@ sa_assign(sa_t *S, uint32_t lit, uint32_t reason)
 {
     uint32_t v = VAR(lit);
     S->val[v] = SIGN(lit) ? SA_FALSE : SA_TRUE;
+    S->phase[v] = S->val[v];        /* remember for the next decision */
     S->level[v] = S->dl;
     S->reason[v] = reason;
     S->trail[S->n_trail++] = lit;
@@ -176,6 +254,7 @@ sa_learn(sa_t *S, uint32_t conf, uint32_t *out, uint32_t *nout,
             if (S->seen[v] || S->level[v] == 0) continue;
             S->seen[v] = 1;
             S->act[v] += S->vinc;
+            if (S->hpos[v] >= 0) sa_hup(S, (uint32_t)S->hpos[v]);
             if (S->level[v] >= S->dl) cnt++;
             else out[n++] = q;
         }
@@ -212,6 +291,7 @@ sa_cancel(sa_t *S, int32_t lvl)
         uint32_t v = VAR(S->trail[i - 1]);
         S->val[v] = SA_UNDEF;
         S->reason[v] = 0;
+        sa_hins(S, v);
     }
     S->n_trail = S->lim[lvl];
     S->qhead = S->n_trail;
@@ -279,11 +359,23 @@ sa_solve(const cn_t *C, uint8_t *model, uint64_t max_conf)
     S.wcap   = (uint32_t *)calloc(nl + 2, sizeof(uint32_t));
     S.woff   = (uint32_t *)calloc(nl + 4, sizeof(uint32_t));
     S.wl     = (uint32_t *)malloc(sizeof(uint32_t) * 16);
+    S.heap   = (uint32_t *)malloc((size_t)(nv + 2) * sizeof(uint32_t));
+    S.hpos   = (int32_t  *)malloc((size_t)(nv + 2) * sizeof(int32_t));
+    S.phase  = (uint8_t  *)calloc(nv + 2, 1);
     learnt   = (uint32_t *)malloc((size_t)(nv + 4) * sizeof(uint32_t));
 
     if (!S.lits || !S.start || !S.val || !S.level || !S.reason || !S.act ||
         !S.seen || !S.trail || !S.lim || !S.wn || !S.wcap || !S.woff ||
-        !S.wl || !learnt) { rc = -1; goto done; }
+        !S.wl || !learnt || !S.heap || !S.hpos || !S.phase) {
+        rc = -1; goto done;
+    }
+
+    /* Every variable starts in the heap, all at zero activity, so the
+     * first decisions come out in index order until conflicts start
+     * saying something more useful. */
+    for (i = 1; i <= nv; i++) S.hpos[i] = -1;
+    S.hpos[0] = -1;
+    for (i = 1; i <= nv; i++) sa_hins(&S, i);
 
     S.start[0] = 0;
     S.vinc = 1.0;
@@ -349,16 +441,22 @@ sa_solve(const cn_t *C, uint8_t *model, uint64_t max_conf)
         /* Branch on the unassigned variable with the highest activity */
         {
             uint32_t best = 0;
-            double ba = -1.0;
-            for (i = 1; i <= nv; i++)
-                if (S.val[i] == SA_UNDEF && S.act[i] > ba) {
-                    ba = S.act[i]; best = i;
-                }
+            /* Pop until an unassigned variable turns up. The heap is
+             * lazy, so assigned variables can still be sitting in it. */
+            for (;;) {
+                best = sa_hpop(&S);
+                if (best == 0) break;
+                if (S.val[best] == SA_UNDEF) break;
+            }
             if (best == 0) { rc = 1; goto done; }
             S.lim[S.dl] = S.n_trail;
             S.dl++;
             S.lim[S.dl] = S.n_trail;
-            sa_assign(&S, (best << 1) | 1u, 0);   /* try false first */
+            /* Phase saving: go back to whatever this variable last was.
+             * Restarts throw away the search tree, not what we learned
+             * about which way each variable wants to sit. */
+            sa_assign(&S, (best << 1) |
+                      (S.phase[best] == SA_TRUE ? 0u : 1u), 0);
         }
     }
 
@@ -370,6 +468,7 @@ done:
     free(S.lits); free(S.start); free(S.val); free(S.level);
     free(S.reason); free(S.act); free(S.seen); free(S.trail);
     free(S.lim); free(S.wn); free(S.wcap); free(S.woff); free(S.wl);
+    free(S.heap); free(S.hpos); free(S.phase);
     free(learnt);
     return rc;
 }

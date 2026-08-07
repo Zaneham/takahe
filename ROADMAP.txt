@@ -23,8 +23,9 @@ Near term
   - Enum values usable in case items and expressions
   - Wire tk_sat.c into --equiv so equivalence is proved rather
     than sampled (the solver exists; equiv still simulates)
-  - tk_sat.c needs a decision heap, learnt clause deletion and
-    phase saving before it can face large instances
+  - tk_sat.c needs learnt clause deletion. Heap and phase saving
+    are in; a 695k-clause instance solves in 16.5s against
+    Cadical's 0.8s, and the clause database still grows unbounded
   - Fix dozenal/qsim equivalence checker failures (optimiser bugs)
 
 Medium term

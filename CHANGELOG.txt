@@ -1,6 +1,23 @@
 CHANGELOG
 =========
 
+2026-08-07  SAT solver: decision heap and phase saving
+  - tk_sat.c picked its branching variable by scanning every
+    variable's activity. Fine at a few hundred variables, ruinous
+    at eighty thousand, which is the size that matters. Now a
+    lazy binary max-heap: activity bumps percolate up, backtracking
+    returns variables to the heap, and assigned variables are
+    skipped on the way out.
+  - Phase saving. Restarts throw away the search tree, and used to
+    throw away everything learned about which way each variable
+    wants to sit as well. Decisions now reuse the last value the
+    variable took.
+  - Together these take the 695k-clause netlist inversion from
+    "gives up" to solved in 16.5 seconds, verified by simulating
+    the returned model back through the design. Cadical still does
+    it in 0.8s, so there is a good way to go, and learnt clause
+    deletion is the obvious next piece.
+
 2026-08-07  VHDL clocked processes were never clocked
   - FIX: every VHDL flop came out with its clock tied to net 0.
     VHDL puts the edge inside the process body rather than in the
