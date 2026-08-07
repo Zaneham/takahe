@@ -19,7 +19,7 @@
  * negative, so the watch lists index straight in without a branch. The
  * DIMACS convention stays at the boundary, where it belongs.
  *
- * Still missing: learnt clause deletion. The database grows without
+ * Learnt clause deletion is still missing. The database grows without
  * bound, so very long runs will exhaust the pool rather than slow down
  * gracefully. Fine for what it is pointed at today, and the next thing
  * to add.
@@ -61,9 +61,9 @@ typedef struct {
 
     /* Decision heap. A linear scan over activity is fine at a few
      * hundred variables and ruinous at eighty thousand, which is
-     * exactly the size that matters. Binary max-heap, lazy: a
-     * variable may sit in the heap while assigned, and gets skipped
-     * on the way out. */
+     * exactly the size that matters. Binary max-heap, and lazy, so a
+     * variable may sit in the heap while assigned and gets skipped on
+     * the way out. */
     uint32_t *heap;      /* heap of variable indices            */
     int32_t  *hpos;      /* variable -> index in heap, -1 if out */
     uint32_t  n_heap;
@@ -453,8 +453,8 @@ sa_solve(const cn_t *C, uint8_t *model, uint64_t max_conf)
             S.dl++;
             S.lim[S.dl] = S.n_trail;
             /* Phase saving: go back to whatever this variable last was.
-             * Restarts throw away the search tree, not what we learned
-             * about which way each variable wants to sit. */
+             * Restarts throw away the search tree, not what the search
+             * learned about which way each variable wants to sit. */
             sa_assign(&S, (best << 1) |
                       (S.phase[best] == SA_TRUE ? 0u : 1u), 0);
         }

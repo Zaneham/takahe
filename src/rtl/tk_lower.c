@@ -56,8 +56,8 @@ typedef struct {
 
     /* Netlist mode. When a library is present, an instance that
      * resolves to no module gets looked up here instead of being
-     * shrugged off as a black box. This is what lets us read a
-     * netlist back in rather than only ever emitting one. */
+     * shrugged off as a black box. This is what makes reading a
+     * netlist back in possible, rather than only ever emitting one. */
     const lb_lib_t *lib;
     cd_lib_t       *cdl;
 } lw_ctx_t;
@@ -299,14 +299,14 @@ lw_lpin(const lb_lib_t *lib, const lb_cell_t *lc, const char *nm,
 
 /* ---- Lower a standard-cell instance ----
  * Port connections arrive as CONN children carrying a pin name
- * and a net, so we match by name and never have to guess at
+ * and a net, so matching is by name and never has to guess at
  * positional order.
  *
  * Combinational cells become RT_LUT with their truth table
  * interned in the cd library. Flops keep their own type, state
  * not being something a truth table has opinions about.
  *
- * Returns 1 if a cell was created, 0 if we couldn't. */
+ * Returns 1 if a cell was created, 0 if not. */
 
 static int
 lw_scel(lw_ctx_t *C, uint32_t n)
@@ -1727,8 +1727,8 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
             /* Module instantiation: wire port connections.
              * The instance's op field holds (mod_index + 1)
              * as set by fl_annot. If 0, it's a black box —
-             * unless we're reading a netlist, in which case
-             * the library knows exactly what it is. */
+             * unless this is a netlist, in which case the library
+             * knows exactly what it is. */
             uint32_t mi = (uint32_t)n->op;
             if (mi == 0 && C->lib && C->cdl) {
                 lw_scel(C, c);

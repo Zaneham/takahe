@@ -104,7 +104,7 @@ lb_frpn(const lb_lib_t *lib, const lb_cell_t *cell, const uint8_t *inp,
 
         if (c == ' ' || c == '\t') { i++; continue; }
 
-        /* Postfix negation binds to what we just emitted */
+        /* Postfix negation binds to the operand just emitted */
         if (c == '\'') {
             if (on >= LF_MAX_TOK) return -1;
             out[on].kind = LF_NOT; out[on].val = 0; on++;
@@ -184,7 +184,7 @@ lb_frpn(const lb_lib_t *lib, const lb_cell_t *cell, const uint8_t *inp,
             continue;
         }
 
-        return -1;   /* character we don't know */
+        return -1;   /* character not in the grammar */
     }
 
     while (sp > 0) {
@@ -290,7 +290,7 @@ lb_cdix(const lb_lib_t *lib, const lb_cell_t *cell, cd_lib_t *cd)
 
 /* ---- Public: build a truth table for a combinational cell ----
  * Returns 0 on success, -1 if the cell isn't expressible as one
- * (sequential, too wide, or a function we can't parse). */
+ * (sequential, too wide, or a function that will not parse). */
 
 int
 lb_fbld(const lb_lib_t *lib, const lb_cell_t *cell, cd_cell_t *out)

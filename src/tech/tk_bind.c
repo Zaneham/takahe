@@ -17,8 +17,8 @@
  * SKY130 writes xor2 the long way round.
  *
  * So the expression gets parsed and evaluated into a truth
- * table instead, and we compare tables. Boolean algebra doesn't
- * care how you spell it.
+ * table instead, and the tables get compared. Boolean algebra
+ * doesn't care how you spell it.
  */
 
 #include "takahe.h"
@@ -26,10 +26,10 @@
 /* ---- Classification by truth table ----
  * We used to substring-match the function string, which worked
  * for and2 and quietly gave up on everything harder. Now the
- * expression gets parsed and evaluated (tk_lfn.c) and we compare
- * the resulting truth table against what each gate should be.
- * Costs a few hundred microseconds once, and stops SKY130's
- * habit of writing xor2 longhand from fooling us. */
+ * expression gets parsed and evaluated (tk_lfn.c) and the
+ * resulting truth table is compared against what each gate should
+ * be. Costs a few hundred microseconds once, and SKY130's habit of
+ * writing xor2 longhand stops mattering. */
 
 #define M_NOT   0x1u   /* 1 input:  f(0)=1               */
 #define M_BUF   0x2u   /* 1 input:  f(1)=1               */
@@ -118,7 +118,7 @@ mp_bind(const lb_lib_t *lib, mp_bind_t *tbl)
     uint32_t i;
     int bound = 0;
     /* One scratch table reused across the library. 4KB on the
-     * stack rather than a malloc we'd have to justify. */
+     * stack rather than a malloc that would need justifying. */
     cd_cell_t scr;
 
     memset(tbl, 0, (size_t)RT_CELL_COUNT * sizeof(mp_bind_t));
@@ -136,8 +136,8 @@ mp_bind(const lb_lib_t *lib, mp_bind_t *tbl)
              *
              * I sat reading Liberty's ff group semantics for far
              * longer than I'd like to admit before the penny
-             * dropped: clocked_on is an expression, not a pin, and
-             * a leading ! is the entire difference between rising
+             * dropped. clocked_on is an expression rather than a pin,
+             * and a leading ! is the entire difference between rising
              * and falling. One character, whole design. */
             if (cell->negclk) continue;
             ct = cell->rst_pin != 0xFF ? RT_DFFR : RT_DFF;

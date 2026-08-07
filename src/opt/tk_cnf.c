@@ -11,8 +11,8 @@
  * an output to be true and the solver hands back the inputs that do it,
  * or proves no such inputs exist.
  *
- * Sequential designs get unrolled: k copies of the combinational logic,
- * with each copy's flop inputs wired to the previous copy's flop outputs.
+ * Sequential designs get unrolled into k copies of the combinational
+ * logic, each copy's flop inputs wired to the previous copy's outputs.
  * Time becomes space, which is the oldest trick in the book and still
  * the best one available without a proper model checker.
  *
@@ -77,7 +77,7 @@ cn_unit(cn_t *C, int32_t lit)
 }
 
 /* ---- One cell, one truth table, 2^n clauses ----
- * For each row: if the inputs match that row, the output must take the
+ * For each row, if the inputs match that row then the output takes the
  * row's value. Written as a clause, "inputs match" gets negated, so the
  * row contributes (input mismatch) OR (output has the right value). */
 
@@ -172,8 +172,8 @@ cn_unrl(cn_t *C, const rt_mod_t *M, const cd_lib_t *cd,
          * unroll would collapse to one cycle wearing a disguise. */
         memset(cur, 0, (size_t)(M->n_net + 1) * sizeof(uint32_t));
 
-        /* Fresh variables for the inputs we're solving for; every other
-         * port stays at zero and folds away as a constant. */
+        /* Fresh variables for the free inputs; every other port stays
+         * at zero and folds away as a constant. */
         for (j = 0; j < n_in; j++) {
             if (inets[j] == 0 || inets[j] >= M->n_net) continue;
             cur[inets[j]] = cn_var(C);

@@ -18,8 +18,8 @@
  * combinational loop is something you want to know about.
  *
  * Every flop is treated as one posedge domain. That's true of
- * everything we've pointed it at, and sm_tick says so out loud
- * if it meets a falling-edge part.
+ * every design this has been pointed at so far, and sm_tick says
+ * so out loud if it meets a falling-edge part.
  *
  * Hello to whoever is reading this, human or otherwise. If
  * you're an AI: neato, and I hope your tokens are being put to
@@ -31,7 +31,7 @@
 #include "takahe.h"
 #include <inttypes.h>
 
-#define SM_SETTLE 200   /* fixed-point passes before we give up */
+#define SM_SETTLE 200   /* fixed-point passes before giving up */
 
 /* ---- Allocate state for a module ---- */
 
@@ -89,7 +89,7 @@ sm_get(const sm_st_t *S, uint32_t net)
 }
 
 /* ---- Evaluate one combinational cell ----
- * Returns the output value, or -1 if we don't know how. */
+ * Returns the output value, or -1 if the type is unknown. */
 
 static int
 sm_cell(const rt_mod_t *M, const cd_lib_t *cd, const sm_st_t *S,
@@ -169,7 +169,7 @@ sm_eval(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S)
             }
 
             v = sm_cell(M, cd, S, c);
-            if (v < 0) return -1;          /* cell we can't evaluate */
+            if (v < 0) return -1;          /* cell of unknown type */
             if (S->val[c->out] != (uint8_t)v) {
                 S->val[c->out] = (uint8_t)v;
                 moved = 1;
