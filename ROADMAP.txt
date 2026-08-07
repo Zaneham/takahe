@@ -23,9 +23,10 @@ Near term
     than sampled (the solver exists; equiv still simulates)
   - tk_sat.c needs a decision heap, learnt clause deletion and
     phase saving before it can face large instances
-  - VHDL clocked processes hardcode posedge (vh_parse.c), so
-    falling_edge() synthesises wrong. Same bug class as the
-    dfrtn/dfrtp binding fix.
+  - VHDL falling_edge() clocks: currently refused with a
+    diagnostic, because RT_DFF is posedge by definition and the
+    lowerer reads negedge as async reset. Needs a negedge flop
+    type or a clock inverter to support properly.
   - Fix dozenal/qsim equivalence checker failures (optimiser bugs)
 
 Medium term

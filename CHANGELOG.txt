@@ -1,6 +1,30 @@
 CHANGELOG
 =========
 
+2026-08-07  VHDL clocked processes were never clocked
+  - FIX: every VHDL flop came out with its clock tied to net 0.
+    VHDL puts the edge inside the process body rather than in the
+    sensitivity list, and vp_proc wrote a placeholder sensitivity
+    edge with a string offset of zero. The lowerer compared that
+    against "posedge", never matched, and left clk unset. Nothing
+    tested it, so it sat there.
+  - vp_proc now looks ahead into the body for rising_edge(x) or
+    falling_edge(x), names the clock from it, and emits a real
+    posedge sensitivity edge. Signals in the sensitivity list that
+    are not the clock become the async reset, which is what
+    `if rst_n = '0'` before the edge test means, so the smoke test
+    now produces RT_DFFR with clk and rst_n properly connected
+    rather than RT_DFF with neither.
+  - falling_edge() is refused with a diagnostic rather than
+    mis-synthesised. RT_DFF is posedge by definition and the
+    lowerer reads negedge as async reset, so emitting one anyway
+    would give a flop with no clock and a reset that isn't one.
+  - A clocked process with no edge function is also refused, since
+    there is then nothing to identify the clock from.
+  - Two regression tests: one asserts the flop's clock input is
+    the clk net and the reset is rst_n, one asserts falling_edge
+    raises an error. 124 tests.
+
 2026-08-07  SAT solving, CNF encoding, and preset flops
   - New src/opt/tk_cnf.c: Tseitin encoding of a recovered netlist
     into CNF, with k-cycle unrolling so a question about a

@@ -726,20 +726,32 @@ vp_proc(tk_parse_t *P, uint32_t parent)
 {
     int is_reg = 0;
     uint32_t proc;
+    /* Sensitivity list signals, so the async reset can be told apart
+     * from the clock once the edge function names the latter. */
+    #define VP_MAX_SENS 8
+    uint32_t sens_off[VP_MAX_SENS];
+    uint16_t sens_len[VP_MAX_SENS], n_sens = 0;
+    uint32_t clk_off = 0;
+    uint16_t clk_len = 0;
+    int clk_neg = 0;
 
     vp_adv(P); /* process */
 
-    /* Sensitivity list — determines comb vs ff */
+    /* Sensitivity list. VHDL keeps the edge in the body, so this only
+     * tells us which signals are involved, not which is the clock. */
     if (vp_isop(P, "(")) {
         vp_adv(P);
-        /* Check for rising_edge/falling_edge → sequential */
-        /* For now: any sensitivity with clk → always_ff,
-         * otherwise → always_comb */
         KA_GUARD(g, 64);
         while (!vp_isop(P, ")") && vp_ctyp(P) != TK_TOK_EOF && g--) {
             if (vp_ctyp(P) == TK_TOK_IDENT) {
-                const char *nm = P->lex->strs + vp_cur(P)->off;
-                if (vp_cur(P)->len == 3 &&
+                const tk_token_t *t = vp_cur(P);
+                const char *nm = P->lex->strs + t->off;
+                if (n_sens < VP_MAX_SENS) {
+                    sens_off[n_sens] = t->off;
+                    sens_len[n_sens] = t->len;
+                    n_sens++;
+                }
+                if (t->len == 3 &&
                     (memcmp(nm, "clk", 3) == 0 ||
                      memcmp(nm, "CLK", 3) == 0))
                     is_reg = 1;
@@ -749,20 +761,109 @@ vp_proc(tk_parse_t *P, uint32_t parent)
         vp_mop(P, ")");
     }
 
+    /* Find the clock by looking ahead for rising_edge(x) or
+     * falling_edge(x) in the body. VHDL puts the edge in the body
+     * rather than the sensitivity list, so there is nowhere else
+     * for it to be. The old code wrote a placeholder offset of
+     * zero here, which the lowerer then compared against
+     * "posedge", never matched, and left every VHDL flop with its
+     * clock tied to net 0. */
+    {
+        uint32_t save = P->pos;
+        KA_GUARD(g, 4000);
+        while (vp_ctyp(P) != TK_TOK_EOF && g--) {
+            if (vp_ctyp(P) == TK_TOK_IDENT) {
+                const tk_token_t *t = vp_cur(P);
+                const char *nm = P->lex->strs + t->off;
+                int rise = (t->len == 11 &&
+                            memcmp(nm, "rising_edge", 11) == 0);
+                int fall = (t->len == 12 &&
+                            memcmp(nm, "falling_edge", 12) == 0);
+                if (rise || fall) {
+                    vp_adv(P);
+                    if (vp_isop(P, "(")) {
+                        vp_adv(P);
+                        if (vp_ctyp(P) == TK_TOK_IDENT) {
+                            clk_off = vp_cur(P)->off;
+                            clk_len = vp_cur(P)->len;
+                            clk_neg = fall;
+                            is_reg = 1;
+                        }
+                    }
+                    break;
+                }
+            }
+            /* Stop at the end of this process */
+            if (vp_iskw(P, P->kw.vh_end)) break;
+            vp_adv(P);
+        }
+        P->pos = save;
+    }
+
     proc = vp_alloc(P, is_reg ? TK_AST_ALWAYS_FF : TK_AST_ALWAYS_COMB);
 
     /* Sensitivity list as AST node (for DFF inference) */
     if (is_reg) {
         uint32_t sl = vp_alloc(P, TK_AST_SENS_LIST);
-        uint32_t se = vp_alloc(P, TK_AST_SENS_EDGE);
-        /* Hardcode posedge clk for now — proper detection in
-         * the rising_edge() call inside the if body */
-        /* Placeholder: proper posedge detection happens when
-         * the lowerer sees rising_edge() in the if body */
-        P->nodes[se].d.text.off = 0;
-        P->nodes[se].d.text.len = 7;
-        vp_achld(P, sl, se);
         vp_achld(P, proc, sl);
+
+        if (clk_len == 0) {
+            /* Sequential by name alone, with no edge function to say
+             * which signal is the clock. Refuse rather than guess:
+             * a flop clocked by the wrong net is worse than a
+             * diagnostic. */
+            if (P->n_err < TK_MAX_ERRORS) {
+                tk_err_t *e = &P->errors[P->n_err++];
+                e->line = vp_cur(P)->line; e->col = vp_cur(P)->col;
+                snprintf(e->msg, sizeof(e->msg),
+                         "clocked process with no rising_edge/"
+                         "falling_edge, cannot identify the clock");
+            }
+        } else if (clk_neg) {
+            /* RT_DFF is posedge by definition and the lowerer reads
+             * negedge as "async reset", so a falling-edge clock would
+             * come out as a flop with no clock and a spurious reset.
+             * Say so instead of emitting it. */
+            if (P->n_err < TK_MAX_ERRORS) {
+                tk_err_t *e = &P->errors[P->n_err++];
+                e->line = vp_cur(P)->line; e->col = vp_cur(P)->col;
+                snprintf(e->msg, sizeof(e->msg),
+                         "falling_edge() clocks are not supported yet "
+                         "(would synthesise as rising edge)");
+            }
+        } else {
+            uint32_t se = vp_alloc(P, TK_AST_SENS_EDGE);
+            uint32_t id;
+            P->nodes[se].d.text.off = vp_sint(P->lex, "posedge", 7);
+            P->nodes[se].d.text.len = 7;
+            id = vp_alloc(P, TK_AST_IDENT);
+            P->nodes[id].d.text.off = clk_off;
+            P->nodes[id].d.text.len = clk_len;
+            vp_achld(P, se, id);
+            vp_achld(P, sl, se);
+
+            /* Anything else in the sensitivity list is the async
+             * reset, which VHDL spells `if rst = '0'` before the
+             * edge test. The lowerer reads negedge as reset. */
+            {
+                uint16_t k;
+                for (k = 0; k < n_sens; k++) {
+                    uint32_t se2, id2;
+                    if (sens_len[k] == clk_len &&
+                        memcmp(P->lex->strs + sens_off[k],
+                               P->lex->strs + clk_off, clk_len) == 0)
+                        continue;
+                    se2 = vp_alloc(P, TK_AST_SENS_EDGE);
+                    P->nodes[se2].d.text.off = vp_sint(P->lex, "negedge", 7);
+                    P->nodes[se2].d.text.len = 7;
+                    id2 = vp_alloc(P, TK_AST_IDENT);
+                    P->nodes[id2].d.text.off = sens_off[k];
+                    P->nodes[id2].d.text.len = sens_len[k];
+                    vp_achld(P, se2, id2);
+                    vp_achld(P, sl, se2);
+                }
+            }
+        }
     }
 
     vp_mkw(P, P->kw.vh_is); /* optional 'is' */

@@ -229,3 +229,88 @@ static void vh_mnam(void)
     PASS();
 }
 TH_REG("vhdl", vh_mnam)
+
+/* ---- A clocked process must actually be clocked ----
+ * VHDL puts the edge inside the body, not the sensitivity list, so
+ * the clock has to be recovered from rising_edge(). This used to write
+ * a placeholder that the lowerer compared against "posedge", never
+ * matched, and every VHDL flop came out with its clock tied to net 0.
+ * Silently. For months. */
+
+static void vh_clk(void)
+{
+    rt_mod_t *M = vh_rtl(
+        "library ieee; use ieee.std_logic_1164.all;"
+        "entity ff is port ("
+        "  clk : in std_logic; rst_n : in std_logic;"
+        "  d : in std_logic; q : out std_logic"
+        "); end entity ff;"
+        "architecture rtl of ff is signal r : std_logic; begin "
+        "process(clk, rst_n) begin "
+        "  if rst_n = '0' then r <= '0';"
+        "  elsif rising_edge(clk) then r <= d;"
+        "  end if; end process; q <= r;"
+        "end architecture rtl;");
+    uint32_t i, nclk = 0, nrst = 0, found = 0;
+
+    CHECK(M != NULL);
+
+    for (i = 1; i < M->n_net; i++) {
+        const char *s = M->strs + M->nets[i].name_off;
+        if (M->nets[i].name_len == 3 && memcmp(s, "clk", 3) == 0) nclk = i;
+        if (M->nets[i].name_len == 5 && memcmp(s, "rst_n", 5) == 0) nrst = i;
+    }
+    CHECK(nclk != 0);
+    CHECK(nrst != 0);
+
+    for (i = 1; i < M->n_cell; i++) {
+        const rt_cell_t *c = &M->cells[i];
+        if (c->type != RT_DFF && c->type != RT_DFFR) continue;
+        found++;
+        /* the whole point: a real clock net, not zero */
+        CHECK(c->n_in >= 2);
+        CHECK(c->ins[1] == nclk);
+        /* and the async reset survived the trip */
+        CHECK(c->type == RT_DFFR);
+        CHECK(c->ins[2] == nrst);
+    }
+    CHECK(found > 0);
+
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("vhdl", vh_clk)
+
+/* ---- A falling-edge clock must be refused, not mis-synthesised ----
+ * RT_DFF is posedge by definition and the lowerer reads negedge as
+ * "async reset", so emitting one anyway would produce a flop with no
+ * clock and a reset that isn't one. Better to say so. */
+
+static void vh_fall(void)
+{
+    tk_lex_t *L = (tk_lex_t *)calloc(1, sizeof(tk_lex_t));
+    tk_parse_t *P = (tk_parse_t *)calloc(1, sizeof(tk_parse_t));
+    static const char *src =
+        "library ieee; use ieee.std_logic_1164.all;"
+        "entity ff is port ("
+        "  clk : in std_logic; d : in std_logic; q : out std_logic"
+        "); end entity ff;"
+        "architecture rtl of ff is signal r : std_logic; begin "
+        "process(clk) begin "
+        "  if falling_edge(clk) then r <= d; end if;"
+        "  end process; q <= r;"
+        "end architecture rtl;";
+
+    CHECK(L != NULL && P != NULL);
+    CHECK(tk_ldinit(L, "defs/vhdl_tok.def") == 0);
+    vh_lex(L, src, (uint32_t)strlen(src));
+    vh_pinit(P, L);
+    vh_parse(P);
+
+    CHECK(P->n_err > 0);          /* refused, rather than quietly wrong */
+
+    tk_pfree(P); free(P);
+    tk_ldfree(L); free(L);
+    PASS();
+}
+TH_REG("vhdl", vh_fall)
