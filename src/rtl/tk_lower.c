@@ -1968,6 +1968,22 @@ lw_dffs(lw_ctx_t *C, uint32_t mod_n, uint32_t net_lo)
                                     if (C->P->nodes[se].d.text.len >= 7 &&
                                         memcmp(et, "posedge", 7) == 0) {
                                         if (clk == 0) clk = ni;
+                                    } else if (C->P->nodes[se].d.text.len >= 6 &&
+                                               memcmp(et, "negclk", 6) == 0) {
+                                        /* Falling-edge clock. RT_DFF is
+                                         * posedge by definition, so invert
+                                         * the clock and keep one flop type
+                                         * rather than doubling the enum and
+                                         * every switch that reads it. */
+                                        if (clk == 0) {
+                                            uint32_t inv = rt_anet(C->M,
+                                                "clk_n", 5, 1, 0, C->radix);
+                                            uint32_t in1[1];
+                                            in1[0] = ni;
+                                            rt_acell(C->M, RT_NOT, inv,
+                                                     in1, 1, 1);
+                                            clk = inv;
+                                        }
                                     } else if (C->P->nodes[se].d.text.len >= 7 &&
                                                memcmp(et, "negedge", 7) == 0) {
                                         if (rst == 0) rst = ni;

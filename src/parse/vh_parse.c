@@ -819,23 +819,19 @@ vp_proc(tk_parse_t *P, uint32_t parent)
                          "clocked process with no rising_edge/"
                          "falling_edge, cannot identify the clock");
             }
-        } else if (clk_neg) {
-            /* RT_DFF is posedge by definition and the lowerer reads
-             * negedge as "async reset", so a falling-edge clock would
-             * come out as a flop with no clock and a spurious reset.
-             * Say so instead of emitting it. */
-            if (P->n_err < TK_MAX_ERRORS) {
-                tk_err_t *e = &P->errors[P->n_err++];
-                e->line = vp_cur(P)->line; e->col = vp_cur(P)->col;
-                snprintf(e->msg, sizeof(e->msg),
-                         "falling_edge() clocks are not supported yet "
-                         "(would synthesise as rising edge)");
-            }
         } else {
             uint32_t se = vp_alloc(P, TK_AST_SENS_EDGE);
             uint32_t id;
-            P->nodes[se].d.text.off = vp_sint(P->lex, "posedge", 7);
-            P->nodes[se].d.text.len = 7;
+            /* "negclk" rather than "negedge", because the lowerer reads
+             * negedge as async reset. This says "clock, falling" with no
+             * ambiguity, and the lowerer inverts it. SV never emits it. */
+            if (clk_neg) {
+                P->nodes[se].d.text.off = vp_sint(P->lex, "negclk", 6);
+                P->nodes[se].d.text.len = 6;
+            } else {
+                P->nodes[se].d.text.off = vp_sint(P->lex, "posedge", 7);
+                P->nodes[se].d.text.len = 7;
+            }
             id = vp_alloc(P, TK_AST_IDENT);
             P->nodes[id].d.text.off = clk_off;
             P->nodes[id].d.text.len = clk_len;

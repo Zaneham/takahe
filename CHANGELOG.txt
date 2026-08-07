@@ -15,10 +15,12 @@ CHANGELOG
     `if rst_n = '0'` before the edge test means, so the smoke test
     now produces RT_DFFR with clk and rst_n properly connected
     rather than RT_DFF with neither.
-  - falling_edge() is refused with a diagnostic rather than
-    mis-synthesised. RT_DFF is posedge by definition and the
-    lowerer reads negedge as async reset, so emitting one anyway
-    would give a flop with no clock and a reset that isn't one.
+  - falling_edge() now works. The parser marks it "negclk" rather
+    than "negedge", because the lowerer reads negedge as async
+    reset and the two would be indistinguishable. On seeing
+    negclk the lowerer inserts a clock inverter and clocks the
+    flop from that, so RT_DFF stays posedge-only and no consumer
+    of the cell enum has to change.
   - A clocked process with no edge function is also refused, since
     there is then nothing to identify the clock from.
   - Two regression tests: one asserts the flop's clock input is

@@ -281,36 +281,56 @@ static void vh_clk(void)
 }
 TH_REG("vhdl", vh_clk)
 
-/* ---- A falling-edge clock must be refused, not mis-synthesised ----
- * RT_DFF is posedge by definition and the lowerer reads negedge as
- * "async reset", so emitting one anyway would produce a flop with no
- * clock and a reset that isn't one. Better to say so. */
+/* ---- falling_edge() clocks the flop from an inverted clock ----
+ * RT_DFF is posedge by definition, so rather than double the cell enum
+ * and every switch that reads it, the lowerer inserts an inverter and
+ * clocks the flop from that. Check the inverter is really there and
+ * really fed by clk, because "it synthesised something" is not the
+ * same as "it synthesised the right thing". */
 
 static void vh_fall(void)
 {
-    tk_lex_t *L = (tk_lex_t *)calloc(1, sizeof(tk_lex_t));
-    tk_parse_t *P = (tk_parse_t *)calloc(1, sizeof(tk_parse_t));
-    static const char *src =
-        "library ieee; use ieee.std_logic_1164.all;"
-        "entity ff is port ("
-        "  clk : in std_logic; d : in std_logic; q : out std_logic"
-        "); end entity ff;"
+    rt_mod_t *M = vh_rtl(
+        "library ieee; use ieee.std_logic_1164.all; "
+        "entity ff is port ( "
+        "  clk : in std_logic; d : in std_logic; q : out std_logic "
+        "); end entity ff; "
         "architecture rtl of ff is signal r : std_logic; begin "
         "process(clk) begin "
-        "  if falling_edge(clk) then r <= d; end if;"
-        "  end process; q <= r;"
-        "end architecture rtl;";
+        "  if falling_edge(clk) then r <= d; end if; "
+        "end process; "
+        "q <= r; "
+        "end architecture rtl;");
+    uint32_t i, nclk = 0, ninv = 0, nff = 0;
 
-    CHECK(L != NULL && P != NULL);
-    CHECK(tk_ldinit(L, "defs/vhdl_tok.def") == 0);
-    vh_lex(L, src, (uint32_t)strlen(src));
-    vh_pinit(P, L);
-    vh_parse(P);
+    CHECK(M != NULL);
 
-    CHECK(P->n_err > 0);          /* refused, rather than quietly wrong */
+    for (i = 1; i < M->n_net; i++)
+        if (M->nets[i].name_len == 3 &&
+            memcmp(M->strs + M->nets[i].name_off, "clk", 3) == 0)
+            nclk = i;
+    CHECK(nclk != 0);
 
-    tk_pfree(P); free(P);
-    tk_ldfree(L); free(L);
+    /* an inverter driven by clk */
+    for (i = 1; i < M->n_cell; i++) {
+        const rt_cell_t *c = &M->cells[i];
+        if (c->type == RT_NOT && c->n_in >= 1 && c->ins[0] == nclk)
+            ninv = c->out;
+    }
+    CHECK(ninv != 0);
+
+    /* and a flop clocked from the inverter, not from clk directly */
+    for (i = 1; i < M->n_cell; i++) {
+        const rt_cell_t *c = &M->cells[i];
+        if (c->type != RT_DFF && c->type != RT_DFFR) continue;
+        nff++;
+        CHECK(c->n_in >= 2);
+        CHECK(c->ins[1] == ninv);
+        CHECK(c->ins[1] != nclk);
+    }
+    CHECK(nff > 0);
+
+    rt_free(M); free(M);
     PASS();
 }
 TH_REG("vhdl", vh_fall)
