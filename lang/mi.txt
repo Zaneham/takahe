@@ -35,5 +35,3 @@ TK041 Espresso: %d tāuru i te koeko (nui rawa %d)
 # ---- ABEND ----
 TK090 Wāhanga
 TK091 Take
-TK092 Kia kaha. Ka oti. Ka pai.
-TK093 (Be strong. It will be finished. It will be good.)

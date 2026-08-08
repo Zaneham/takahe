@@ -377,7 +377,21 @@ sa_solve(const cn_t *C, uint8_t *model, uint64_t max_conf)
     S.hpos[0] = -1;
     for (i = 1; i <= nv; i++) sa_hins(&S, i);
 
+    /* Clause 0 is a deliberate empty placeholder, and everything after it
+     * is a real clause. sa_prop hands back the index of whatever clause it
+     * tripped over and uses zero for "nothing tripped", while reason[] uses
+     * zero for "that was a decision, nobody forced it". A real clause
+     * sitting at index 0 is therefore invisible to both, so a conflict on
+     * it reads as no conflict at all and the search carries on from a trail
+     * it has already contradicted, eventually reporting a model that
+     * satisfies nothing.
+     *
+     * Burning one slot costs a few bytes. Threading a one-based index
+     * through propagation, learning and analysis costs a bug in whichever
+     * spot gets missed. */
     S.start[0] = 0;
+    S.n_cls = 1;
+    S.start[1] = 0;
     S.vinc = 1.0;
     /* woff[2*n_var+2] doubles as the bump cursor for the watch pool.
      * calloc already zeroed it; named here so the next reader doesn't

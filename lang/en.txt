@@ -34,5 +34,3 @@ TK041 Espresso: cone has %d inputs (max %d)
 # ---- ABEND ----
 TK090 Module
 TK091 Reason
-TK092 The takahē was declared extinct in 1898.
-TK093 It came back. So can your design.

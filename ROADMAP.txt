@@ -13,6 +13,10 @@ Done
   - CNF encoding with k-cycle unrolling, plus an in-tree CDCL
     SAT solver
   - TMR radiation hardening (--tmr, --tmr-full)
+  - Fault-injection proof (--fi, --fi-comb), where SAT proves that no
+    single upset reaches an output rather than sampling faults and
+    hoping. Cuts at the flops, assumes replicas that share a D net
+    agree, and names every site that gets through
   - Package/import support with typedef enum width propagation
   - FPGA targeting (iCE40 via nextpnr JSON)
   - Combinational equivalence checking (--equiv)
@@ -30,6 +34,15 @@ Near term
     are in; a 695k-clause instance solves in 16.5s against
     Cadical's 0.8s, and the clause database still grows unbounded
   - Fix dozenal/qsim equivalence checker failures (optimiser bugs)
+  - Bit-blast SHL/SHR/SHRA/MUL/PMUX. Everything downstream that wants
+    single bits stops at them, so --fi refuses any design with a
+    variable shift or a multiplier
+  - Run --fi after technology mapping as well as after TMR. Nothing
+    reorders TMR today, but --map optimises post-blast, and a merged
+    voter is exactly what --fi exists to catch
+  - Group replica flops by D-cone shape, not just by a shared D net.
+    Covers hardening done by other tools; Takahe's own TMR always
+    shares the net, so this costs nothing today
 
 Medium term
   - SV interfaces and modports

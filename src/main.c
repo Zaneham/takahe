@@ -36,6 +36,8 @@ usage(const char *prog)
     printf("  --budget <n>    refuse to emit if live cell count exceeds n\n");
     printf("  --tmr       radiation hardening (triplicate DFFs + voters)\n");
     printf("  --tmr-full  radiation hardening (triplicate everything)\n");
+    printf("  --fi        prove no single flop upset reaches an output\n");
+    printf("  --fi-comb   same, but faulting every gate output too\n");
     printf("  --fpga <f>  emit nextpnr JSON for iCE40 FPGA\n");
     printf("  --lib <f>   Liberty .lib cell library for technology mapping\n");
     printf("  --netlist   read a structural gate netlist (needs --lib)\n");
@@ -78,6 +80,8 @@ main(int argc, char **argv)
     const char *fpga_path = NULL;
     int mode_tmr = 0;
     int tmr_full = 0;
+    int mode_fi = 0;
+    int fi_comb = 0;
     int radix = TK_RADIX_BIN;
     int sta_mhz = 0;
     int i;
@@ -136,6 +140,13 @@ main(int argc, char **argv)
             mode_tmr = 1;
             tmr_full = 1;
             mode_opt = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--fi") == 0) {
+            mode_fi = 1;
+            mode_parse = 1;
+        } else if (strcmp(argv[i], "--fi-comb") == 0) {
+            mode_fi = 1;
+            fi_comb = 1;
             mode_parse = 1;
         } else if (strcmp(argv[i], "--equiv") == 0) {
             mode_equiv = 1;
@@ -540,6 +551,32 @@ main(int argc, char **argv)
                                         "pool exhausted during synthesis",
                                         rtl);
                                     exit_code = 1;
+                                }
+
+                                /* Fault injection runs after TMR so it
+                                 * grades the hardening rather than the
+                                 * design that went in, and after the
+                                 * overflow check because it clones the
+                                 * module and rt_init clears the flags
+                                 * that check is looking at. Heap, since
+                                 * fi_res_t is far too fat for a frame. */
+                                if (mode_fi) {
+                                    fi_res_t *fr = (fi_res_t *)
+                                        malloc(sizeof(fi_res_t));
+                                    if (!fr) {
+                                        fprintf(stderr, "takahe: fi: out "
+                                            "of memory\n");
+                                        exit_code = 1;
+                                    } else {
+                                        int nfi = fi_chk(rtl, cdlib,
+                                                         fi_comb, fr);
+                                        if (nfi < 0) exit_code = 1;
+                                        else {
+                                            fi_rep(fr);
+                                            if (nfi > 0) exit_code = 1;
+                                        }
+                                        free(fr);
+                                    }
                                 }
 
                                 if (blif_path) {

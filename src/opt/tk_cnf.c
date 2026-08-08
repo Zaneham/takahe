@@ -264,7 +264,7 @@ cn_unrl(cn_t *C, const rt_mod_t *M, const cd_lib_t *cd,
  * the same row-by-row clause generator the library cells go through.
  * One encoder, one place to be wrong. */
 
-static int
+int
 cn_gmsk(rt_ctype_t t, uint8_t n_in, uint32_t *mask)
 {
     uint32_t combo, m = 0;
@@ -295,7 +295,7 @@ cn_gmsk(rt_ctype_t t, uint8_t n_in, uint32_t *mask)
 }
 
 /* Emit clauses for an arbitrary truth-table mask over n_in inputs */
-static int
+int
 cn_gate(cn_t *C, uint32_t mask, const uint32_t *ins, uint8_t n_in,
         uint32_t out)
 {

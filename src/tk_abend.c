@@ -212,7 +212,5 @@ tk_abend(const char *mod, const char *reason,
         fprintf(stderr, "  Memories: %u\n", M->n_mem);
     }
 
-    /* TK092/093 = encouragement message */
-    fprintf(stderr, "\n  %s\n", tk_gmsg(92));
-    fprintf(stderr, "  %s\n\n", tk_gmsg(93));
+    fprintf(stderr, "\n");
 }

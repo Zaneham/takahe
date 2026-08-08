@@ -975,6 +975,12 @@ int      cn_unit(cn_t *C, int32_t lit);
 int      cn_lut (cn_t *C, const cd_cell_t *t, uint8_t outsel,
                  const uint32_t *ins, uint8_t n_in, uint32_t out);
 int      cn_dmcs(const cn_t *C, FILE *fp);
+/* Truth-table mask for a built-in gate type, and the clause generator that
+ * turns any such mask into CNF. Shared with the fault injector so there is
+ * one encoder and one place to be wrong. */
+int      cn_gmsk(rt_ctype_t t, uint8_t n_in, uint32_t *mask);
+int      cn_gate(cn_t *C, uint32_t mask, const uint32_t *ins, uint8_t n_in,
+                 uint32_t out);
 
 /* Encode a combinational bit-level module. vars[] must have room for
  * M->n_net entries and comes back mapping net -> variable. Returns -1 if
@@ -1020,6 +1026,53 @@ int      sm_set (sm_st_t *S, uint32_t net, uint8_t v);
 int      sm_get (const sm_st_t *S, uint32_t net);
 int      sm_eval(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S);
 int      sm_tick(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S);
+
+/* ---- Fault injection (tk_fi.c) ----
+ * Asks whether a single upset can change anything observable. The design is
+ * cut at the flops, so every flop output becomes a free input and every flop
+ * D joins the real outputs as something worth watching. Two copies of the
+ * combinational logic run against shared inputs, one of them with an XOR
+ * spliced into a chosen node, and SAT is asked whether any input tells the
+ * copies apart. Unsatisfiable is a proof that the upset is masked.
+ *
+ * Cutting at the flops hands the solver an arbitrary starting state, so a
+ * reported fault may need a state the design cannot actually reach. That
+ * errs the safe way, since a clean run still means clean.
+ *
+ * Wide operators are bit-blasted first, on a private copy, so the design
+ * the caller goes on to emit is the one it asked for. Site net indices
+ * therefore refer to that copy and mean nothing outside, which is why each
+ * site carries its own name.
+ *
+ * fi_res_t runs to a few hundred KB, so it wants the heap, not a frame. */
+
+#define FI_MAXFLT 4096   /* fault sites considered in one run */
+#define FI_NAMEL  48     /* net name kept per site, truncated to fit */
+
+typedef struct {
+    uint32_t net;    /* net index within the working copy              */
+    uint32_t sel;    /* CNF variable that switches it on               */
+    uint8_t  seq;    /* flop output, so a stored upset not a glitch    */
+    char     name[FI_NAMEL];
+} fi_site_t;
+
+typedef struct {
+    fi_site_t site[FI_MAXFLT];
+    uint32_t  n_site;
+    uint32_t  bad[FI_MAXFLT];   /* indices into site[] that reached a watcher */
+    uint32_t  n_bad;
+    uint32_t  n_obs;            /* watched nets compared                      */
+    uint32_t  n_rep;            /* replica flops assumed to agree             */
+    uint8_t   trunc;            /* more sites than fit, so results are partial */
+    uint8_t   gaveup;           /* solver hit its conflict budget             */
+} fi_res_t;
+
+/* comb 0 covers flop outputs alone, which is the stored-upset question.
+ * comb 1 adds every gate output, which also catches glitches but reports
+ * far more, since nothing masks a glitch on the last gate before a flop.
+ * Returns the number of unprotected sites, or -1 if it could not encode. */
+int  fi_chk(const rt_mod_t *M, const cd_lib_t *cd, int comb, fi_res_t *R);
+void fi_rep(const fi_res_t *R);
 
 /* Optimisation (cd may be NULL for pure binary) */
 int          op_cprop(rt_mod_t *M, const cd_lib_t *cd);

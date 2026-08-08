@@ -280,3 +280,60 @@ static void sa_mitr_ne(void)
     PASS();
 }
 TH_REG("sat", sa_mitr_ne)
+
+/* ---- A conflict on the very first clause ----
+ * sa_prop hands back the index of the clause it tripped over and reserves
+ * zero for "nothing tripped". Let a real clause sit at index 0 and its
+ * conflicts read as no conflict at all, so the search carries on from a
+ * trail it has already contradicted and eventually calls an unsatisfiable
+ * formula satisfiable. Clause order alone decides whether that bites, so
+ * the first clause added here is deliberately the one that fails. */
+
+static void
+sa_cls0(void)
+{
+    cn_t C;
+    uint8_t m[16];
+    int32_t cl[2];
+
+    CHECK(cn_init(&C, 64, 256) == 0);
+    cn_var(&C); cn_var(&C);
+    cl[0] = 1; cl[1] = 2;  CHECK(cn_add(&C, cl, 2) == 0);   /* a | b */
+    cl[0] = -1;            CHECK(cn_add(&C, cl, 1) == 0);   /* !a    */
+    cl[0] = -2;            CHECK(cn_add(&C, cl, 1) == 0);   /* !b    */
+    CHECK(sa_solve(&C, m, 100000) == 0);
+    cn_free(&C);
+    PASS();
+}
+TH_REG("sat", sa_cls0)
+
+/* ---- Solving the same formula again after tightening it ----
+ * The fault injector blocks a fault it has already reported and asks
+ * again, so the second answer has to be as sound as the first. */
+
+static void
+sa_again(void)
+{
+    cn_t C;
+    uint8_t m[16];
+    int32_t cl[3];
+
+    CHECK(cn_init(&C, 64, 256) == 0);
+    cn_var(&C); cn_var(&C); cn_var(&C);
+    cl[0] = 1; cl[1] = 2; cl[2] = 3;
+    CHECK(cn_add(&C, cl, 3) == 0);          /* a | b | c */
+    CHECK(sa_solve(&C, m, 100000) == 1);
+    CHECK(sat_ok(&C, m));
+
+    cl[0] = -1; CHECK(cn_add(&C, cl, 1) == 0);
+    cl[0] = -2; CHECK(cn_add(&C, cl, 1) == 0);
+    CHECK(sa_solve(&C, m, 100000) == 1);    /* c must carry the clause */
+    CHECK(sat_ok(&C, m));
+    CHECK(m[3] == 1);
+
+    cl[0] = -3; CHECK(cn_add(&C, cl, 1) == 0);
+    CHECK(sa_solve(&C, m, 100000) == 0);
+    cn_free(&C);
+    PASS();
+}
+TH_REG("sat", sa_again)
