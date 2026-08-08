@@ -54,13 +54,31 @@ All synthesise with zero parse errors and zero multi-driver nets:
 | **VHDL ALU** | 8-bit ALU (VHDL) | 107 | `designs/vhdl_alu.vhd` |
 
 
+## Getting it
+
+If you're lazy like me and just want to run and go, then you can install it [here](https://github.com/Zaneham/takahe/releases/latest). It comes with no dependencies and you don't have to run `make` to use it. There's a build for Linux, macOS and Windows.
+
+```bash
+tar xzf takahe-*-linux-x86_64.tar.gz
+cd takahe-*-linux-x86_64
+./takahe --parse design.sv
+```
+
 ## Building
+
+If you'd rather build it, or you're on something I don't ship a binary for:
 
 ```bash
 make            # build takahe
 make test       # run tests (133 tests, zero failures)
+make install    # /usr/local by default, honours PREFIX and DESTDIR
 make clean      # clean
 ```
+
+`make install` puts the binary in `<prefix>/bin`, the token and cell
+definitions in `<prefix>/share/takahe`, and a CMake package config alongside,
+so another project can `find_package(Takahe)` and synthesise designs as part
+of its own build. See [docs/cmake.md](docs/cmake.md).
 
 ## CLI
 

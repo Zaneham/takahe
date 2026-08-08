@@ -1,0 +1,138 @@
+# Prebuilt binaries, so getting Takahe does not require a C toolchain and a
+# working make. Runs on a version tag, or by hand from the Actions tab if you
+# want to check the packaging without tagging anything.
+#
+# Steps are split per OS rather than picking a shell with an expression.
+# GitHub rejects the whole file for that, and a rejected workflow shows up as
+# a zero-second failed run with no jobs and no explanation.
+name: Release binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+            ld: '-static'
+            exe: ''
+          - os: windows-latest
+            name: windows-x86_64
+            ld: '-static'
+            exe: '.exe'
+          # Apple ships no static libc, so this one links against libSystem.
+          - os: macos-latest
+            name: macos-arm64
+            ld: ''
+            exe: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSYS2
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc make
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: make LDFLAGS="${{ matrix.ld }}" -j4
+
+      - name: Build (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: make LDFLAGS="${{ matrix.ld }}" -j4
+
+      # Synthesising a real design proves more than --help does: it means the
+      # binary found its own .def files, which is the thing that breaks when a
+      # release is unpacked somewhere other than the source tree.
+      - name: Smoke test
+        shell: bash
+        run: |
+          printf 'module m(input a, input b, output y);\n  assign y = a & b;\nendmodule\n' > smoke.sv
+          ./takahe${{ matrix.exe }} --yosys smoke.json smoke.sv
+          test -s smoke.json
+          grep -q '"creator"' smoke.json
+          echo "synthesised a design, so the binary and its defs are intact"
+
+      # The archive carries the definitions takahe cannot start without. The
+      # PDK libraries under lib/ are 78 MB of third-party Liberty data and
+      # --lib takes an explicit path, so they stay out.
+      - name: Stage the archive contents
+        shell: bash
+        run: |
+          VER=$(awk '$2 == "TK_VERSION_STRING" { gsub(/"/, "", $3); print $3 }' include/takahe.h)
+          DIR="takahe-$VER-${{ matrix.name }}"
+          echo "TK_DIR=$DIR" >> "$GITHUB_ENV"
+          mkdir -p "$DIR/defs" "$DIR/lang"
+          cp takahe${{ matrix.exe }} "$DIR/"
+          cp defs/*.def "$DIR/defs/"
+          cp lang/en.txt lang/mi.txt "$DIR/lang/"
+          cp LICENSE README.md "$DIR/"
+          ls -R "$DIR" | head -20
+
+      # Unpacked somewhere else entirely, which is how a user will meet it.
+      - name: Check the archive runs standalone
+        shell: bash
+        run: |
+          cd "$TK_DIR"
+          printf 'module m(input a, output y); assign y = ~a; endmodule\n' > t.sv
+          ./takahe${{ matrix.exe }} --parse t.sv
+          rm -f t.sv
+          echo "runs from the archive directory"
+
+      - name: Archive (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: tar czf "$TK_DIR.tar.gz" "$TK_DIR"
+
+      - name: Archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "$env:TK_DIR" -DestinationPath "$env:TK_DIR.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            takahe-*.tar.gz
+            takahe-*.zip
+          if-no-files-found: error
+
+  publish:
+    name: Attach to release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Checksums
+        shell: bash
+        run: |
+          ls -la
+          sha256sum takahe-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            takahe-*
+            SHA256SUMS

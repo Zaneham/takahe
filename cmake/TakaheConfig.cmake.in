@@ -1,0 +1,134 @@
+# Takahe package config, for find_package(Takahe CONFIG).
+#
+# Takahe is a synthesis tool, not a library, so there is nothing here to link
+# against. What you get is the binary as an imported target and a rule that
+# runs a design through it as part of your build.
+
+set(Takahe_VERSION "@TAKAHE_VERSION@")
+
+# Installed to <prefix>/lib/cmake/Takahe, so the prefix is three levels up.
+# Derived rather than baked in, so a relocated or staged install still works.
+get_filename_component(_tk_prefix "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+
+find_program(Takahe_EXECUTABLE
+    NAMES takahe
+    HINTS "${_tk_prefix}/bin")
+
+if(NOT Takahe_EXECUTABLE)
+    set(Takahe_FOUND FALSE)
+    set(Takahe_NOT_FOUND_MESSAGE
+        "Takahe config found but the takahe binary was not; expected it in ${_tk_prefix}/bin")
+    return()
+endif()
+
+if(NOT TARGET Takahe::takahe)
+    add_executable(Takahe::takahe IMPORTED)
+    set_target_properties(Takahe::takahe PROPERTIES
+        IMPORTED_LOCATION "${Takahe_EXECUTABLE}")
+endif()
+
+# Token and cell definitions, and the message catalogues. takahe finds these
+# itself relative to its own binary; exposed here for anyone who wants to
+# point at a particular .def rather than take the default.
+set(Takahe_DEFS_DIR "${_tk_prefix}/share/takahe/defs")
+set(Takahe_LANG_DIR "${_tk_prefix}/share/takahe/lang")
+
+# takahe_add_design(<name>
+#     SOURCE <file.sv|.vhd|.abl>
+#     [OUTPUT <file>]
+#     [FORMAT blif|yosys|verilog|fpga]     default yosys
+#     [LIB <liberty.lib>]                  technology mapping
+#     [RADIX <n>]                          2 binary, 3 ternary, 12 dozenal
+#     [TMR|TMR_FULL]                       radiation hardening
+#     [EQUIV]                              check pre-opt against post-opt
+#     [BUDGET <n>]                         refuse above n live cells
+#     [EXCLUDE_FROM_ALL]
+#     [OPTIONS <flag>...]
+#     [DEPENDS <file>...])
+#
+# Adds a target <name> that synthesises SOURCE. The output path comes back as
+# a TAKAHE_NETLIST property on the target and as <name>_OUTPUT in this scope.
+#
+# The tables live inside the function because a package config is included in
+# whatever scope called find_package, so anything left at directory scope goes
+# missing when the function is called from a sibling directory.
+function(takahe_add_design name)
+    set(_formats blif yosys verilog fpga)
+    set(_flags   "--blif" "--yosys" "--map" "--fpga")
+    set(_exts    ".blif"  ".json"   ".v"    ".json")
+
+    cmake_parse_arguments(PARSE_ARGV 1 TK
+        "TMR;TMR_FULL;EQUIV;EXCLUDE_FROM_ALL"
+        "SOURCE;OUTPUT;FORMAT;LIB;RADIX;BUDGET"
+        "OPTIONS;DEPENDS")
+
+    if(TK_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "takahe_add_design(${name}): unrecognised arguments: ${TK_UNPARSED_ARGUMENTS}")
+    endif()
+    if(NOT TK_SOURCE)
+        message(FATAL_ERROR "takahe_add_design(${name}): SOURCE is required")
+    endif()
+    if(NOT TK_FORMAT)
+        set(TK_FORMAT yosys)
+    endif()
+
+    list(FIND _formats "${TK_FORMAT}" _fi)
+    if(_fi EQUAL -1)
+        message(FATAL_ERROR "takahe_add_design(${name}): unknown FORMAT '${TK_FORMAT}', want one of: ${_formats}")
+    endif()
+
+    get_filename_component(_src "${TK_SOURCE}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+
+    if(TK_OUTPUT)
+        get_filename_component(_out "${TK_OUTPUT}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+    else()
+        list(GET _exts ${_fi} _ext)
+        set(_out "${CMAKE_CURRENT_BINARY_DIR}/${name}${_ext}")
+    endif()
+
+    list(GET _flags ${_fi} _fmtflag)
+    set(_args "${_fmtflag}" "${_out}")
+
+    if(TK_LIB)
+        get_filename_component(_lib "${TK_LIB}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+        list(APPEND _args --lib "${_lib}")
+    endif()
+    if(TK_RADIX)
+        list(APPEND _args --radix "${TK_RADIX}")
+    endif()
+    if(TK_BUDGET)
+        list(APPEND _args --budget "${TK_BUDGET}")
+    endif()
+    if(TK_TMR_FULL)
+        list(APPEND _args --tmr-full)
+    elseif(TK_TMR)
+        list(APPEND _args --tmr)
+    endif()
+    if(TK_EQUIV)
+        list(APPEND _args --equiv)
+    endif()
+    list(APPEND _args ${TK_OPTIONS})
+
+    get_filename_component(_outdir "${_out}" DIRECTORY)
+    file(MAKE_DIRECTORY "${_outdir}")
+
+    # takahe writes no depfile, so an edited `include` will not retrigger this
+    # on its own. List those in DEPENDS if you need it. Depending on the binary
+    # rebuilds designs when the synthesiser itself changes.
+    add_custom_command(
+        OUTPUT "${_out}"
+        COMMAND "${Takahe_EXECUTABLE}" ${_args} "${_src}"
+        DEPENDS "${_src}" "${Takahe_EXECUTABLE}" ${TK_DEPENDS}
+        COMMENT "Takahe ${TK_FORMAT}: ${name}"
+        VERBATIM)
+
+    if(TK_EXCLUDE_FROM_ALL)
+        add_custom_target(${name} DEPENDS "${_out}")
+    else()
+        add_custom_target(${name} ALL DEPENDS "${_out}")
+    endif()
+    set_target_properties(${name} PROPERTIES TAKAHE_NETLIST "${_out}")
+    set(${name}_OUTPUT "${_out}" PARENT_SCOPE)
+endfunction()
+
+set(Takahe_FOUND TRUE)
