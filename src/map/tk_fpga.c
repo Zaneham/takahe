@@ -186,7 +186,7 @@ fp_json(const rt_mod_t *M, FILE *fp)
     if (!M || !fp) return -1;
 
     fprintf(fp, "{\n");
-    fprintf(fp, "  \"creator\": \"Takahe v0.1.0 FPGA\",\n");
+    fprintf(fp, "  \"creator\": \"Takahe v" TK_VERSION_STRING " FPGA\",\n");
     fprintf(fp, "  \"modules\": {\n");
     fprintf(fp, "    \"%s\": {\n", M->mod_name[0] ? M->mod_name : "top");
 

@@ -102,11 +102,13 @@ tk_linit(const char *lang_dir)
 
     if (tk_loaded) return;
 
+    /* Through tk_data so an installed or unpacked takahe finds the
+     * catalogues beside its own binary, not just in the working directory. */
     snprintf(path, 256, "%s/en.txt", lang_dir);
-    ne = tk_lmsg(path, tk_en);
+    ne = tk_lmsg(tk_data(path), tk_en);
 
     snprintf(path, 256, "%s/mi.txt", lang_dir);
-    nm = tk_lmsg(path, tk_mi);
+    nm = tk_lmsg(tk_data(path), tk_mi);
 
     tk_loaded = 1;
     if (ne > 0 || nm > 0)

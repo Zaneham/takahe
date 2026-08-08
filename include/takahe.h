@@ -23,6 +23,19 @@
 #ifndef TAKAHE_H
 #define TAKAHE_H
 
+/* ---- Version ----
+ * One place. It was a literal in the --help banner and again in the FPGA
+ * JSON writer, which is two chances to disagree and no way to notice. The
+ * install rules read these three numbers too, so the packaging cannot drift
+ * from what the binary reports. */
+#define TK_VERSION_MAJOR  0
+#define TK_VERSION_MINOR  1
+#define TK_VERSION_PATCH  0
+#define TK_VERSION_STRING "0.1.0"
+
+/* Longest path we will build when hunting for a shipped .def or .txt. */
+#define TK_PATH_MAX 1024
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -1164,6 +1177,12 @@ uint32_t  jr_count (void);
 void  tk_slang(int lang);      /* 0=en, 1=mi (Te Reo Māori) */
 int   tk_glang(void);
 void  tk_linit(const char *lang_dir);
+
+/* Locate a shipped data file such as "defs/sv_tok.def". Checks $TAKAHE_HOME,
+ * the working directory, then beside the binary, so an installed or unpacked
+ * takahe finds the definitions it cannot start without. */
+const char *tk_data(const char *rel);
+void        tk_data_init(const char *argv0);
 void  tk_emsg (int eid, ...);
 void  tk_abend(const char *mod, const char *reason,
                const rt_mod_t *M);

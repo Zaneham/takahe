@@ -21,7 +21,7 @@
 static void
 usage(const char *prog)
 {
-    printf("takahe v0.1.0 -- open-source hardware synthesis\n\n");
+    printf("takahe v" TK_VERSION_STRING " -- open-source hardware synthesis\n\n");
     printf("usage: %s [flags] <source.sv|.vhd|.abl>\n\n", prog);
     printf("languages:\n");
     printf("  (default)   SystemVerilog (IEEE 1800-2017)\n");
@@ -85,6 +85,10 @@ main(int argc, char **argv)
     int radix = TK_RADIX_BIN;
     int sta_mhz = 0;
     int i;
+
+    /* argv[0] is the fallback for finding our own directory, on the platforms
+     * that will not simply tell us where the binary is. */
+    tk_data_init(argv[0]);
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 ||
@@ -205,7 +209,7 @@ main(int argc, char **argv)
     }
 
     /* Load definitions */
-    if (tk_ldinit(L, def_path) != 0) {
+    if (tk_ldinit(L, tk_data(def_path)) != 0) {
         free(L);
         return 1;
     }
@@ -479,7 +483,7 @@ main(int argc, char **argv)
                                 else if (radix == 8) cdf = "defs/cells_iching.def";
                                 else if (radix == 12) cdf = "defs/cells_doz.def";
                                 if (cl) {
-                                    if (cd_load(cl, cdf) == 0)
+                                    if (cd_load(cl, tk_data(cdf)) == 0)
                                         cdlib = cl;
                                     else
                                         free(cl);
@@ -624,7 +628,7 @@ main(int argc, char **argv)
                                             calloc(1, sizeof(ml_lib_t));
                                         if (mlib) {
                                             if (ml_load(mlib,
-                                                "defs/mems_ice40.def") == 0)
+                                                tk_data("defs/mems_ice40.def")) == 0)
                                                 mp_mmap(rtl, mlib);
                                             free(mlib);
                                         }

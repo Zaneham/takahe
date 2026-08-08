@@ -26,6 +26,7 @@ endif
 # Source files -- one line per stage
 SRCS = src/main.c \
        src/tk_abend.c \
+       src/tk_data.c \
        src/tk_jrn.c \
        src/lex/tk_lex.c \
        src/lex/vh_lex.c \
@@ -77,12 +78,15 @@ ifeq ($(OS),Windows_NT)
 TARGET := $(TARGET).exe
 endif
 
-.PHONY: all clean test
+.PHONY: all clean test install uninstall
 
 all: $(TARGET)
 
+# LDFLAGS is honoured so a release build can ask for -static. Without it the
+# binary wants libgcc and libssp at run time, which nobody downloading an
+# archive has.
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ -lm
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lm
 
 %.o: %.c include/takahe.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -104,6 +108,42 @@ test: $(TARGET) $(TEST_TARGET)
 TEST_OBJS = $(filter-out src/main.o,$(OBJS))
 $(TEST_TARGET): $(TEST_SRCS) $(TEST_OBJS)
 	$(CC) $(TFLAGS) -o $@ $^ -lm
+
+# ---- Install ----
+# The binary plus the definition files it cannot start without, and the
+# message catalogues. The PDK libraries under lib/ are 78 MB of third-party
+# Liberty data and --lib takes an explicit path, so they stay out of this.
+#
+# Version comes out of the header. awk keyed on the macro name rather than a
+# sed capture group, because make 3.81 (which is what macOS ships) treats a #
+# inside $(shell) as the start of a comment and swallows the rest of the call.
+PREFIX  ?= /usr/local
+BINDIR   = $(DESTDIR)$(PREFIX)/bin
+SHAREDIR = $(DESTDIR)$(PREFIX)/share/takahe
+CMAKEDIR = $(DESTDIR)$(PREFIX)/lib/cmake/Takahe
+
+VER_MAJOR := $(shell awk '$$2 == "TK_VERSION_MAJOR" {print $$3}' include/takahe.h)
+VER_MINOR := $(shell awk '$$2 == "TK_VERSION_MINOR" {print $$3}' include/takahe.h)
+VER_PATCH := $(shell awk '$$2 == "TK_VERSION_PATCH" {print $$3}' include/takahe.h)
+VERSION   := $(VER_MAJOR).$(VER_MINOR).$(VER_PATCH)
+
+install: $(TARGET)
+	install -d $(BINDIR) $(SHAREDIR)/defs $(SHAREDIR)/lang $(CMAKEDIR)
+	install -m 755 $(TARGET) $(BINDIR)/$(TARGET)
+	install -m 644 defs/*.def $(SHAREDIR)/defs/
+	install -m 644 lang/en.txt lang/mi.txt $(SHAREDIR)/lang/
+	sed -e 's/@TAKAHE_VERSION@/$(VERSION)/g' \
+	    -e 's/@TAKAHE_VERSION_MAJOR@/$(VER_MAJOR)/g' \
+	    -e 's/@TAKAHE_VERSION_MINOR@/$(VER_MINOR)/g' \
+	    cmake/TakaheConfig.cmake.in > $(CMAKEDIR)/TakaheConfig.cmake
+	sed -e 's/@TAKAHE_VERSION@/$(VERSION)/g' \
+	    -e 's/@TAKAHE_VERSION_MAJOR@/$(VER_MAJOR)/g' \
+	    -e 's/@TAKAHE_VERSION_MINOR@/$(VER_MINOR)/g' \
+	    cmake/TakaheConfigVersion.cmake.in > $(CMAKEDIR)/TakaheConfigVersion.cmake
+
+uninstall:
+	rm -f $(BINDIR)/$(TARGET)
+	rm -rf $(SHAREDIR) $(CMAKEDIR)
 
 clean:
 	rm -f $(OBJS) $(TARGET) $(TEST_TARGET)
