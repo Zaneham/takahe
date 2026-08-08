@@ -76,7 +76,15 @@ jobs:
       - name: Stage the archive contents
         shell: bash
         run: |
-          VER=$(awk '$2 == "TK_VER_STRING" { gsub(/"/, "", $3); print $3 }' include/takahe.h)
+          # From the three numbers, not TK_VER_STRING: that macro is built from
+          # them across a line continuation, so $3 on its line is a backslash
+          # and the archive ends up called takahe-\-linux-x86_64.
+          VER=$(awk '$2 == "TK_VER_MAJOR" { ma = $3 }
+                     $2 == "TK_VER_MINOR" { mi = $3 }
+                     $2 == "TK_VER_PATCH" { pa = $3 }
+                     END { print ma "." mi "." pa }' include/takahe.h)
+          test -n "$VER" && [ "$VER" != ".." ] || { echo "could not read the version"; exit 1; }
+          echo "version is $VER"
           DIR="takahe-$VER-${{ matrix.name }}"
           echo "TK_DIR=$DIR" >> "$GITHUB_ENV"
           mkdir -p "$DIR/defs" "$DIR/lang"
