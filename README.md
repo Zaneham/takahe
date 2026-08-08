@@ -53,15 +53,6 @@ All synthesise with zero parse errors and zero multi-driver nets:
 | **Setun-70** | Ternary processor | 153 | `designs/setun70.sv` |
 | **VHDL ALU** | 8-bit ALU (VHDL) | 107 | `designs/vhdl_alu.vhd` |
 
-## Pipeline
-
-```
-SystemVerilog ─┐
-               ├→ lex → parse → elaborate → lower → optimise → bit-blast → map → emit
-VHDL ──────────┘   ↑                                    ↑                     ↑
-              sv_tok.def                           cells_*.def            *.lib
-              vhdl_tok.def
-```
 
 ## Building
 
@@ -121,7 +112,7 @@ takahe: fi: 12 sites (12 sequential), 9 watched nets
 takahe: fi: no single upset reaches an output
 ```
 
-Exit status is nonzero when anything is unprotected, so it works as a CI gate. Full detail in [docs/tmr.txt](docs/tmr.txt).
+Exit status is nonzero when anything is unprotected, so it works as a CI gate. Full detail in [docs/tmr.md](docs/tmr.md).
 
 ## Beyond Binary
 
@@ -129,7 +120,7 @@ Takahe doesn't know what a NAND gate is. It reads a truth table from a text file
 
 Thirteen paradigms ship as `.def` files, from balanced ternary and duodecimal through to nucleotide logic, the Clifford quantum gate set, and a voting cell that is commented out because Arrow proved in 1951 it cannot exist. Adding one means writing a text file, not touching C.
 
-See [docs/paradigms.txt](docs/paradigms.txt).
+See [docs/paradigms.md](docs/paradigms.md).
 
 ## Reading Netlists Back In
 
@@ -137,7 +128,7 @@ Synthesis goes source to gates. `--netlist` goes the other way, rebuilding a str
 
 Cell behaviour comes from the Liberty file rather than a table of known gate names, so 347 of SKY130's 428 cells build an exact truth table.
 
-See [docs/netlists.txt](docs/netlists.txt).
+See [docs/netlists.md](docs/netlists.md).
 
 ## Diagnostics
 
@@ -145,7 +136,7 @@ Unrecoverable errors produce a structured ABEND dump in the mainframe tradition,
 
 Error messages are structured codes loaded from `lang/`, currently English and Te Reo Māori. Adding a language is adding a `.txt` file.
 
-See [docs/diagnostics.txt](docs/diagnostics.txt).
+See [docs/diagnostics.md](docs/diagnostics.md).
 
 ## Project Structure
 
