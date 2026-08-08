@@ -18,6 +18,23 @@ jobs:
       - name: Test
         run: make test
 
+  # The frontend's score against the IEEE 1800 conformance suite. A floor
+  # rather than a target: it stops the number sliding while the language
+  # coverage grows, and raising the floor is how progress gets recorded.
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make
+
+      - name: Fetch sv-tests
+        run: git clone --depth 1 https://github.com/chipsalliance/sv-tests.git /tmp/sv-tests
+
+      - name: Score
+        run: tools/sv-tests.sh /tmp/sv-tests --min 66
+
   build-windows:
     runs-on: windows-latest
     defaults:

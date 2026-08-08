@@ -283,6 +283,11 @@ main(int argc, char **argv)
 
         printf("takahe: %u tokens, %u errors\n", L->n_tok, L->n_err);
 
+        /* Diagnostics have to reach the exit status or nothing automated can
+         * tell a clean run from a broken one. Without this a conformance
+         * sweep scores every malformed file as a pass. */
+        if (L->n_err > 0) exit_code = 1;
+
         /* Dump tokens */
         if (mode_lex) {
             uint32_t t;
@@ -353,6 +358,8 @@ main(int argc, char **argv)
                 tk_parse(P);
             printf("takahe: %u AST nodes, %u errors\n",
                    P->n_node, P->n_err);
+
+            if (P->n_err > 0) exit_code = 1;
 
             if (P->n_err > 0) {
                 uint32_t e;
