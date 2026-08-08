@@ -134,7 +134,7 @@ TH_REG("sat", sa_php3)
  * Build CNF for a real library cell and check the solver agrees with
  * cd_eval on every input combination. */
 
-#define SKY130_LIB "C:/dev/documents/skywater/sky130_fd_sc_hd__tt_025C_1v80.lib"
+#define SKY130_LIB "lib/sky130_fd_sc_hd__tt_025C_1v80.lib"
 
 static const lb_cell_t *
 sat_fnd(const lb_lib_t *lib, const char *name)

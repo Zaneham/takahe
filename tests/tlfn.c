@@ -10,7 +10,7 @@
 #include "takahe.h"
 #include <string.h>
 
-#define SKY130_LIB "C:/dev/documents/skywater/sky130_fd_sc_hd__tt_025C_1v80.lib"
+#define SKY130_LIB "lib/sky130_fd_sc_hd__tt_025C_1v80.lib"
 
 /* ---- Find a library cell by name ---- */
 

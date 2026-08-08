@@ -1,7 +1,5 @@
-/* Copyright (c) 2026 Zane Hambly
- * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+/* Copyright (c) 2026 Zane Hambly. MIT licensed, not MPL like the rest of
+ * this tree. Vendored from https://github.com/Zaneham/kauri */
 
 /*
  * kauri.h: Memory safety for C99

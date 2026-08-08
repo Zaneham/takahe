@@ -19,6 +19,14 @@
  * behaves, then next to the binary, then the FHS share directory above it.
  */
 
+/* readlink() is POSIX, and -std=c99 asks glibc for ISO C only, so without this
+ * it comes through implicitly declared and -Werror stops the build. Has to
+ * precede every include, hence sitting above takahe.h. Left undefined on macOS,
+ * where it hides _NSGetExecutablePath instead. */
+#if !defined(_WIN32) && !defined(__APPLE__)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "takahe.h"
 
 #ifdef _WIN32

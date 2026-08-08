@@ -66,7 +66,7 @@ cd takahe-*-linux-x86_64
 
 ## Building
 
-If you'd rather build it, or you're on something I don't ship a binary for:
+If you'd rather build it, or you're on something I don't ship a binary for (if that is the case please tell me I am so curious as to what you're using):
 
 ```bash
 make            # build takahe

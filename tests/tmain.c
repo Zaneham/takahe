@@ -27,6 +27,17 @@ int th_run(const char *cmd, char *obuf, int osz)
     int n = (int)fread(obuf, 1, (size_t)(osz - 1), fp);
     if (n < 0) n = 0;
     obuf[n] = '\0';
+
+    /* Drain whatever is left. Closing the pipe while the child is still
+     * writing hands it a SIGPIPE, and pclose then reports a failure that
+     * belongs to the buffer size rather than to the command. Anything with
+     * --parse in it outruns the buffer easily. */
+    if (n == osz - 1) {
+        char sink[4096];
+        while (fread(sink, 1, sizeof sink, fp) > 0)
+            ;
+    }
+
     int rc = pclose(fp);
 #ifndef _WIN32
     if (rc != -1 && (rc & 0xFF) == 0)

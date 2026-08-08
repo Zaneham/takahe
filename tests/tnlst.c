@@ -16,7 +16,7 @@
  * warm-up from Jane Street's 2026 ASIC reverse-engineering puzzle,
  * which ships with its own source, so there's a right answer to
  * check against. */
-#define SKY130_LIB "C:/dev/documents/skywater/sky130_fd_sc_hd__tt_025C_1v80.lib"
+#define SKY130_LIB "lib/sky130_fd_sc_hd__tt_025C_1v80.lib"
 #define WARMUP "C:/dev/asic-puzzle-2026/warmup/01_netlist.v"
 
 /* ---- Helper: lex+parse+elab+width+lower a netlist string ---- */
