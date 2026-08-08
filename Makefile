@@ -122,9 +122,9 @@ BINDIR   = $(DESTDIR)$(PREFIX)/bin
 SHAREDIR = $(DESTDIR)$(PREFIX)/share/takahe
 CMAKEDIR = $(DESTDIR)$(PREFIX)/lib/cmake/Takahe
 
-VER_MAJOR := $(shell awk '$$2 == "TK_VERSION_MAJOR" {print $$3}' include/takahe.h)
-VER_MINOR := $(shell awk '$$2 == "TK_VERSION_MINOR" {print $$3}' include/takahe.h)
-VER_PATCH := $(shell awk '$$2 == "TK_VERSION_PATCH" {print $$3}' include/takahe.h)
+VER_MAJOR := $(shell awk '$$2 == "TK_VER_MAJOR" {print $$3}' include/takahe.h)
+VER_MINOR := $(shell awk '$$2 == "TK_VER_MINOR" {print $$3}' include/takahe.h)
+VER_PATCH := $(shell awk '$$2 == "TK_VER_PATCH" {print $$3}' include/takahe.h)
 VERSION   := $(VER_MAJOR).$(VER_MINOR).$(VER_PATCH)
 
 install: $(TARGET)

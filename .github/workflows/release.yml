@@ -76,7 +76,7 @@ jobs:
       - name: Stage the archive contents
         shell: bash
         run: |
-          VER=$(awk '$2 == "TK_VERSION_STRING" { gsub(/"/, "", $3); print $3 }' include/takahe.h)
+          VER=$(awk '$2 == "TK_VER_STRING" { gsub(/"/, "", $3); print $3 }' include/takahe.h)
           DIR="takahe-$VER-${{ matrix.name }}"
           echo "TK_DIR=$DIR" >> "$GITHUB_ENV"
           mkdir -p "$DIR/defs" "$DIR/lang"

@@ -23,16 +23,6 @@
 #ifndef TAKAHE_H
 #define TAKAHE_H
 
-/* ---- Version ----
- * One place. It was a literal in the --help banner and again in the FPGA
- * JSON writer, which is two chances to disagree and no way to notice. The
- * install rules read these three numbers too, so the packaging cannot drift
- * from what the binary reports. */
-#define TK_VERSION_MAJOR  0
-#define TK_VERSION_MINOR  1
-#define TK_VERSION_PATCH  0
-#define TK_VERSION_STRING "0.1.0"
-
 /* Longest path we will build when hunting for a shipped .def or .txt. */
 #define TK_PATH_MAX 1024
 
@@ -46,10 +36,20 @@
  * The memory safety foundation. No malloc in the hot path. */
 #include "kauri.h"
 
-/* ---- Version ---- */
+/* ---- Version ----
+ * Three numbers, and a string built from them rather than typed out beside
+ * them. The banner and the Yosys writer used to carry their own copies, which
+ * is two chances to disagree and no way to notice; bumping the patch left the
+ * generated netlists claiming the old one. The install rules read these too,
+ * so packaging cannot drift from what the binary reports. */
 #define TK_VER_MAJOR 0
 #define TK_VER_MINOR 1
-#define TK_VER_PATCH 0
+#define TK_VER_PATCH 1
+
+#define TK_STR_(x)   #x
+#define TK_STR(x)    TK_STR_(x)
+#define TK_VER_STRING \
+    TK_STR(TK_VER_MAJOR) "." TK_STR(TK_VER_MINOR) "." TK_STR(TK_VER_PATCH)
 
 /* ---- Pool Limits ----
  * Fixed at compile time. Like foundry design rules:

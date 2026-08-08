@@ -21,7 +21,7 @@
 static void
 usage(const char *prog)
 {
-    printf("takahe v" TK_VERSION_STRING " -- open-source hardware synthesis\n\n");
+    printf("takahe v" TK_VER_STRING " -- open-source hardware synthesis\n\n");
     printf("usage: %s [flags] <source.sv|.vhd|.abl>\n\n", prog);
     printf("languages:\n");
     printf("  (default)   SystemVerilog (IEEE 1800-2017)\n");
