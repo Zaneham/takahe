@@ -1,12 +1,12 @@
 # Takahe
 
-Universal hardware synthesis tool supporting binary, ternary, stochastic, quantum, duodecimal, nucleotide, epistemic, cellular automata, affective, I Ching, chromatic music theory, particle physics, and Arrow's impossibility theorem.
+Hardware synthesis. SystemVerilog, VHDL and ABEL-HDL in, gate-level netlists mapped to real foundry cells out.
 
-Named after the takahē (*Porphyrio hochstetteri*), declared extinct in 1898 and rediscovered alive in the Murchison Mountains in 1948. 
+PicoRV32, a complete RISC-V CPU core, synthesises to 3,305 SKY130 gate instances with zero parse errors and zero multi-driver nets. Five processors have been through OpenROAD.
+
+Named after the takahē (*Porphyrio hochstetteri*), declared extinct in 1898 and rediscovered alive in the Murchison Mountains in 1948.
 
 ## What It Does
-
-Takes SystemVerilog, VHDL, and ABEL-HDL source and produces gate-level netlists mapped to real foundry cells:
 
 ```bash
 # Binary synthesis to SKY130 130nm
@@ -20,36 +20,7 @@ Takes SystemVerilog, VHDL, and ABEL-HDL source and produces gate-level netlists 
 
 # Ternary synthesis (balanced ternary, à la Setun)
 ./takahe --radix 3 --opt --parse design.sv
-
-# Duodecimal synthesis (Mesopotamian base-12)
-./takahe --radix 12 --opt --parse design.sv
 ```
-
-PicoRV32 (a complete RISC-V CPU core) synthesises to 3,305 SKY130 gate instances. Zero parse errors. Zero multi-driver nets.
-
-## The Cell Definition Architecture
-
-Every computing paradigm is a `.def` file containing truth tables. The engine doesn't know what a NAND gate is; it reads the truth table and evaluates it. When you want a new paradigm you write a text file, not C code.
-
-```
-# Binary AND
-cell AND radix 2 inputs 2 outputs 1
-  truth 0 0 -> 0
-  truth 0 1 -> 0
-  truth 1 0 -> 0
-  truth 1 1 -> 1
-end
-
-# Ternary AND (min) — balanced ternary {-1, 0, +1}
-cell AND radix 3 inputs 2 outputs 1
-  truth -1  0 -> -1
-  truth  0  1 ->  0
-  truth  1  1 ->  1
-  ...
-end
-```
-
-The optimiser is radix-aware. Ternary constant propagation, identity detection, and dead cell elimination all work through truth table evaluation rather than hardcoded rules for any particular paradigm.
 
 ## Four PDK Targets
 
@@ -60,30 +31,12 @@ The optimiser is radix-aware. Ternary constant propagation, identity detection, 
 | GF180MCU | 180nm | Supported |
 | ASAP7 | 7nm (predictive) | Supported |
 
-## FPGA Targeting
-
-Takahe also targets FPGAs via nextpnr JSON output:
+FPGAs too, via nextpnr JSON, currently Lattice iCE40 (4-LUT):
 
 ```bash
 ./takahe --opt --fpga output.json design.sv
 # Then: nextpnr-ice40 --json output.json --pcf pins.pcf --asc out.asc
 ```
-
-Currently targets Lattice iCE40 (4-LUT architecture).
-
-## Radiation Hardening
-
-Takahe can automatically harden designs for space, nuclear, and defence applications using Triple Modular Redundancy:
-
-```bash
-# Triplicate all flip-flops, insert majority voters
-./takahe --tmr --opt --parse design.sv
-
-# Full TMR (triplicate everything including combinational logic)
-./takahe --tmr-full --opt --parse design.sv
-```
-
-Every DFF is tripled. A majority voter `(a & b) | (b & c) | (a & c)` masks single-event upsets. The voter decomposes to standard AND/OR gates so it works with all backends, all PDKs, and FPGA targeting without any special handling.
 
 ## Tested Designs
 
@@ -114,11 +67,9 @@ VHDL ──────────┘   ↑                                    
 
 ```bash
 make            # build takahe
-make test       # run tests (70 tests, zero failures)
+make test       # run tests (133 tests, zero failures)
 make clean      # clean
 ```
-
-Requires GCC and nothing else. Zero dependencies beyond libc. C99.
 
 ## CLI
 
@@ -135,6 +86,8 @@ takahe [flags] <source.sv|.vhd|.abl>
   --budget <n>    refuse to emit if live cell count exceeds n
   --tmr           radiation hardening (triplicate DFFs + voters)
   --tmr-full      radiation hardening (triplicate everything)
+  --fi            prove no single flop upset reaches an output
+  --fi-comb       same, but faulting every gate output too
   --fpga <f>      emit nextpnr JSON for iCE40 FPGA
   --blif <f>      emit BLIF netlist
   --yosys <f>     emit Yosys JSON netlist
@@ -149,146 +102,50 @@ takahe [flags] <source.sv|.vhd|.abl>
   --help          print full usage (also -h)
 ```
 
-### Full pipeline example
-
 ```bash
 # Synthesise, map to SKY130, run STA at 100MHz
 ./takahe --lib sky130.lib --map out.v --sta 100 design.sv
 
 # Same thing, but the errors are in Te Reo Māori
 ./takahe --lib sky130.lib --map out.v --sta 100 --lang mi design.sv
-
-# Ternary synthesis
-./takahe --radix 3 --opt --parse design.sv
-
-# Equivalence check: prove optimisation didn't break anything
-# ≤24 input bits = exhaustive (formal proof), >24 = random simulation
-./takahe --equiv --parse design.sv
 ```
+
+## Radiation Hardening
+
+`--tmr` triples every flip-flop and inserts a majority voter, the technique Voyager and most satellites since the 1970s were hardened with, except done by the synthesiser instead of by hand.
+
+Inserting redundancy is the easy half. `--fi` proves it worked, by asking a SAT solver whether any single upset anywhere in the design can change an output. Unsatisfiable means every one is masked. Where a fault does get through, the solver names the node.
+
+```
+takahe: fi: 12 sites (12 sequential), 9 watched nets
+takahe: fi: no single upset reaches an output
+```
+
+Exit status is nonzero when anything is unprotected, so it works as a CI gate. Full detail in [docs/tmr.txt](docs/tmr.txt).
+
+## Beyond Binary
+
+Takahe doesn't know what a NAND gate is. It reads a truth table from a text file and evaluates it, so synthesising in a radix other than binary needs no separate code path. The optimiser is radix-aware for the same reason: constant propagation and dead cell elimination work by evaluating truth tables rather than by rules written for any one paradigm.
+
+Thirteen paradigms ship as `.def` files, from balanced ternary and duodecimal through to nucleotide logic, the Clifford quantum gate set, and a voting cell that is commented out because Arrow proved in 1951 it cannot exist. Adding one means writing a text file, not touching C.
+
+See [docs/paradigms.txt](docs/paradigms.txt).
 
 ## Reading Netlists Back In
 
-Synthesis goes source to gates. `--netlist` goes the other way: hand it a
-structural netlist full of standard cells and it rebuilds the design in the
-same IR that synthesis uses.
+Synthesis goes source to gates. `--netlist` goes the other way, rebuilding a structural netlist into the same IR synthesis uses. `--seq` then recovers registers and shift chains that nothing in the netlist names, working it out twice over and checking the two answers agree.
 
-```bash
-# Read a gate netlist and report what the flops are doing
-./takahe --netlist --seq --lib sky130.lib recovered.v
-```
+Cell behaviour comes from the Liberty file rather than a table of known gate names, so 347 of SKY130's 428 cells build an exact truth table.
 
-```
-takahe: RTL: 84 nets, 79 cells
-takahe: seq: 16 flops (2 held, 14 shift, 0 multi-source)
-  chain 0: 8 stages, head net '\a_reg[0]'
-  chain 1: 8 stages, head net '\b_reg[0]'
-  group 0: 8 flops, clock 'clknet_1_1__leaf_clk'
-  group 1: 8 flops, clock 'clknet_1_0__leaf_clk'
-```
+See [docs/netlists.txt](docs/netlists.txt).
 
-Nothing in that netlist says "shift register". `--seq` works it out twice over,
-once by walking each flop's D cone back to whichever flops feed it, and again by
-grouping flops that share control signals. Two 8-bit registers, agreed on by
-both methods.
+## Diagnostics
 
-Cell behaviour comes from the Liberty file rather than from a table of known
-gate names, so a cell like `a31o` (`X = (A1&A2&A3) | B1`) is understood rather
-than merely recognised. 347 of SKY130's 428 cells build an exact truth table;
-the remainder are flops and physical fill, which are handled separately or not
-at all.
+Unrecoverable errors produce a structured ABEND dump in the mainframe tradition, showing what the tool was doing and how full each pool was when it failed. Every optimisation pass sits behind a CICS-style transaction journal, so a pass that fails or makes things worse rolls back instead of leaving a half-optimised netlist.
 
-Because the same tool synthesises, it can also hand the design back:
+Error messages are structured codes loaded from `lang/`, currently English and Te Reo Māori. Adding a language is adding a `.txt` file.
 
-```bash
-# Read a netlist, write it out again
-./takahe --netlist --lib sky130.lib --map out.v recovered.v
-```
-
-Read, emit, and re-read gives the same net count, cell count and register
-structure, which is a decent check that nothing was lost in the middle.
-
-## Thirteen Paradigms
-
-| File | Paradigm | Radix | Origin |
-|------|----------|-------|--------|
-| `cells.def` | Binary | 2 | Shannon, 1938 |
-| `cells_ter.def` | Balanced ternary | 3 | Brusentsov, 1958 |
-| `cells_stoch.def` | Stochastic | 2* | Gaines, 1969 |
-| `cells_qc.def` | Quantum (Clifford) | 2 | Feynman, 1982 |
-| `cells_doz.def` | Duodecimal | 12 | Sumer, 3000 BCE |
-| `cells_dna.def` | Nucleotide | 4 | LUCA, 3.7 Gya |
-| `cells_epist.def` | Epistemic | 7 | Inspired by Bochvar, 1938 |
-| `cells_life.def` | Cellular automata | 2 | Conway/Wolfram |
-| `cells_affect.def` | Affective | 8 | Plutchik, 1980 |
-| `cells_iching.def` | I Ching trigrams | 8 | 伏羲, ~3000 BCE |
-| `cells_music.def` | Music theory | 12 | Pythagoras/Bach |
-| `cells_quark.def` | Particle physics | 6 | Gell-Mann, 1964 |
-| `cells_arrow.def` | Impossibility | 6 | Arrow, 1951 |
-
-\* Stochastic cells use binary hardware with probabilistic semantics: AND = multiplication, MUX = weighted addition.
-
-### Highlights
-
-**Ternary**: Negation is free because you just flip every trit, no two's complement needed. The 3-way MUX selects from three inputs with one control signal. Brusentsov proved this was better in 1958 and the Soviet Union cancelled it anyway.
-
-**Quantum**: CNOT, Toffoli, Fredkin, Hadamard, the full Clifford gate set. The classical control plane for a quantum processor synthesises alongside the binary logic so one tool handles both domains.
-
-**DNA**: Watson-Crick complement serves as the NOT gate, the CODON cell maps three nucleotides to an amino acid index, and the MATCH cell detects base pairing. Your body runs 37 trillion instances of this cell library.
-
-**Epistemic**: Seven values inspired by Bochvar's original three-valued logic (true, false, indeterminate), extended to include *justified* true, *believed* true, and *defeated* true. The CONSENSUS gate merges knowledge from multiple sources while the DEFEAT gate revokes warrants when counter-evidence arrives. The extension beyond Bochvar's original three values is original work.
-
-**Duodecimal**: The Mesopotamians counted in base-12 five thousand years ago and we still use their system for hours, months, and music. The half-adder correctly computes 7 sheep + 8 sheep = 3 sheep carry 1 dozen.
-
-**Arrow's impossibility**: A `.def` file that documents its own impossibility. The FAIR voting cell is commented out because Arrow proved in 1951 that no truth table satisfying all three fairness axioms can exist, and the file contains the proof.
-
-**I Ching**: Closes the historical loop. Leibniz saw the trigrams in 1703 and recognised binary arithmetic, Shannon formalised it in 1938, and Takahe generalised beyond it in 2026. The I Ching was a truth table lookup three millennia before anyone called it that.
-
-## ABEND Dumps and Error Codes
-
-When Takahe hits an unrecoverable error it produces a structured ABEND dump in the mainframe tradition, showing exactly what the tool was doing when it failed. The pattern comes from IBM's CICS (1968): if you're going to crash, crash informatively.
-
-```
-╔══════════════════════════════════════╗
-║     TAKAHE ABEND — HE HAPA NUKU     ║
-╚══════════════════════════════════════╝
-  Module:   tk_sta
-  Reason:   net pool exhausted during STA forward pass
-  Nets:     41 / 100
-  Cells:    36 / 100
-  Strings:  1 / 1048576 bytes
-  Memories: 2
-
-  The takahē was declared extinct in 1898.
-  It came back. So can your design.
-```
-
-In Te Reo Māori (`--lang mi`):
-
-```
-  Wāhanga:   tk_sta
-  Take:      kua pau te pūrere whatunga i te wā STA
-  ...
-  Kia kaha. Ka oti. Ka pai.
-  (Be strong. It will be finished. It will be good.)
-```
-adding your own language is just adding another .txt file. Theoretically you could have an error dump in ancient sumerian while making a duodecimal chip, how neat!
-
-### Error codes
-
-All error messages use structured codes (`TK001`–`TK099`) loaded from text files in `lang/`. To add a new language, create `lang/<code>.txt` with one message per line.
-
-| Range | Category |
-|-------|----------|
-| TK001–009 | Lexer and parser errors |
-| TK010–019 | Elaboration (parameters, width) |
-| TK020–029 | RTL lowering (pool exhaustion, no driver) |
-| TK030–039 | Timing (setup/hold violations, combinational loops) |
-| TK040–049 | Mapping (bit-blast overflow, Espresso limits) |
-| TK090–099 | ABEND dump fields |
-
-### Transaction journaling
-
-Every optimisation pass is protected by a CICS-style transaction journal. If a pass fails or makes things worse the netlist rolls back to its pre-pass state, no half-optimised netlists ever. The journal records every cell addition, deletion, and modification, and rollback replays the journal in reverse like rewinding a tape except the tape is your netlist.
+See [docs/diagnostics.txt](docs/diagnostics.txt).
 
 ## Project Structure
 
@@ -301,21 +158,17 @@ src/
 ├── parse/       SV + VHDL recursive descent parsers
 ├── elab/        constant eval, elaboration, width inference
 ├── rtl/         RTL IR + AST-to-RTL lowering
-├── opt/         constant propagation, dead cell elimination
-├── xform/       bit-blast, pattern matching, Espresso minimiser
+├── opt/         constant propagation, dead cell elimination,
+│                CNF encoding, CDCL SAT, fault injection
+├── xform/       bit-blast, pattern matching, Espresso minimiser,
+│                TMR, sequential recovery, cycle simulation
 ├── tech/        Liberty parser, cell defs, PCHIP, STA, timing-driven opt
 └── emit/        BLIF, Yosys JSON, gate-level Verilog output
 
 defs/            13 computing paradigm definitions
 lang/            bilingual message catalogues (en, mi)
-docs/            Documentation on the project (will be added over time) 
+docs/            paradigms, TMR, netlist recovery, diagnostics
 ```
-
-## Quality Notice
-
-This cell library carries NO WARRANTY regarding copper quality. If your interconnect is of substandard grade you have only yourself to blame for buying from Ea-nasir. You were warned. Nanni was warned. Nobody listens.
-
-
 
 ## Support the Takahē
 
@@ -327,4 +180,4 @@ If this project is useful to you, consider helping keep them alive.
 
 ## License
 
-MPL 2.0. Modify Takahe's files and share your modifications, build around it and your code stays yours. Because chip design shouldn't cost more than a house and alternative computing shouldn't be locked behind anyone's paywall.
+MPL 2.0. Modify Takahe's files and share your modifications, build around it and your code stays yours.
