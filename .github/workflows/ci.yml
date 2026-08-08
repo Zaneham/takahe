@@ -32,8 +32,10 @@ jobs:
       - name: Fetch sv-tests
         run: git clone --depth 1 https://github.com/chipsalliance/sv-tests.git /tmp/sv-tests
 
+      # Invoked through bash rather than relying on the executable bit, which
+      # a checkout on Windows does not preserve.
       - name: Score
-        run: tools/sv-tests.sh /tmp/sv-tests --min 66
+        run: bash tools/sv-tests.sh /tmp/sv-tests --min 66
 
   build-windows:
     runs-on: windows-latest
