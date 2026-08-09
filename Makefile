@@ -1,26 +1,36 @@
 # Takahe -- Open-Source Universal Synthesis
 
 
+# Default to gcc, but let an environment or command-line CC through, which is
+# how distro and CI build systems set it. Not `CC ?= gcc`: make predefines CC
+# as `cc`, so ?= never fires and you get a compiler that does not exist on
+# MinGW. Testing the origin is what distinguishes "make's default" from "the
+# user said so".
+ifeq ($(origin CC),default)
 CC = gcc
+endif
 
 WARN  = -Wall -Wextra -Werror -pedantic
 WARN += -Wshadow -Wconversion -Wdouble-promotion -Wundef
 WARN += -Wformat=2 -Wnull-dereference -Wswitch-enum -Wswitch-default
 WARN += -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes
 WARN += -Wredundant-decls -Wnested-externs -Wcast-align
+# -Wvla because C99 lets variable-length arrays in and the fixed-pool discipline
+# does not want them. -Wfloat-equal because PCHIP and STA do real float work.
+# Both are clean today, so they cost nothing and catch the first regression.
+WARN += -Wvla -Wfloat-equal
 WARN += -Wno-unused-parameter
-WARN += -Wno-unused-but-set-variable
 
 INCS    = -Iinclude -Isrc \
           -Isrc/lex -Isrc/parse -Isrc/elab \
           -Isrc/rtl -Isrc/opt \
           -Isrc/xform -Isrc/tech -Isrc/map -Isrc/emit
-CFLAGS  = $(WARN) -std=c99 -O2 $(INCS)
-TFLAGS  = $(WARN) -std=c99 -O0 -g $(INCS)
+CFLAGS  = $(WARN) -std=c99 -O2 -MMD -MP $(INCS)
+TFLAGS  = $(WARN) -std=c99 -O0 -g -MMD -MP $(INCS)
 
 ifdef DEBUG
-CFLAGS = $(WARN) -std=c99 -O0 -g -DDEBUG $(INCS)
-TFLAGS = $(WARN) -std=c99 -O0 -g -DDEBUG $(INCS)
+CFLAGS = $(WARN) -std=c99 -O0 -g -DDEBUG -MMD -MP $(INCS)
+TFLAGS = $(WARN) -std=c99 -O0 -g -DDEBUG -MMD -MP $(INCS)
 endif
 
 # Source files -- one line per stage
@@ -88,7 +98,12 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lm
 
-%.o: %.c include/takahe.h
+# The prerequisite used to be include/takahe.h alone, which meant editing
+# kauri.h changed a struct layout under objects that were never rebuilt. A
+# stale object linked against a changed layout is not a slow build, it is a
+# wrong binary you then spend an hour chasing. -MMD -MP has the compiler write
+# the real dependency list per object; the -include at the bottom reads them.
+%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Tests
@@ -146,9 +161,13 @@ uninstall:
 	rm -rf $(SHAREDIR) $(CMAKEDIR)
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(TEST_TARGET)
-	rm -f tests/*.o
-	rm -f src/lex/*.o src/parse/*.o src/elab/*.o
-	rm -f src/rtl/*.o src/opt/*.o
-	rm -f src/xform/*.o src/tech/*.o src/emit/*.o
-	rm -f src/*.o
+	rm -f $(OBJS) $(OBJS:.o=.d) $(TARGET) $(TEST_TARGET)
+	rm -f tests/*.o tests/*.d
+	rm -f src/*.o src/*.d
+	rm -f src/*/*.o src/*/*.d
+
+# Header dependencies, written by -MMD. Without these an edit to kauri.h or
+# takahe.h leaves objects built against the old layout and the binary quietly
+# disagrees with the source. The dash means a first build, before any .d
+# exists, is not an error.
+-include $(OBJS:.o=.d) $(TEST_SRCS:.c=.d)

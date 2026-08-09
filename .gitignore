@@ -39,3 +39,6 @@ CLAUDE.md
 
 # Local planning scratchpads
 list.txt
+
+# Header dependency files from -MMD
+*.d

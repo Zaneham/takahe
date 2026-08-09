@@ -1,5 +1,7 @@
 # Diagnostics
 
+[← back to README](../README.md)
+
 ## ABEND Dumps
 
 When Takahe hits an unrecoverable error it produces a structured ABEND dump in the mainframe tradition, showing what the tool was doing when it failed. The pattern comes from IBM's CICS (1968). If you are going to crash, crash informatively.

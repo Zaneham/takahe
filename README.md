@@ -119,6 +119,19 @@ takahe [flags] <source.sv|.vhd|.abl>
 ./takahe --lib sky130.lib --map out.v --sta 100 --lang mi design.sv
 ```
 
+## What It Won't Tell You It Can Do
+
+The SystemVerilog frontend scores **66% of the [sv-tests](https://github.com/chipsalliance/sv-tests) conformance suite**, 632 of 948 valid tests. CI gates on that number, so it can't quietly slide, and raising the floor is how progress gets recorded. The gaps cluster in the object-oriented and verification half of the language, worst at chapter 8 classes (1 of 44), which matters less for synthesis than the headline percentage suggests. Run it yourself:
+
+```bash
+git clone --depth 1 https://github.com/chipsalliance/sv-tests.git
+tools/sv-tests.sh sv-tests
+```
+
+`--equiv` proves equivalence with a SAT miter where it can, and says so plainly where it can't. A design holding wide operators that were never bit-blasted, or latches, or memories, gets `not encodable for SAT` and falls back to random vectors, with that stated out loud rather than reported as a proof. So the formal result currently covers bit-level designs: recovered netlists, and anything already bit-blasted.
+
+Timing analysis is topological, not path-based with full false-path elimination. The netlist reader builds exact truth tables for 347 of SKY130's 428 cells; the rest fall back to name matching.
+
 ## Radiation Hardening
 
 `--tmr` triples every flip-flop and inserts a majority voter, the technique Voyager and most satellites since the 1970s were hardened with, except done by the synthesiser instead of by hand.
@@ -162,6 +175,7 @@ See [docs/diagnostics.md](docs/diagnostics.md).
 src/
 ├── main.c       CLI entry point
 ├── tk_abend.c   ABEND dumps + bilingual messages
+├── tk_data.c    finds defs/ and lang/ relative to the binary
 ├── tk_jrn.c     CICS-style transaction journal
 ├── lex/         SV + VHDL lexers, preprocessor, .def loader
 ├── parse/       SV + VHDL recursive descent parsers
@@ -172,6 +186,7 @@ src/
 ├── xform/       bit-blast, pattern matching, Espresso minimiser,
 │                TMR, sequential recovery, cycle simulation
 ├── tech/        Liberty parser, cell defs, PCHIP, STA, timing-driven opt
+├── map/         iCE40 LUT mapping, memory inference
 └── emit/        BLIF, Yosys JSON, gate-level Verilog output
 
 defs/            13 computing paradigm definitions

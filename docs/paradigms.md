@@ -1,5 +1,7 @@
 # Computing Paradigms
 
+[← back to README](../README.md)
+
 ## Overview
 
 Takahe does not know what a NAND gate is. It reads a truth table from a text file and evaluates it. That is the whole trick, and it is why the tool synthesises in radices other than binary without a separate code path for each one.

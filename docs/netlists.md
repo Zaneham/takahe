@@ -1,5 +1,7 @@
 # Reading Netlists Back In
 
+[← back to README](../README.md)
+
 ## Overview
 
 Synthesis goes source to gates. `--netlist` goes the other way. Hand it a structural netlist full of standard cells and it rebuilds the design in the same IR that synthesis uses, which means every pass that works on a synthesised design also works on a recovered one.

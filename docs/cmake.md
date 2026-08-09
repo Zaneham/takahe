@@ -26,7 +26,8 @@ wherever you keep them.
 ## Finding it
 
 ```cmake
-find_package(Takahe 0.1 REQUIRED)
+find_package(Takahe REQUIRED)              # any version
+find_package(Takahe 0.1 REQUIRED)          # or pin the series
 ```
 
 If the prefix is not one CMake already searches, point it there with
@@ -35,6 +36,10 @@ If the prefix is not one CMake already searches, point it there with
 While Takahe is on 0.x the minor version has to match, so asking for 0.1 is
 satisfied by 0.1.2 but not by 0.2. That is deliberate: 0.x is where things are
 still allowed to move. From 1.0 the usual same-major rule takes over.
+
+Which does mean a pinned example goes stale the day the minor bumps. Ask for
+the series you actually build against, or leave the version off and take
+whatever is installed.
 
 You get `Takahe_VERSION`, `Takahe_EXECUTABLE`, `Takahe_DEFS_DIR`,
 `Takahe_LANG_DIR`, and a `Takahe::takahe` imported target.

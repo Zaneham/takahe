@@ -51,6 +51,7 @@ usage(const char *prog)
     printf("  --sta <mhz> static timing analysis at target frequency\n");
     printf("  --defs <f>  token definition file (default: defs/sv_tok.def)\n");
     printf("  --lang <en|mi> message language\n");
+    printf("  --version   print the version and exit\n");
     printf("  --help      this message\n\n");
     printf("supported PDKs: SKY130, IHP SG13G2, GF180MCU, ASAP7\n");
     printf("because chip design shouldn't cost more than a house.\n");
@@ -91,7 +92,12 @@ main(int argc, char **argv)
     tk_data_init(argv[0]);
 
     for (i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--help") == 0 ||
+        if (strcmp(argv[i], "--version") == 0) {
+            /* Bare, so a packager or CI script can read it without parsing
+             * the banner. */
+            printf("takahe %s\n", TK_VER_STRING);
+            return 0;
+        } else if (strcmp(argv[i], "--help") == 0 ||
             strcmp(argv[i], "-h") == 0) {
             usage(argv[0]);
             return 0;

@@ -1,5 +1,7 @@
 # Triple Modular Redundancy
 
+[← back to README](../README.md)
+
 ## Overview
 
 The `--tmr` flag automatically hardens a design against single-event upsets (SEUs) caused by radiation. Every flip-flop is tripled and a majority voter is inserted on each output. If one copy gets flipped by a charged particle, the other two outvote it.
