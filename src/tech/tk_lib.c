@@ -383,6 +383,21 @@ lb_load(lb_lib_t *lib, const char *path)
     p = buf;
     end = buf + nr;
 
+    /* The library() header, so reports can say what was targeted. */
+    {
+        const char *lp = lb_skip(p, end);
+        if (lb_kw(lp, end, "library", 7)) {
+            const char *ln; uint16_t ll;
+            lb_pnam(lp + 7, end, &ln, &ll);
+            if (ll > 0) {
+                if (ll > sizeof(lib->name) - 1)
+                    ll = (uint16_t)(sizeof(lib->name) - 1);
+                memcpy(lib->name, ln, ll);
+                lib->name[ll] = '\0';
+            }
+        }
+    }
+
     /* Scan for cell blocks */
     KA_GUARD(gcell, 2000000);
     while (p < end && gcell--) {

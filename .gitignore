@@ -4,8 +4,11 @@
 takahe
 trunner
 
-# Liberty cell libraries (third-party, large)
-lib/
+# Liberty cell libraries (third-party, large). ttl7400.lib is ours and small,
+# so it ships. Excluding the contents rather than the directory, because git
+# cannot re-include a file whose parent directory is excluded.
+lib/*
+!lib/ttl7400.lib
 
 # Editor cruft
 *.swp

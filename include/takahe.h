@@ -888,6 +888,7 @@ typedef struct {
 typedef struct {
     lb_cell_t cells[LB_MAX_CELLS];
     uint32_t  n_cell;
+    char      name[64];   /* from the library() header, for reports */
     char      strs[LB_MAX_STRS];
     uint32_t  str_len;
 } lb_lib_t;

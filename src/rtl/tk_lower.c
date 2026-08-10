@@ -1950,7 +1950,11 @@ lw_dffs(lw_ctx_t *C, uint32_t mod_n, uint32_t net_lo)
         uint32_t ch = C->P->nodes[mod_n].first_child;
         KA_GUARD(gs, 10000);
         while (ch && gs--) {
-            if (C->P->nodes[ch].type == TK_AST_ALWAYS_FF) {
+            /* Plain always too. Most Verilog in the wild writes
+             * always @(posedge clk), and a combinational always has no
+             * SENS_EDGE child so it contributes nothing here. */
+            if (C->P->nodes[ch].type == TK_AST_ALWAYS_FF ||
+                C->P->nodes[ch].type == TK_AST_ALWAYS) {
                 uint32_t sl = C->P->nodes[ch].first_child;
                 KA_GUARD(gs2, 20);
                 while (sl && gs2--) {

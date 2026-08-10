@@ -225,3 +225,32 @@ static void rt_dedup(void)
     PASS();
 }
 TH_REG("rtl", rt_dedup)
+
+/* ---- rt_dffck: plain always must attach the clock, not just always_ff ---- */
+
+static void rt_dffck(void)
+{
+    rt_mod_t *M = rtl_str(
+        "module t(input clk, input d, output reg q);\n"
+        "  always @(posedge clk)\n"
+        "    q <= d;\n"
+        "endmodule\n");
+    uint32_t qi, ci, ck;
+
+    CHECK(M != NULL);
+
+    qi = fnet(M, "q");
+    CHECK(qi != 0);
+    ci = fcell(M, RT_DFF, qi);
+    CHECK(ci != 0);
+
+    /* ins[1] is the clock. Net 0 means it was never wired up, which the
+     * Verilog emitter then faithfully prints as 1'b0. */
+    ck = fnet(M, "clk");
+    CHECK(ck != 0);
+    CHEQ(M->cells[ci].ins[1], ck);
+
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("rtl", rt_dffck)

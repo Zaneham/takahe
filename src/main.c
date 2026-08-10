@@ -738,7 +738,7 @@ main(int argc, char **argv)
                                                     if (btbl[ct2].valid)
                                                         area += (double)llib->cells[btbl[ct2].cell_idx].area;
                                                 }
-                                                printf("takahe: %u gates, %.0f um2 area\n",
+                                                printf("takahe: %u gates, %.2f area\n",
                                                        gcnt, area);
                                             }
                                             /* Timing-driven optimisation.

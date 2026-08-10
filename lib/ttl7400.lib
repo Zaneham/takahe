@@ -1,0 +1,281 @@
+/*
+ * ttl7400.lib -- 74LS series as a technology library for Takahe
+ *
+ * Area is packages, not micrometres. A 74LS00 puts four 2-input NANDs in
+ * one 14-pin DIP, so a NAND costs 0.25 of a chip and the area-driven
+ * mapper minimises the parts count on the board.
+ *
+ * Delays are typical 74LS propagation figures in nanoseconds. Vendors
+ * differ and the datasheets disagree with each other, so check against
+ * whichever part you are actually buying before trusting a timing report.
+ */
+
+library (ttl7400) {
+    technology (cmos);
+    delay_model : table_lookup;
+
+    time_unit                : "1ns";
+    voltage_unit             : "1V";
+    current_unit             : "1mA";
+    capacitive_load_unit     (1, pf);
+    pulling_resistance_unit  : "1kohm";
+    leakage_power_unit       : "1mW";
+
+    nom_voltage     : 5.0;
+    nom_temperature : 25.0;
+    nom_process     : 1.0;
+
+    lu_table_template (del) {
+        variable_1 : input_net_transition;
+        variable_2 : total_output_net_capacitance;
+        index_1 ("1.0, 10.0");
+        index_2 ("1.0, 10.0");
+    }
+
+    /* ---- Inverter ---- */
+
+    cell ("LS04_INV") {
+        area : 0.1667;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "!A";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("9.0, 9.0", "9.0, 9.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    /* Without a buffer the mapper leaves plain assignments unmapped. */
+    cell ("LS34_BUF") {
+        area : 0.1667;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "A";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("12.0, 12.0", "12.0, 12.0"); }
+                cell_fall (del) { values ("12.0, 12.0", "12.0, 12.0"); }
+            }
+        }
+    }
+
+    /* ---- NAND ---- */
+
+    cell ("LS00_NAND2") {
+        area : 0.25;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "!(A&B)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("9.0, 9.0", "9.0, 9.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    cell ("LS10_NAND3") {
+        area : 0.3333;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("C") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "!(A&B&C)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("9.0, 9.0", "9.0, 9.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    cell ("LS20_NAND4") {
+        area : 0.5;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("C") { direction : input;  capacitance : 1.5; }
+        pin ("D") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "!(A&B&C&D)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("9.0, 9.0", "9.0, 9.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    /* One gate to a package, which is why it is the expensive one. */
+    cell ("LS30_NAND8") {
+        area : 1.0;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("C") { direction : input;  capacitance : 1.5; }
+        pin ("D") { direction : input;  capacitance : 1.5; }
+        pin ("E") { direction : input;  capacitance : 1.5; }
+        pin ("F") { direction : input;  capacitance : 1.5; }
+        pin ("G") { direction : input;  capacitance : 1.5; }
+        pin ("H") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "!(A&B&C&D&E&F&G&H)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("11.0, 11.0", "11.0, 11.0"); }
+                cell_fall (del) { values ("12.0, 12.0", "12.0, 12.0"); }
+            }
+        }
+    }
+
+    /* ---- NOR ---- */
+
+    cell ("LS02_NOR2") {
+        area : 0.25;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "!(A|B)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    cell ("LS27_NOR3") {
+        area : 0.3333;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("C") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "!(A|B|C)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    /* ---- AND and OR ---- */
+
+    cell ("LS08_AND2") {
+        area : 0.25;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "(A&B)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("8.0, 8.0", "8.0, 8.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    cell ("LS11_AND3") {
+        area : 0.3333;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("C") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "(A&B&C)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("8.0, 8.0", "8.0, 8.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    /* The LS32 is the slow one, which is why the mapper should prefer
+     * NAND and an inverter when timing is tight. */
+    cell ("LS32_OR2") {
+        area : 0.25;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "(A|B)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("14.0, 14.0", "14.0, 14.0"); }
+                cell_fall (del) { values ("14.0, 14.0", "14.0, 14.0"); }
+            }
+        }
+    }
+
+    /* ---- XOR ---- */
+
+    cell ("LS86_XOR2") {
+        area : 0.25;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "(A^B)";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("12.0, 12.0", "12.0, 12.0"); }
+                cell_fall (del) { values ("10.0, 10.0", "10.0, 10.0"); }
+            }
+        }
+    }
+
+    /* ---- Multiplexer ---- */
+
+    cell ("LS157_MUX2") {
+        area : 0.25;
+        pin ("A") { direction : input;  capacitance : 1.5; }
+        pin ("B") { direction : input;  capacitance : 1.5; }
+        pin ("S") { direction : input;  capacitance : 1.5; }
+        pin ("Y") {
+            direction : output;
+            function  : "((A&!S)|(B&S))";
+            timing () {
+                related_pin : "A";
+                cell_rise (del) { values ("12.0, 12.0", "12.0, 12.0"); }
+                cell_fall (del) { values ("12.0, 12.0", "12.0, 12.0"); }
+            }
+        }
+    }
+
+    /* ---- Flip-flop ---- */
+
+    /* Two to a package. Preset and clear are active low on the real part. */
+    cell ("LS74_DFF") {
+        area : 0.5;
+        ff ("IQ", "IQN") {
+            clocked_on : "CK";
+            next_state : "D";
+            clear      : "!CLRN";
+            preset     : "!PRen";
+        }
+        pin ("CK")   { direction : input; clock : true; capacitance : 1.5; }
+        pin ("D")    { direction : input; capacitance : 1.5; }
+        pin ("CLRN") { direction : input; capacitance : 1.5; }
+        pin ("PRen") { direction : input; capacitance : 1.5; }
+        pin ("Q") {
+            direction : output;
+            function  : "IQ";
+            timing () {
+                related_pin : "CK";
+                cell_rise (del) { values ("13.0, 13.0", "13.0, 13.0"); }
+                cell_fall (del) { values ("25.0, 25.0", "25.0, 25.0"); }
+            }
+        }
+    }
+}
