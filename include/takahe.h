@@ -191,6 +191,35 @@ typedef struct {
     char      msg[128];
 } tk_err_t;
 
+/* ---- JEDEC fuse map (JESD3-C) ----
+ * A 22V10 needs 5892 fuses. Larger CPLDs run to hundreds of thousands and
+ * are refused rather than silently truncated. */
+
+#define JD_MAX_FUSE    32768
+#define JD_MAX_ERRS    32
+#define JD_MAX_FIELD   (1u << 22)   /* guard on any single field */
+
+typedef struct {
+    uint32_t  qf;                      /* fuse count, QF */
+    uint32_t  qp;                      /* pin count, QP */
+    uint32_t  qv;                      /* test vector count, QV */
+
+    uint8_t   fuse[JD_MAX_FUSE / 8];   /* fuse n is bit n&7 of byte n>>3 */
+    uint8_t   seen[JD_MAX_FUSE / 8];   /* set by an L field, so F can fill */
+
+    uint8_t   dflt;                    /* F, state of unlisted fuses */
+    int8_t    secur;                   /* G, -1 when the field is absent */
+
+    uint16_t  csum,  ccalc;            /* fuse checksum, given and computed */
+    uint16_t  tsum,  tcalc;            /* transmission checksum, ditto */
+    uint8_t   has_c, has_t;
+
+    char      devid[64];               /* first N or J field, when present */
+
+    tk_err_t  errors[JD_MAX_ERRS];
+    uint32_t  n_err;
+} jd_file_t;
+
 /* ---- Journal Entry (CICS-style transaction log) ----
  * Every mutation to the IR is journaled. If a pass fails,
  * discard the journal and revert. No half-optimised netlists. */
@@ -1186,6 +1215,11 @@ void        tk_data_init(const char *argv0);
 void  tk_emsg (int eid, ...);
 void  tk_abend(const char *mod, const char *reason,
                const rt_mod_t *M);
+
+/* JEDEC fuse maps. Returns 0 when the file parsed and both checksums agreed,
+ * -1 otherwise, with the reasons in J->errors and the fuses still populated. */
+int jd_read(jd_file_t *J, const char *path);
+int jd_getf(const jd_file_t *J, uint32_t n);
 
 /* Utility */
 const char *tk_tokstr(tk_toktype_t t);

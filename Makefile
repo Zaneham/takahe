@@ -24,7 +24,7 @@ WARN += -Wno-unused-parameter
 INCS    = -Iinclude -Isrc \
           -Isrc/lex -Isrc/parse -Isrc/elab \
           -Isrc/rtl -Isrc/opt \
-          -Isrc/xform -Isrc/tech -Isrc/map -Isrc/emit
+          -Isrc/xform -Isrc/tech -Isrc/map -Isrc/emit -Isrc/pld
 CFLAGS  = $(WARN) -std=c99 -O2 -MMD -MP $(INCS)
 TFLAGS  = $(WARN) -std=c99 -O0 -g -MMD -MP $(INCS)
 
@@ -46,6 +46,7 @@ SRCS = src/main.c \
        src/parse/tk_parse.c \
        src/parse/vh_parse.c \
        src/parse/ab_parse.c \
+       src/pld/jd_read.c \
        src/elab/tk_ceval.c \
        src/elab/tk_elab.c \
        src/elab/tk_width.c \
@@ -110,7 +111,8 @@ $(TARGET): $(OBJS)
 TEST_SRCS = tests/tmain.c tests/tlex.c tests/tparse.c tests/telab.c \
             tests/trtl.c tests/topt.c tests/tmap.c tests/tvhdl.c \
             tests/tabel.c tests/thash.c tests/tspans.c tests/tmmap.c \
-            tests/tlfn.c tests/tnlst.c tests/tsat.c tests/tfi.c
+            tests/tlfn.c tests/tnlst.c tests/tsat.c tests/tfi.c \
+            tests/tjed.c
 TEST_TARGET = trunner
 
 ifeq ($(OS),Windows_NT)
