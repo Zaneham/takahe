@@ -4,7 +4,9 @@ Hardware synthesis. SystemVerilog, VHDL and ABEL-HDL in, gate-level netlists map
 
 PicoRV32, a complete RISC-V CPU core, synthesises to 3,305 SKY130 gate instances with zero parse errors and zero multi-driver nets. Five processors have been through OpenROAD.
 
-Named after the takahē (*Porphyrio hochstetteri*), declared extinct in 1898 and rediscovered alive in the Murchison Mountains in 1948.
+Named after the takahē (*Porphyrio hochstetteri*, also pronounced as Tah-Kah-Hey), declared extinct in 1898 and rediscovered alive in the Murchison Mountains in 1948.
+
+This project started so I could learn how to make my own chips and understand Verilog better. I also wanted to do more historical reconstructions of old computers, which hopefully explains why it's built the way it is.
 
 ## What It Does
 
@@ -161,6 +163,22 @@ Cell behaviour comes from the Liberty file rather than a table of known gate nam
 
 See [docs/netlists.md](docs/netlists.md).
 
+## PLDs and Fuse Maps
+
+`jd_read` parses JEDEC JESD3-C files, the format PLD programmers and assemblers write. It verifies both checksums, the fuse checksum and the transmission checksum, and reports a mismatch rather than failing, because a bad checksum is usually a truncated download and the fuses are still worth looking at.
+
+Fuses only, at this point. Turning a fuse array back into equations needs the device geometry, which is the next piece.
+
+## Older Targets
+
+Alongside the four PDKs there's `lib/ttl7400.lib`, the 74LS series as a technology library. Area is packages rather than micrometres, since a 74LS00 puts four 2-input NANDs in one 14-pin DIP, so a NAND costs 0.25 of a chip and the area-driven mapper minimises the parts count on the board.
+
+```bash
+./takahe --lib lib/ttl7400.lib --map board.v design.sv
+```
+
+Delays are typical 74LS figures, so timing analysis gives a clock rate in the region of what the parts will actually do. Check them against whichever vendor you're buying from before trusting a report.
+
 ## Diagnostics
 
 Unrecoverable errors produce a structured ABEND dump in the mainframe tradition, showing what the tool was doing and how full each pool was when it failed. Every optimisation pass sits behind a CICS-style transaction journal, so a pass that fails or makes things worse rolls back instead of leaving a half-optimised netlist.
@@ -179,6 +197,7 @@ src/
 ├── tk_jrn.c     CICS-style transaction journal
 ├── lex/         SV + VHDL lexers, preprocessor, .def loader
 ├── parse/       SV + VHDL recursive descent parsers
+├── pld/         JEDEC fuse map reader
 ├── elab/        constant eval, elaboration, width inference
 ├── rtl/         RTL IR + AST-to-RTL lowering
 ├── opt/         constant propagation, dead cell elimination,
@@ -191,6 +210,8 @@ src/
 
 defs/            13 computing paradigm definitions
 lang/            bilingual message catalogues (en, mi)
+lib/             ttl7400.lib, the 74LS target. PDK Liberty files are
+                 third-party and too large, so they are not in the repo
 docs/            paradigms, TMR, netlist recovery, diagnostics
 ```
 

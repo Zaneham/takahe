@@ -1,6 +1,36 @@
 CHANGELOG
 =========
 
+2026-08-10  JEDEC fuse maps, a 74LS target, and an emitter that meant it
+  - jd_read parses JESD3-C, the format PLD programmers write. Fuse
+    states only. Both checksums are compared, and a mismatch is
+    recorded rather than fatal, because it is nearly always a
+    truncated download and the fuses are still worth reading. The
+    F default fills only what no L field touched, whatever order
+    the fields arrive in.
+  - lib/ttl7400.lib, the 74LS series as a technology library. Area
+    is packages rather than micrometres: a 74LS00 is four 2-input
+    NANDs in one DIP, so a NAND costs 0.25 of a chip and the
+    area-driven mapper minimises parts on the board with no new
+    code. Fourteen cells, typical 74LS delays.
+  - Writing it flushed out four things the PDK flow had hidden.
+    lw_dffs only walked always_ff, so every flop from a plain
+    always @(posedge clk) got net 0 as its clock and the emitter
+    printed 1'b0. The emitter also deduplicated wire declarations
+    on the base net name while emitting indexed names, so
+    out_mapped.v had 381 declarations for 2,769 wires. The target
+    comment was hardcoded to sky130, and area printed as %.0f
+    labelled um2 whatever the library meant by it.
+  - Tests print in category then name order. Registration runs
+    through constructors, whose order follows the link line, so the
+    output used to reshuffle whenever a file was added.
+  - Three fixtures describe themselves, after the z390 sort tests
+    where each record states its own position. The fuses in jd_says
+    spell JEDEC OK, every byte in jd_addr holds its own index, and
+    parts.sv names each output after the part that should drive it.
+    Break one and the failure prints mojibake rather than expected
+    1 got 0. Each was checked by breaking what it guards. 145 tests.
+
 2026-08-08  SAT-backed equivalence checking
   - cn_mod encodes a bit-level combinational module to CNF, and
     cn_mitr builds a miter of two of them: inputs tied together,
