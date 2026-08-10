@@ -216,3 +216,97 @@ static void jd_nofil(void)
     PASS();
 }
 TH_REG("jed", jd_nofil)
+
+/* ---- jd_says: the fuses spell out what they should read back as ----
+ * Fuse 0 is the LSB of byte 0, which is the easiest thing here to get
+ * backwards. Reverse it and this prints mojibake, which you can read at a
+ * glance instead of working out which bit of which byte moved. */
+
+static const char jd_spell[] =
+    "\x02" "spelling test*\n"
+    "QF64*\n"
+    "L0000 01010010*\n"   /* J */
+    "L0008 10100010*\n"   /* E */
+    "L0016 00100010*\n"   /* D */
+    "L0024 10100010*\n"   /* E */
+    "L0032 11000010*\n"   /* C */
+    "L0040 00000100*\n"   /*   */
+    "L0048 11110010*\n"   /* O */
+    "L0056 11010010*\n"   /* K */
+    "C0000*\n"            /* deliberately unchecked, see below */
+    "\x03" "0000\n";
+
+static void jd_says(void)
+{
+    jd_file_t *J = (jd_file_t *)calloc(1, sizeof(jd_file_t));
+    char got[9];
+    int i;
+
+    CHECK(J != NULL);
+    CHECK(jd_write(jd_spell) == 0);
+    (void)jd_read(J, JD_TMP);
+
+    for (i = 0; i < 8; i++) got[i] = (char)J->fuse[i];
+    got[8] = '\0';
+
+    /* The fixture says C0000 so the checksum cannot fail first and hide
+     * this, which is the one message here worth reading. */
+    if (strcmp(got, "JEDEC OK") != 0)
+        printf("\n    fuses spell \"%s\", wanted \"JEDEC OK\"\n", got);
+    CHSTR(got, "JEDEC OK");
+
+    CHEQ(J->n_err, 0u);
+    CHEQ(J->ccalc, 0x0215);
+
+    remove(JD_TMP);
+    free(J);
+    PASS();
+}
+TH_REG("jed", jd_says)
+
+/* ---- jd_addr: every byte states which byte it is ----
+ * jd_says covers bit order inside a byte. This covers the other axis,
+ * where an L field lands. Get the stride wrong and byte 3 holds 4, which
+ * the failure prints as a row of numbers you can read the shift off. */
+
+static const char jd_count[] =
+    "\x02" "counting test*\n"
+    "QF64*\n"
+    "L0000 00000000*\n"
+    "L0008 10000000*\n"
+    "L0016 01000000*\n"
+    "L0024 11000000*\n"
+    "L0032 00100000*\n"
+    "L0040 10100000*\n"
+    "L0048 01100000*\n"
+    "L0056 11100000*\n"
+    "C0000*\n"
+    "\x03" "0000\n";
+
+static void jd_addr(void)
+{
+    jd_file_t *J = (jd_file_t *)calloc(1, sizeof(jd_file_t));
+    int i, bad = 0;
+
+    CHECK(J != NULL);
+    CHECK(jd_write(jd_count) == 0);
+    (void)jd_read(J, JD_TMP);
+
+    for (i = 0; i < 8; i++)
+        if (J->fuse[i] != (uint8_t)i) bad = 1;
+
+    if (bad) {
+        printf("\n    bytes read");
+        for (i = 0; i < 8; i++) printf(" %u", J->fuse[i]);
+        printf(", wanted 0 1 2 3 4 5 6 7\n");
+    }
+    CHEQ(bad, 0);
+
+    CHEQ(J->n_err, 0u);
+    CHEQ(J->ccalc, 0x001Cu);
+
+    remove(JD_TMP);
+    free(J);
+    PASS();
+}
+TH_REG("jed", jd_addr)

@@ -1070,3 +1070,54 @@ static void es_test(void)
     PASS();
 }
 TH_REG("map", es_test)
+
+/* ---- mp_ttl: the parts come out in the order the net names claim ----
+ * tests/parts.sv names every output after the 74LS part that should drive
+ * it. If the mapper picks the wrong cell the failure prints both part
+ * sequences, which says what happened without opening the netlist. */
+
+#define TTL_LIB "lib/ttl7400.lib"
+#define TTL_OUT "tests/out_ttl.v"
+
+static void mp_ttl(void)
+{
+    static const char *want[] = {
+        "LS00_NAND2", "LS34_BUF",
+        "LS02_NOR2",  "LS34_BUF",
+        "LS86_XOR2",  "LS34_BUF",
+        "LS04_INV",   "LS34_BUF"
+    };
+    const int nwant = (int)(sizeof want / sizeof want[0]);
+    char obuf[TH_BUFSZ], line[256];
+    int i = 0, bad = 0;
+    FILE *fp;
+
+    if (!th_exist("tests/parts.sv")) SKIP("no parts.sv");
+    if (!th_exist(TTL_LIB))          SKIP("no ttl7400.lib");
+
+    CHECK(th_run(TK_BIN " --lib " TTL_LIB " --map " TTL_OUT
+                 " tests/parts.sv", obuf, TH_BUFSZ) == 0);
+
+    fp = fopen(TTL_OUT, "r");
+    CHECK(fp != NULL);
+
+    while (fgets(line, (int)sizeof line, fp) != NULL) {
+        if (line[0] != 'L' || line[1] != 'S') continue;
+        if (i >= nwant) { bad = 1; break; }
+        if (strncmp(line, want[i], strlen(want[i])) != 0) {
+            printf("\n    part %d is %.10s, wanted %s\n",
+                   i, line, want[i]);
+            bad = 1;
+        }
+        i++;
+    }
+    fclose(fp);
+
+    if (i != nwant)
+        printf("\n    %d parts emitted, wanted %d\n", i, nwant);
+
+    CHEQ(bad, 0);
+    CHEQ(i, nwant);
+    PASS();
+}
+TH_REG("map", mp_ttl)
