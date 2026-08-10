@@ -54,6 +54,20 @@ int th_exist(const char *path)
     return 1;
 }
 
+/* Category first, then name. Registration runs through constructors, whose
+ * order across translation units follows the link line, so without this the
+ * output reshuffles whenever a test file is added and two runs will not
+ * diff against each other. */
+static int
+th_cmp(const void *a, const void *b)
+{
+    const tcase_t *x = (const tcase_t *)a;
+    const tcase_t *y = (const tcase_t *)b;
+    int c = strcmp(x->tcats, y->tcats);
+
+    return c != 0 ? c : strcmp(x->tname, y->tname);
+}
+
 int main(int argc, char **argv)
 {
     int i;
@@ -61,6 +75,9 @@ int main(int argc, char **argv)
 
     if (argc > 1 && strcmp(argv[1], "--all") != 0)
         filter = argv[1];
+
+    if (th_cnt > 1)
+        qsort(th_list, (size_t)th_cnt, sizeof th_list[0], th_cmp);
 
     printf("\nTakahe Test Suite\n");
     printf("=================\n");
