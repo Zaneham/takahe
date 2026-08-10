@@ -124,7 +124,6 @@ ta_sta(const rt_mod_t *M, const lb_lib_t *lib,
     int viol = 0, loops = 0;
     tk_fs_t worst_slack;
     uint32_t worst_net = 0;
-    uint32_t ncomb = 0; /* combinational (non-DFF) cells       */
 
     if (!M || !lib || !tbl || clk_fs <= 0) return -1;
 
@@ -158,7 +157,6 @@ ta_sta(const rt_mod_t *M, const lb_lib_t *lib,
         if (c->type == RT_DFF || c->type == RT_DFFR)
             continue;
 
-        ncomb++;
         for (j = 0; j < c->n_in; j++) {
             uint32_t ni = c->ins[j];
             if (ni > 0 && ni < M->n_net && ni != c->out)
@@ -178,11 +176,9 @@ ta_sta(const rt_mod_t *M, const lb_lib_t *lib,
      * all cells it feeds, then decrement in-degree of
      * those cells' output nets. */
     {
-        uint32_t processed = 0;
         KA_GUARD(gk, 300000);
         while (qh < qt && gk--) {
             uint32_t ni = queue[qh++];
-            processed++;
 
             /* Find all cells that read this net */
             KA_GUARD(gc, 300000);

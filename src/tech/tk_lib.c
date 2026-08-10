@@ -201,14 +201,12 @@ lb_xtbl(const char *body, const char *end, const char *kw,
         double scv)
 {
     const char *p = body;
-    int depth = 0;
     KA_GUARD(gx, 1000000);
 
     memset(tbl, 0, sizeof(*tbl));
 
     while (p < end && gx--) {
-        if (*p == '{') { depth++; p++; continue; }
-        if (*p == '}') { depth--; p++; continue; }
+        if (*p == '{' || *p == '}') { p++; continue; }
 
         /* Find the keyword */
         if (p + kwlen < end && memcmp(p, kw, (size_t)kwlen) == 0) {

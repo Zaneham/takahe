@@ -190,7 +190,7 @@ int
 sm_tick(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S)
 {
     uint8_t *d;
-    uint32_t i, n = 0;
+    uint32_t i;
     int rc;
 
     if (!M || !S) return -1;
@@ -205,7 +205,6 @@ sm_tick(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S)
             c->type != RT_DFFS) continue;
         d[i] = (c->n_in > 0 && c->ins[0] < S->n_net) ?
                S->val[c->ins[0]] : 0;
-        n++;
     }
 
     for (i = 1; i < M->n_cell; i++) {
