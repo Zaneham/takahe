@@ -240,7 +240,7 @@ es_mini(const uint32_t *onm, int non, const uint32_t *offm,
         int noff, int nin, void *cover)
 {
     es_cover_t *F = (es_cover_t *)cover;
-    int i, iter;
+    int i;
 
     if (!F || nin > ES_MAXIN || non > ES_MAXCUB) return -1;
 
@@ -265,7 +265,7 @@ es_mini(const uint32_t *onm, int non, const uint32_t *offm,
      * Iterate until no improvement. Like a pop chorus:
      * repeat until it's stuck in your head. */
     KA_GUARD(giter, 20);
-    for (iter = 0; giter--; iter++) {
+    while (giter--) {
         int e = es_expand(F, offm, noff);
         int r2 = es_irred(F, onm, non);
         int d = es_reduce(F, onm, non);
@@ -388,9 +388,8 @@ es_cone(const rt_mod_t *M, uint32_t out_net,
 
             /* Propagate: evaluate only cells in the cone. */
             {
-                int pass;
                 KA_GUARD(gp, 50);
-                for (pass = 0; gp--; pass++) {
+                while (gp--) {
                     int chg = 0;
                     int ci2;
                     for (ci2 = 0; ci2 < ncone; ci2++) {
