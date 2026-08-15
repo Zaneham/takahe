@@ -9,6 +9,8 @@ TK001 cannot open file '%s'
 TK002 file too large (%u bytes, max %u)
 TK003 parse error at %u:%u: %s
 TK004 AST node pool exhausted (%u nodes)
+TK005 token pool exhausted (%u tokens, max %u)
+TK006 lexer stopped at byte %u of %u
 
 # ---- Elaboration (010-019) ----
 TK010 unresolved parameter '%s'

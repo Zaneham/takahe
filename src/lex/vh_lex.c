@@ -75,7 +75,15 @@ vh_emit(tk_lex_t *L, tk_toktype_t type, uint16_t sub,
 {
     tk_token_t *t;
 
-    if (L->n_tok >= L->max_tok) return;
+    if (L->n_tok >= L->max_tok) {
+        if (!L->tok_ovf) {
+            L->tok_ovf = 1;
+            L->n_err++;
+            tk_emsg(5, L->n_tok, L->max_tok);
+        }
+        return;
+    }
+
     t = &L->tokens[L->n_tok++];
     t->type = type;
     t->sub  = sub;
@@ -153,8 +161,14 @@ vh_lex(tk_lex_t *L, const char *src, uint32_t len)
     L->src_len = len;
     L->n_tok   = 0;
     L->n_err   = 0;
+    L->tok_ovf = 0;
 
-    KA_GUARD(g, TK_MAX_TOKENS + 1000);
+    /* Bounded by the source length, because every path through the body
+     * advances pos by at least one. Sizing it in tokens was wrong, since
+     * whitespace, newlines and comments spend guard without producing a
+     * token, so a 2MB source stopped two thirds of the way through and
+     * reported success. */
+    KA_GUARD(g, len + 1);
     while (pos < len && g--) {
         c = src[pos];
 
@@ -386,6 +400,12 @@ vh_lex(tk_lex_t *L, const char *src, uint32_t len)
             L->n_err++;
             pos++; col++;
         }
+    }
+
+    /* Guard tripped with source left over. See the note on the bound. */
+    if (pos < len) {
+        L->n_err++;
+        tk_emsg(6, pos, len);
     }
 
     return (int)L->n_err;

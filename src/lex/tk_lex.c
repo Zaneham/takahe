@@ -44,7 +44,17 @@ lx_emit(tk_lex_t *L, tk_toktype_t type, uint16_t sub,
 {
     tk_token_t *t;
 
-    if (L->n_tok >= L->max_tok) return;  /* pool full, sentinel */
+    /* Pool full. Say so once and stop, because truncating the source and
+     * leaving the parser to make sense of the remains is how a file gets
+     * silently synthesised as something it isn't. */
+    if (L->n_tok >= L->max_tok) {
+        if (!L->tok_ovf) {
+            L->tok_ovf = 1;
+            L->n_err++;
+            tk_emsg(5, L->n_tok, L->max_tok);
+        }
+        return;
+    }
 
     t = &L->tokens[L->n_tok++];
     t->type = type;
@@ -136,8 +146,14 @@ tk_lex(tk_lex_t *L, const char *src, uint32_t len)
     L->src_len = len;
     L->n_tok   = 0;
     L->n_err   = 0;
+    L->tok_ovf = 0;
 
-    KA_GUARD(g, TK_MAX_TOKENS + 1000);
+    /* Bounded by the source length, because every path through the body
+     * advances pos by at least one. Sizing it in tokens was wrong, since
+     * whitespace, newlines and comments spend guard without producing a
+     * token, so a 2MB source stopped two thirds of the way through and
+     * reported success. */
+    KA_GUARD(g, len + 1);
     while (pos < len && g--) {
         c = src[pos];
 
@@ -389,6 +405,14 @@ tk_lex(tk_lex_t *L, const char *src, uint32_t len)
         /* ---- Unknown character ---- */
         pos++; col++;
         L->n_err++;
+    }
+
+    /* Guard tripped with source left over. Unreachable given the bound
+     * above, so if it happens the bound is wrong and a half-read file must
+     * not go on to be synthesised. */
+    if (pos < len) {
+        L->n_err++;
+        tk_emsg(6, pos, len);
     }
 
     /* EOF token */

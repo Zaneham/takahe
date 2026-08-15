@@ -177,6 +177,7 @@ typedef struct {
 
     /* Errors */
     uint32_t      n_err;
+    uint8_t       tok_ovf;   /* token pool filled, source truncated */
 } tk_lex_t;
 
 /* ---- Error Entry ---- */
