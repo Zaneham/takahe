@@ -4,16 +4,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_dce.c -- Dead cell elimination for Takahe RTL
+ * tk_dce.c -- dead cell elimination
  *
- * If nobody reads your output and you're not a port,
- * you're dead weight. This pass finds cells whose output
- * nets have zero fanout and sends them to the knacker's
- * yard. Iterates to fixpoint because killing one cell
- * may orphan another's inputs.
- *
- * Like a municipal council: if nobody uses the road,
- * eventually someone notices and stops maintaining it.
+ * A cell whose output net has no fanout and is not a port is dead weight.
+ * Iterates to fixpoint, because killing one cell can orphan the next.
  */
 
 #include "takahe.h"

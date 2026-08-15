@@ -4,20 +4,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_mmap.c -- Memory primitive library loader and matcher
+ * tk_mmap.c -- memory primitive library loader and matcher
  *
- * Reads defs/mems_<family>.def files into an ml_lib_t, then
- * walks rt_mod_t.mems[] to pick the cheapest primitive that
- * fits each inferred memory. The .def grammar lives next to
- * the data it describes, like every other spec in this
- * project, so adding a new FPGA or PDK is a text file and
- * not a recompile.
+ * Reads defs/mems_<family>.def into an ml_lib_t, then walks rt_mod_t.mems[]
+ * picking the cheapest primitive that fits each inferred memory. Adding an
+ * FPGA or a PDK is a text file, not a recompile.
  *
- * No flop-forest fallback yet. Memories that do not fit any
- * primitive keep their RT_MEMRD/RT_MEMWR cells and the
- * existing Yosys JSON or gate-level Verilog path emits them
- * as before, which is the right behaviour for a v1 because
- * "leave it alone" is always safer than "rewrite it wrong."
+ * No flop-forest fallback. A memory that fits nothing keeps its RT_MEMRD and
+ * RT_MEMWR cells and the existing emitters handle it as before, because
+ * leaving it alone beats rewriting it wrong.
  */
 
 #include "takahe.h"
@@ -27,8 +22,8 @@
 
 /* ---- Tiny tokeniser ----
  * Splits one line into whitespace-delimited tokens. Caller
- * supplies the buffer for the line and the storage for the
- * tokens; we just point into the buffer with NUL terminators.
+ * supplies the buffer for the line and the storage for the tokens,
+ * and this points into that buffer with NUL terminators.
  * Comments (#) and trailing newlines are stripped. Bounded
  * everywhere, no allocations. */
 

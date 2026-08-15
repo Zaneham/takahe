@@ -4,21 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * ab_parse.c -- ABEL-HDL parser for Takahe
+ * ab_parse.c -- ABEL-HDL parser
  *
- * Produces the same AST node types as the SystemVerilog and
- * VHDL frontends so the entire backend works unchanged.
+ * Emits the same AST node types as the SystemVerilog and VHDL frontends, so
+ * the backend does not know or care which one ran.
  *
- * ABEL structure:
- *   MODULE name
- *   TITLE 'text'
- *   device DEVICE 'type';
- *   DECLARATIONS pin/node/constant
- *   EQUATIONS | TRUTH_TABLE | STATE_DIAGRAM
- *   TEST_VECTORS
- *   END name
- *
- * Synario ABEL-HDL Reference, Data I/O, 1995.
+ * Structure is MODULE, TITLE, device DEVICE, declarations of pins nodes and
+ * constants, then EQUATIONS or TRUTH_TABLE or STATE_DIAGRAM, TEST_VECTORS,
+ * and END.
  */
 
 #include "takahe.h"

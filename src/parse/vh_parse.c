@@ -4,23 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * vh_parse.c -- VHDL parser for Takahe
+ * vh_parse.c -- VHDL parser
  *
- * Parses the synthesisable subset of IEEE 1076-2008 and maps
- * it to the same AST nodes as the SystemVerilog parser. The
- * lowerer, optimiser, and backend don't care whether the
- * source was VHDL or SV — they see RT_AND, RT_MUX, RT_DFF.
+ * The synthesisable subset of IEEE 1076-2008 onto the same AST nodes the
+ * SystemVerilog parser produces, so nothing downstream can tell which
+ * language the source was written in.
  *
- * VHDL entity+architecture → TK_AST_MODULE
- * VHDL process             → TK_AST_ALWAYS_COMB / TK_AST_ALWAYS_FF
- * VHDL signal <=           → TK_AST_BLOCK_ASSIGN / TK_AST_NONBLOCK
- * VHDL case/when           → TK_AST_CASE / TK_AST_CASE_ITEM
- *
- * The US Department of Defense commissioned VHDL in 1980 because
- * they needed hardware descriptions that were unambiguous,
- * strongly typed, and verbose enough to fill a procurement
- * binder. They got all three. The Sumerians described their
- * hardware with clay — less verbose, equally durable.
+ *   entity + architecture  -> TK_AST_MODULE
+ *   process                -> TK_AST_ALWAYS_COMB / TK_AST_ALWAYS_FF
+ *   signal <=              -> TK_AST_BLOCK_ASSIGN / TK_AST_NONBLOCK
+ *   case/when              -> TK_AST_CASE / TK_AST_CASE_ITEM
  */
 
 #include "takahe.h"
@@ -397,11 +390,9 @@ vp_ports(tk_parse_t *P, uint32_t parent)
 
         vp_eop(P, ":");
 
-        /* Direction: intern SV-compatible strings so the lowerer
-         * sees "input"/"output"/"inout" regardless of HDL.
-         * VHDL says "in", the lowerer expects "input".
-         * Like translating between French procurement forms
-         * and American ones — same information, different words. */
+        /* Intern SV-compatible direction strings so the lowerer sees
+         * input, output and inout whichever HDL it came from. VHDL says
+         * in, the lowerer expects input. */
         if (vp_iskw(P, P->kw.vh_in)) {
             P->nodes[port].d.text.off = vp_sint(P->lex, "input", 5);
             P->nodes[port].d.text.len = 5;

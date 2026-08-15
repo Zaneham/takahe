@@ -4,18 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_tmr.c -- Triple Modular Redundancy for Takahe
+ * tk_tmr.c -- triple modular redundancy
  *
- * Triplicates sequential elements and inserts majority voters.
- * If radiation flips one flip-flop, the other two outvote it.
- * The same trick Voyager uses, except now your synthesiser
- * does it for you instead of making you do it by hand.
+ * Triplicates sequential elements and inserts majority voters, so a flop
+ * flipped by radiation gets outvoted by the other two. The same trick
+ * Voyager uses, except the synthesiser does it instead of you.
  *
- * The voter is just (a & b) | (b & c) | (a & c). Three ANDs,
- * two ORs. No new cell types, no special handling anywhere
- * in the pipeline. The optimiser, mapper, FPGA backend, and
- * emitters all work without changes because a voter is just
- * combinational logic wearing a fancy hat.
+ * The voter is (a & b) | (b & c) | (a & c), three ANDs and two ORs. No new
+ * cell types and no special handling anywhere, so the optimiser, mapper,
+ * FPGA backend and emitters all carry on unchanged. A voter is just
+ * combinational logic in a super duper fancy hat.
  */
 
 #include "takahe.h"

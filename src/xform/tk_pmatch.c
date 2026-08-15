@@ -4,13 +4,12 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_pmatch.c -- Pattern matching for Takahe RTL
+ * tk_pmatch.c -- pattern matching
  *
- * Recognises pairs of gates that can be merged into a single
- * complex gate. NOT(AND(a,b)) becomes NAND(a,b). NOT(OR(a,b))
- * becomes NOR(a,b). These patterns appear naturally after
- * bit-blast and save 15-20% area on real designs by leveraging
- * the complex gates in standard cell libraries.
+ * Merges gate pairs into single complex gates. NOT(AND(a,b)) is NAND(a,b),
+ * NOT(OR(a,b)) is NOR(a,b). These fall out of bit-blast naturally and save
+ * 15-20% area on real designs, since standard cell libraries carry the
+ * complex gates anyway.
  */
 
 #include "takahe.h"

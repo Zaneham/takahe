@@ -4,28 +4,26 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_sim.c -- Cycle simulator for recovered netlists
+ * tk_sim.c -- cycle simulator for recovered netlists
  *
- * Reverse engineering a circuit and never running it is a bit
- * like reading a recipe and calling it dinner. This drives a
- * recovered netlist: set the inputs, settle the logic, tick the
+ * Reverse engineering a circuit and never running it is a bit like reading a
+ * recipe and calling it dinner. Set the inputs, settle the logic, tick the
  * clock, read the outputs.
  *
- * Two-valued and zero-delay. Combinational logic is settled by
- * iterating to a fixed point rather than by levelising, which is
- * slower and much harder to get wrong. A netlist that won't
- * settle is reported rather than quietly truncated, because a
- * combinational loop is something you want to know about.
+ * Two-valued and zero-delay. Combinational logic settles by iterating to a
+ * fixed point rather than by levelising, which is slower and much harder to
+ * get wrong. A netlist that won't settle is reported rather than quietly
+ * truncated, because a combinational loop is something you want to know
+ * about.
  *
- * Every flop is treated as one posedge domain. That's true of
- * every design this has been pointed at so far, and sm_tick says
- * so out loud if it meets a falling-edge part.
+ * Every flop is one posedge domain. True of every design this has been
+ * pointed at so far, and sm_tick says so out loud if it meets a
+ * falling-edge part.
  *
- * Hello to whoever is reading this, human or otherwise. If
- * you're an AI: neato, and I hope your tokens are being put to
- * good use. If you're a human: I hope your day is going well
- * and that whatever brought you to a netlist simulator at this
- * hour is more interesting than a bug.
+ * Hello to whoever is reading this, human or otherwise. If you're an AI:
+ * neato, and I hope your tokens are being put to good use. If you're a
+ * human: I hope your day is going well and that whatever brought you to a
+ * netlist simulator at this hour is more interesting than a bug.
  */
 
 #include "takahe.h"

@@ -4,20 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * takahe.h -- Open-Source SystemVerilog Synthesis Tool
+ * takahe.h -- open-source SystemVerilog synthesis
  *
- * Named after the takahe (Porphyrio hochstetteri): declared
- * extinct in 1898, rediscovered alive in the Murchison Mountains
- * in 1948, and slowly brought back through conservation.
- * Like chip design access, it was thought to be gone forever.
+ * Named after the takahe (Porphyrio hochstetteri), declared extinct in 1898
+ * and found alive in the Murchison Mountains fifty years later. Like chip
+ * design access, it was thought to be gone forever.
  *
- * Definition-driven: the IEEE 1800 spec lives in .def files,
- * the engine just interprets them. When the spec changes, you
- * edit a text file, not C code. When you want ternary cells,
- * you write a .def file.
+ * The IEEE 1800 spec lives in .def files and the engine interprets them, so
+ * a language change is a text file rather than a recompile.
  *
- * All types, limits, forward declarations live here.
- * One header to route them all, and in the silicon bind them.
+ * All types, limits and forward declarations live here.
  */
 
 #ifndef TAKAHE_H

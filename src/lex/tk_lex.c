@@ -4,16 +4,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_lex.c -- SystemVerilog lexer for Takahe
+ * tk_lex.c -- SystemVerilog lexer
  *
- * Tokenises SystemVerilog source using keyword and operator
- * tables loaded from sv_tok.def. The lexer itself doesn't
- * know what a SystemVerilog keyword is -- it just knows how
- * to match identifiers against a sorted table.
- *
- * Like a postal worker who sorts letters by postcode without
- * knowing where any of the addresses actually are.
- *
+ * Tokenises against keyword and operator tables from sv_tok.def. The lexer
+ * has no idea what a SystemVerilog keyword is, it only knows how to match an
+ * identifier against a sorted table.
  */
 
 #include "takahe.h"

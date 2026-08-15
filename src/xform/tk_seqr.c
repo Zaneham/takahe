@@ -4,21 +4,20 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_seqr.c -- Sequential structure recovery
+ * tk_seqr.c -- sequential structure recovery
  *
- * A recovered netlist gives you ninety-odd flops and no hint as
- * to which are a shift register, which are a counter, and which
- * are the two bits of state that actually decide anything.
+ * A recovered netlist gives you ninety-odd flops and no hint as to which are
+ * a shift register, which are a counter, and which are the two bits of state
+ * that actually decide anything.
  *
- * So walk backwards from each flop's D through the combinational
- * logic until you hit another flop, and see which flops you land
- * on. A flop fed by exactly one other flop is a shift stage. A
- * flop fed only by itself is holding, which is what the head of
- * an enabled shift register looks like. A flop fed by a crowd is
- * doing something worth reading properly.
+ * So walk backwards from each flop's D through the combinational logic until
+ * you hit another flop, and see which flops you land on. Fed by exactly one
+ * other flop is a shift stage. Fed only by itself is holding, which is what
+ * the head of an enabled shift register looks like. Fed by a crowd is doing
+ * something worth reading properly.
  *
- * No solver anywhere near this. It's a graph walk, and the
- * structure was in the netlist the whole time.
+ * No solver anywhere near this. It's a graph walk, and the structure was in
+ * the netlist the whole time.
  */
 
 #include "takahe.h"

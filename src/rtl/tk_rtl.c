@@ -4,23 +4,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_rtl.c -- RTL intermediate representation for Takahe
+ * tk_rtl.c -- RTL intermediate representation
  *
- * The RTL IR is where SystemVerilog stops being text and starts
- * being hardware. Nets carry signals. Cells implement logic.
- * Flip-flops store state. Everything has a width and a driver.
+ * Nets carry signals, cells implement logic, flops hold state, and
+ * everything has a width and a driver. This is what the optimiser transforms
+ * and the mapper consumes.
  *
- * This is the representation that the optimiser will transform
- * and the mapper will consume. It's the lingua franca between
- * "what the designer wrote" and "what the foundry builds."
- *
- * Two pool types (TPF-style, fixed-size, pre-allocated):
- *   rt_net_t  — signals (wires, ports, internal)
- *   rt_cell_t — logic instances (DFF, AND, OR, MUX, etc.)
- *
- * Handles are Burroughs-style tagged references with generation
- * counters. Use-after-delete returns error, not corruption.
- *
+ * Two fixed pre-allocated pools, rt_net_t and rt_cell_t. Handles are tagged
+ * references carrying generation counters, so use-after-delete returns an
+ * error rather than corrupting something quietly.
  */
 
 #include "takahe.h"

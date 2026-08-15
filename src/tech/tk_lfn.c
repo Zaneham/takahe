@@ -6,18 +6,18 @@
 /*
  * tk_lfn.c -- Liberty function expressions into truth tables
  *
- * fn_cls recognises a cell by matching its function string against
- * nineteen hardcoded patterns. Fine for and2, useless for a31o,
- * and a31o is most of what a real library is made of.
+ * fn_cls recognises a cell by matching its function string against nineteen
+ * hardcoded patterns. Fine for and2, useless for a31o, and a31o is most of
+ * what a real library is made of.
  *
- * So parse the expression instead and evaluate it into the
- * cd_cell_t truth table the rest of the engine already speaks.
- * Shunting-yard rather than recursive descent because the house
- * rules ban recursion, which is no great loss here.
+ * So parse the expression instead and evaluate it into the cd_cell_t truth
+ * table the rest of the engine already speaks. Shunting-yard rather than
+ * recursive descent because the house rules ban recursion, which is no great
+ * loss here.
  *
- * A cell whose function names something that isn't an input pin
- * gets rejected outright. Sequential cells say things like
- * "Q = IQ", and a wrong truth table is worse than none.
+ * A function naming something that isn't an input pin gets rejected
+ * outright. Sequential cells say things like Q = IQ, and a wrong truth table
+ * is worse than none.
  */
 
 #include "takahe.h"

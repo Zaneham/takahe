@@ -4,27 +4,17 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_tdopt.c -- Timing-driven optimisation for Takahe
+ * tk_tdopt.c -- timing-driven optimisation
  *
- * Walks the critical path and upsizes cells until timing
- * is met. The SKY130 library has multiple drive strengths
- * per gate type: and2_0 (tiny, slow), and2_1 (small),
- * and2_2 (medium), and2_4 (large, fast). Bigger transistors
- * drive more load, which means shorter delay, which means
- * the signal arrives before the clock edge, which means
- * the chip works at the frequency you told your boss it
- * would work at.
+ * Walks the critical path and upsizes cells until timing is met. SKY130
+ * carries several drive strengths per gate, and2_0 through and2_4, and
+ * bigger transistors drive more load in less time.
  *
- * The algorithm:
- *   1. Run STA, find critical path
- *   2. For each cell on the critical path, find a larger
- *      variant with the same logic function
- *   3. Swap the binding, re-run STA
- *   4. Repeat until timing met or no improvement
+ * Run STA, find the critical path, swap each cell on it for a larger variant
+ * with the same logic function, run STA again, repeat until timing is met or
+ * nothing improves.
  *
- * This is "gate sizing" in the literature. Synopsys charges
- * a significant fraction of a house for it. We do it in
- * 150 lines.
+ * Gate sizing, in the literature. See docs/references.md.
  */
 
 #include "takahe.h"

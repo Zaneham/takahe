@@ -4,22 +4,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_elab.c -- SystemVerilog elaboration for Takahe
+ * tk_elab.c -- SystemVerilog elaboration
  *
- * Resolves parameters, expands generates, infers widths.
- * Turns a syntactic AST into a semantically resolved AST
- * ready for RTL lowering.
- *
- * Three passes:
- *   1. Collect parameters and evaluate defaults (ce_eval)
- *   2. Substitute parameter values into expressions
- *   3. Evaluate generate conditions, expand/prune branches
- *
- * Like customs processing at the border: everything gets
- * inspected, stamped, and either admitted or turned away.
- * Parameters are the passports. Generate blocks are the
- * conditional entry lanes.
- *
+ * Turns a syntactic AST into a semantically resolved one. Collect parameters
+ * and evaluate their defaults, substitute the values into expressions, then
+ * evaluate generate conditions and prune the branches that lost.
  */
 
 #include "takahe.h"
@@ -159,8 +148,8 @@ el_subst(el_ctx_t *E, uint32_t node)
  * remove the false branch. If false, do the opposite.
  * If unknown, keep both (will error later).
  *
- * For now, we just annotate — actual pruning comes when
- * we have the RTL lowering stage to skip dead branches. */
+ * Annotation only for now. The actual pruning waits on RTL lowering
+ * learning to skip dead branches. */
 
 static void
 el_geval(el_ctx_t *E, uint32_t node)

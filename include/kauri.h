@@ -356,7 +356,7 @@ ka__grow(ka_arena_t *A, uint32_t need)
 
     if (A->n_blk >= A->max_blk) return NULL;
 
-    /* New block is at least as big as what we need, or the head cap,
+    /* New block is at least as big as the request, or the head cap,
      * whichever is larger. No point adding a tiny block. */
     cap = A->head.cap;
     if (need > cap) cap = need;
@@ -396,7 +396,7 @@ ka__alog(ka_arena_t *A, uint8_t *ptr, uint32_t size)
 }
 
 /* Walk the canary log [from..to) and verify each sentinel.
- * If something scribbled past an allocation, we want to know
+ * If something scribbled past an allocation, better to know
  * before it scribbles past something important. */
 static void
 ka__cchk(ka_arena_t *A, uint32_t from, uint32_t to)

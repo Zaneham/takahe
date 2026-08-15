@@ -4,16 +4,12 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_yosys.c -- Yosys JSON netlist emitter for Takahe RTL
+ * tk_yosys.c -- Yosys JSON netlist emitter
  *
- * The lingua franca of open-source EDA. If BLIF is Esperanto,
- * Yosys JSON is English: everybody actually uses it, even if
- * they pretend otherwise. Multi-bit signals are first-class,
- * which means we don't have to pretend everything is 1-bit
- * like it's 1985 and we're running on a VAX.
+ * What the rest of open-source EDA actually reads. Multi-bit signals are
+ * first-class here, unlike BLIF, so nothing has to pretend to be 1-bit.
  *
- * Output is consumable by nextpnr, OpenROAD, and Yosys itself.
- * Format reference: Yosys manual, Appendix C.
+ * Consumable by nextpnr, OpenROAD and Yosys. See docs/references.md.
  */
 
 #include "takahe.h"

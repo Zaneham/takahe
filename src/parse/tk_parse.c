@@ -4,21 +4,18 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_parse.c -- SystemVerilog parser for Takahe
+ * tk_parse.c -- SystemVerilog parser
  *
- * Recursive descent parser for the synthesisable subset of
- * IEEE 1800-2017. Produces a flat AST in pre-allocated pools.
+ * Recursive descent over the synthesisable subset of IEEE 1800-2017, into a
+ * flat AST in pre-allocated pools.
  *
- * Parsing strategy: we only parse what can be synthesised.
- * class, program, covergroup, fork/join, and the rest of the
- * verification world are politely ignored. If you want those,
- * Synopsys is right over there. Bring your chequebook.
+ * Only what can be synthesised gets parsed. class, program, covergroup and
+ * fork/join are skipped rather than diagnosed, because they are legal input
+ * that has no hardware meaning.
  *
- * Same helper pattern as BarraCUDA (parser.c) and Karearea
- * (f7_parse.c): peek/advance/expect/match on token stream,
- * pk_alloc for AST nodes, pk_achld for tree construction.
- *
- *
+ * Same helpers as BarraCUDA's parser.c and Karearea's f7_parse.c, peek and
+ * advance and expect and match over the token stream, pk_alloc for nodes and
+ * pk_achld for the tree.
  */
 
 #include "takahe.h"
@@ -363,13 +360,12 @@ pk_prim(tk_parse_t *P)
         P->nodes[n].d.text.len = cur(P)->len;
         advance(P);
 
-        /* Postfix: bit select [expr], part select [hi:lo], member .name
+        /* Postfix, so bit select [expr], part select [hi:lo], member .name
          *
-         * Build child chains directly. The old code called pk_achld
-         * then overwrote first_child/next_sib, creating cycles that
-         * turned a 49-line testcase into 20,000 lines of output.
-         * Like wiring a feedback loop in your netlist — except
-         * the netlist was the parser's own AST. */
+         * Build child chains directly. The old code called pk_achld then
+         * overwrote first_child/next_sib, creating cycles that turned a
+         * 49-line testcase into 20,000 lines of output. A feedback loop in
+         * the parser's own AST. */
         KA_GUARD(g, 100);
         while (g--) {
             if (is_op(P, "[")) {
@@ -1264,9 +1260,7 @@ pk_mbdy2(tk_parse_t *P, uint32_t mod, int stop_end)
             continue;
         }
 
-        /* initial block -- not synthesisable, skip entirely.
-         * Like a "do not disturb" sign on a hotel room door:
-         * we respect it and move on. */
+        /* initial block, not synthesisable, so skip it entirely. */
         if (pk_mkw(P, P->kw.initial)) {
             /* Skip to matching 'end'. Track begin/end nesting. */
             int depth = 0;
@@ -1794,10 +1788,8 @@ tk_pinit(tk_parse_t *P, const tk_lex_t *L)
     P->max_node = TK_MAX_NODES;
     P->n_node = 1; /* index 0 = sentinel */
 
-    /* Pre-compute keyword IDs. One-time cost at parser init;
-     * saves thousands of strcmp calls during parsing.
-     * Like pre-computing a truth table instead of evaluating
-     * the boolean expression every clock cycle. */
+    /* Pre-compute keyword IDs once at init, which saves thousands of
+     * strcmp calls during parsing. */
     P->kw.module      = pk_kwfn(L, "module");
     P->kw.endmodule   = pk_kwfn(L, "endmodule");
     P->kw.begin       = pk_kwfn(L, "begin");
@@ -1901,7 +1893,7 @@ tk_parse(tk_parse_t *P)
              * triggering the "unexpected" handler which breaks.
              * ... actually that would emit a spurious error.
              *
-             * Simpler: just inline the typedef parse here. */
+             * Simpler to inline the typedef parse here. */
             uint32_t td = pk_alloc(P, TK_AST_TYPEDEF);
             uint32_t last_id_off = 0;
             uint16_t last_id_len = 0;

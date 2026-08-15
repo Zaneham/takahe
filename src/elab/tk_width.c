@@ -4,28 +4,17 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_width.c -- Width inference for Takahe
+ * tk_width.c -- width inference
  *
- * Resolves bit widths of all nets and expressions in the AST.
- * After elaboration, parameterised ranges like [WIDTH-1:0] have
- * concrete constant values. This pass walks the AST and computes
- * the actual bit width of every signal, port, and expression.
+ * Computes the bit width of every signal, port and expression once
+ * elaboration has made parameterised ranges concrete.
  *
- * IEEE 1800-2017 Section 11.6: expression bit lengths.
- * The rules are 40 pages of "it depends" that would make a
- * tax lawyer weep. We implement the synthesisable subset.
+ * IEEE 1800-2017 section 11.6 is forty pages of it-depends. Reading it end
+ * to end prompts a hard look at your life choices and a passing interest in
+ * taking up smoking. This implements the synthesisable subset.
  *
- * Key rules:
- *   - logic [7:0] x  -> width 8
- *   - integer        -> width 32
- *   - bit            -> width 1
- *   - a + b          -> max(width(a), width(b))
- *   - a == b         -> width 1 (comparison)
- *   - a ? b : c      -> max(width(b), width(c))
- *   - {a, b}         -> width(a) + width(b)
- *   - {N{a}}         -> N * width(a)
- *
- * than the AST nesting depth.
+ * Iterative rather than recursive, so the working set is bounded by the
+ * worklist and not by AST nesting depth.
  */
 
 #include "takahe.h"

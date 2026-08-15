@@ -228,10 +228,10 @@ sp_mux(void)
 TH_REG("spans", sp_mux)
 
 /* ---- Different source lines produce different spans ----
- * The strongest guarantee: two CONST cells whose literals
- * are on different lines must carry different line
- * numbers. If both come back zero or both come back the
- * same non-zero value, span propagation is broken. */
+ * The strongest guarantee is that two CONST cells whose
+ * literals sit on different lines must carry different line
+ * numbers. Both coming back zero, or both the same non-zero
+ * value, means span propagation is broken. */
 
 static void
 sp_distinct(void)

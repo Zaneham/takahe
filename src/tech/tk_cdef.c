@@ -4,17 +4,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_cdef.c -- Cell definition loader for Takahe
+ * tk_cdef.c -- cell definition loader
  *
- * Reads .def files that describe logic cells as truth tables.
- * Binary AND, ternary min, stochastic multiply — all just
- * rows in a table. The engine doesn't know or care what
- * number system you believe in.
- *
- * Brusentsov's Setun, Shannon's relays, and von Neumann's
- * probabilistic automata all reduce to the same thing:
- * a function from input digits to output digits. That's
- * what this file loads.
+ * Reads .def files describing logic cells as truth tables. Binary AND,
+ * ternary min and stochastic multiply are all just rows in a table, and the
+ * engine has no opinion about which number system you believe in.
  *
  * Format:
  *   cell <NAME> radix <N> [stochastic] inputs <N> outputs <N>

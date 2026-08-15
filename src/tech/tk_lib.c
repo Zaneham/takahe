@@ -4,17 +4,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_lib.c -- Liberty .lib parser for Takahe
+ * tk_lib.c -- Liberty .lib parser
  *
- * Reads just enough of a Liberty file to map gates:
- * cell names, pin names, area, direction, function strings.
- * Everything else (timing arcs, NLDM tables, power) is
- * politely ignored by counting braces like a compiler
- * ignoring comments — the structure is there, we just
- * don't care about its contents.
+ * Reads just enough to map gates, so cell names, pin names, area, direction
+ * and function strings. Timing arcs, NLDM tables and power get skipped by
+ * counting braces, which respects the structure without understanding a word
+ * of the contents.
  *
- * A 14MB SKY130 .lib parses in one forward pass.
- * No recursion, no alloc beyond the initial file read.
+ * A 14MB SKY130 .lib parses in one forward pass. No recursion, no allocation
+ * past the initial file read.
  */
 
 #include "takahe.h"
@@ -100,7 +98,10 @@ lb_pnam(const char *p, const char *end, const char **out,
     return p;
 }
 
-/* ---- Skip to matching close brace ---- */
+/* ---- Skip to matching close brace ----
+ * And the number of the counting shall be one hundred million. Ninety-nine
+ * million is right out. (It reads like this because a bounded loop needs
+ * somewhere to stop, not because anyone measured or something.) */
 
 static const char *
 lb_sbrc(const char *p, const char *end)

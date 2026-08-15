@@ -4,20 +4,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_vlog.c -- Gate-level structural Verilog emitter for Takahe
+ * tk_vlog.c -- gate-level structural Verilog emitter
  *
- * The final act: RTL becomes real cells with real names.
- * Output goes straight to OpenROAD. No Yosys in between.
- * If this emitter does its job, the netlist is clean enough
- * for P&R without any post-processing.
+ * Straight to OpenROAD with no Yosys in between, so the netlist has to be
+ * clean enough for P&R without any post-processing.
  *
- * Fixes from the OpenROAD debugging marathon:
- *   1. No empty wire names (skip nets with len=0)
- *   2. Verilog reserved words escaped with backslash
- *   3. CONST cells emit as assign, not tie cells (avoids
- *      POWER-type nets that block TritonRoute)
- *   4. Bus ports use [N] indexing in cell connections
- *   5. Module name from first MODULE node, not hardcoded
+ * What turned out to matter: nets with empty names get skipped, reserved
+ * words get backslash-escaped, CONST cells emit as assign rather than tie
+ * cells because POWER-type nets block TritonRoute, bus ports use [N]
+ * indexing, and the module name comes from the first MODULE node.
  */
 
 #include "takahe.h"
@@ -194,7 +189,7 @@ em_busbit(const rt_mod_t *M, uint32_t ni, char *base,
 }
 
 /* ---- Emit a net reference in a cell connection ----
- * For bus port bits: emit base[N] instead of base_N */
+ * Bus port bits emit as base[N] rather than base_N */
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-truncation"
@@ -443,9 +438,9 @@ wires:
         fprintf(fp, "reg [%u:0] %.*s [0:%u];\n",
                 dw - 1, (int)M->mems[i].name_len, mnam, dp - 1);
 
-        /* Memory writes are synchronous, so we need a clock.
-         * Borrow it from the first DFF we find — they all
-         * share the same clock in a single-clock design. */
+        /* Memory writes are synchronous, so a clock is needed. Borrowed
+         * from the first DFF found, since a single-clock design shares
+         * one anyway. */
         {
             uint32_t clk_net = 0;
             uint32_t ci;

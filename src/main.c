@@ -4,13 +4,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * main.c -- Takahe CLI entry point
+ * main.c -- CLI entry point
  *
- * Usage: takahe [flags] <source.sv>
- *
- * The front door to open source chip design.
- * Please wipe your feet and leave your Synopsys
- * license at the door.
+ * Usage is takahe [flags] <source.sv>. Please wipe your feet and leave your
+ * Synopsys licence at the door.
  */
 
 #include "takahe.h"
@@ -496,8 +493,8 @@ main(int argc, char **argv)
                                 }
                             }
                             /* Report structure before the optimiser
-                             * gets at it — we want what the netlist
-                             * actually says, not a tidied version. */
+                             * gets at it, so the report says what the
+                             * netlist says and not a tidied version. */
                             if (rtl && mode_seq) {
                                 sq_res_t *sr = (sq_res_t *)calloc(1,
                                                     sizeof(sq_res_t));
@@ -741,10 +738,11 @@ main(int argc, char **argv)
                                                 printf("takahe: %u gates, %.2f area\n",
                                                        gcnt, area);
                                             }
-                                            /* Timing-driven optimisation.
-                                             * Journaled: if resizing makes area
-                                             * explode without fixing timing,
-                                             * roll back the binding changes. */
+                                            /* Timing-driven optimisation,
+                                             * journaled, so if resizing makes
+                                             * area explode without fixing
+                                             * timing the binding changes roll
+                                             * back. */
                                             if (sta_mhz > 0) {
                                                 tk_fs_t tclk = 1000000000LL
                                                     / (tk_fs_t)sta_mhz;

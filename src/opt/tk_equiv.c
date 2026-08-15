@@ -4,21 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_equiv.c -- Equivalence checking for Takahe
+ * tk_equiv.c -- equivalence checking
  *
- * Feeds the same inputs to two netlists (pre-opt and post-opt)
- * and checks the outputs match. If they don't, someone broke
- * something and we tell you exactly which input caused it.
+ * Feeds the same inputs to two netlists, pre-opt and post-opt, and checks
+ * the outputs agree. When they don't, the input that broke it comes back
+ * with the answer.
  *
- * For small circuits (≤24 input bits) we enumerate every single
- * possible input — thats an actual formal proof, not a guess.
- * For bigger circuits we throw 100K random vectors at it and
- * hope for the best. Statistics, not maths.
- *
- * A proper SAT-based miter would be more elegant but honestly
- * exhaustive simulation on small circuits is just as strong
- * and doesn't need a SAT solver. Sometimes brute force wins.
- *
+ * SAT first, because a proof beats a sample. What SAT can't encode, wide or
+ * sequential cells, falls back to vectors: 24 input bits or fewer enumerates
+ * every input, which is also a proof, and anything wider gets 100K random
+ * vectors, which is not. The run says out loud which of the three you got.
  */
 
 #include "takahe.h"
@@ -148,7 +143,7 @@ eq_ports(const rt_mod_t *M, eq_port_t *ports, int max)
  * equivalent, -1 if a mismatch is found, -2 on error.
  * Prints the failing vector on mismatch. */
 
-/* ---- Prove it, if we can ----
+/* ---- Prove it, if the design encodes ----
  * Simulation samples the input space. A miter searches it. Where the
  * design is bit-level and combinational the solver settles the question
  * outright, so try that first and fall back to vectors when it meets

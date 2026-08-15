@@ -4,19 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * vh_lex.c -- VHDL lexer for Takahe
+ * vh_lex.c -- VHDL lexer
  *
- * Tokenises VHDL source using keyword and operator tables
- * loaded from vhdl_tok.def. VHDL is case-insensitive, so
- * identifiers are lowercased before keyword lookup.
+ * Tokenises against tables from vhdl_tok.def. VHDL is case-insensitive, so
+ * identifiers get lowercased before keyword lookup.
  *
- * VHDL was designed by the US Department of Defense in 1980.
- * It shows. The syntax has the ergonomics of a procurement
- * form and the readability of a military specification. But
- * it describes hardware precisely, which is more than can be
- * said for most programming languages. And unlike the $600
- * toilet seats, the language itself is free.
- *
+ * The US Department of Defense commissioned the language in 1980 and it
+ * shows, but it describes hardware precisely, which is more than most
+ * languages manage.
  */
 
 #include "takahe.h"
@@ -79,6 +74,7 @@ vh_emit(tk_lex_t *L, tk_toktype_t type, uint16_t sub,
         uint32_t off, uint16_t len, uint32_t line, uint16_t col)
 {
     tk_token_t *t;
+
     if (L->n_tok >= L->max_tok) return;
     t = &L->tokens[L->n_tok++];
     t->type = type;

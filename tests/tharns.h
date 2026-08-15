@@ -29,10 +29,9 @@ extern tcase_t th_list[];
 extern int th_cnt;
 extern int npass, nfail, nskip;
 
-/* ---- Self-Registration ----
- * gcc/clang constructor attribute auto-registers tests.
- * Like a self-seating restaurant: you sit where you like
- * and the system figures out who you are. */
+/* ---- Self-registration ----
+ * The gcc/clang constructor attribute registers each test as the binary
+ * starts, so adding one means writing it and nothing else. */
 #define TH_REG(cat, fn) \
     __attribute__((constructor)) static void reg_##fn(void) { \
         if (th_cnt < TH_MAXTS) \

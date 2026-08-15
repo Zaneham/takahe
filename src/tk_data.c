@@ -4,18 +4,18 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_data.c -- finding the .def and .txt files takahe cannot run without.
+ * tk_data.c -- finding the .def and .txt files takahe cannot run without
  *
  * These used to be opened as "defs/sv_tok.def" and friends, relative to
- * wherever you happened to be standing. That is fine in the source tree and
- * useless anywhere else: an installed takahe, or one unpacked from a release
- * archive, could not find its own token definitions.
+ * wherever you happened to be standing. Fine in the source tree and useless
+ * anywhere else, because an installed takahe could not find its own token
+ * definitions.
  *
  * Resolved against the executable rather than a path baked in at compile
- * time, so an archive works unpacked anywhere and `make install` does not
- * have to agree with `make` about the prefix.
+ * time, so an archive works unpacked anywhere and make install does not have
+ * to agree with make about the prefix.
  *
- * Order: $TAKAHE_HOME, then the working directory so a source tree still
+ * Order is $TAKAHE_HOME, then the working directory so a source tree still
  * behaves, then next to the binary, then the FHS share directory above it.
  */
 

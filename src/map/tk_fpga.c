@@ -4,22 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_fpga.c -- FPGA LUT mapping for Takahe
+ * tk_fpga.c -- FPGA LUT mapping
  *
- * Maps the bit-blasted netlist to 4-LUTs for iCE40 FPGAs.
- * A 4-LUT is just a 16-entry ROM addressed by 4 wires —
- * it can implement literally any boolean function of 4 inputs.
- * The INIT value IS the truth table, packed into 16 bits.
+ * Maps the bit-blasted netlist to 4-LUTs for iCE40. A 4-LUT is a 16-entry
+ * ROM addressed by four wires, so the INIT value is the truth table packed
+ * into 16 bits.
  *
- * The output is nextpnr JSON, which feeds straight into
- * nextpnr-ice40 for place and route. No Yosys needed.
- * A $5 Lattice board can run your ternary ALU. The future
- * is weird and I'm here for it.
- *
- * The Sumerians had lookup tables too. Theirs were clay
- * tablets with multiplication results. Same prinicple,
- * different substrate.
- *
+ * Emits nextpnr JSON, which goes straight into nextpnr-ice40 with no Yosys
+ * in the way. A $5 Lattice board will run your ternary ALU.
  */
 
 #include "takahe.h"
@@ -69,9 +61,9 @@ fp_init(rt_ctype_t type, uint8_t n_in)
 /* ---- Find the design clock ----
  * Walk input ports for the first one whose name contains "clk"
  * and treat it as the global clock. Returns net index or 0 if
- * none found. A real synthesis tool would track per-memory
- * clock domains through the AST; we don't yet, and the
- * single-clock assumption holds for every test design we ship. */
+ * none found. Tracking per-memory clock domains through the AST is the
+ * proper answer and isn't done yet. The single-clock assumption holds
+ * for every design in tests/. */
 
 static uint32_t
 fp_fclk(const rt_mod_t *M)
@@ -162,10 +154,9 @@ fp_bram(const rt_mod_t *M, FILE *fp, uint32_t mem_idx,
     fprintf(fp, "            \"RCLKE\": [ \"1\" ],\n");
     fprintf(fp, "            \"WCLKE\": [ %s ]\n",
             w_en ? "\"1\"" : "\"0\"");
-    /* WCLKE shown for completeness; real synthesis would
-     * gate it with the write-enable signal. MASK omitted
-     * for v1; defaults to 0 in nextpnr meaning "write all
-     * bits," which is what we want. */
+    /* WCLKE is here for completeness, real synthesis would gate it
+     * with the write enable. MASK is omitted for v1, and nextpnr
+     * defaults it to 0, which writes all bits. */
     fprintf(fp, "          }\n");
     fprintf(fp, "        }");
     return 1;

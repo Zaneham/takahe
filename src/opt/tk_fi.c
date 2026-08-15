@@ -7,23 +7,23 @@
  * tk_fi.c -- does a single upset actually reach anything?
  *
  * A TMR pass triplicates flops and votes on them, and then nothing checks
- * that the result still works. The classic way it fails is that the
- * optimiser looks at three identical logic cones, sensibly concludes they
- * are the same cone, and merges them. Area goes up threefold, immunity
- * stays where it was, and the netlist looks fine.
+ * that the result still works. The classic way it fails is the optimiser
+ * looking at three identical logic cones, sensibly concluding they are the
+ * same cone, and merging them. Area goes up threefold, immunity stays where
+ * it was, and the netlist looks fine.
  *
- * So ask properly. Build two copies of the combinational logic against the
- * same inputs, splice an XOR into one node of one copy, constrain exactly
- * one splice to be live, and ask SAT whether any input makes the copies
- * disagree. Unsatisfiable means every single upset is masked, and that is
- * a proof rather than a fault campaign that got bored and stopped.
+ * So ask properly. Two copies of the combinational logic against the same
+ * inputs, an XOR spliced into one node of one copy, exactly one splice
+ * constrained live, and SAT asked whether any input makes the copies
+ * disagree. Unsatisfiable means every single upset is masked, which is a
+ * proof rather than a fault campaign that got bored and stopped.
  *
  * Satisfiable is more useful still, because the model names the node that
  * got through. Block it, ask again, and the answer arrives as a list.
  *
- * The design is cut at the flops in the usual way, every flop output free
- * and every flop D watched, so the whole question stays combinational and
- * no unrolling is needed.
+ * Cut at the flops in the usual way, every flop output free and every flop D
+ * watched, so the whole question stays combinational and nothing needs
+ * unrolling.
  */
 
 #include "takahe.h"

@@ -4,16 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_opt.c -- Optimiser driver for Takahe RTL
+ * tk_opt.c -- optimiser driver
  *
- * Calls cprop then dce in a loop until the netlist stops
- * changing or we hit the iteration limit. Like shaking a
- * tree until no more dead branches fall off — but with a
- * hard limit so we don't stand here all day.
+ * cprop then dce in a loop until the netlist stops changing or the iteration
+ * limit runs out. The limit is there because a pass that oscillates would
+ * otherwise never come back.
  *
- * Now radix-aware: if cell definitions are provided, cprop
- * uses truth tables instead of hardcoded binary rules.
- * Ternary AND(-1, x) = -1 falls out automatically.
+ * Radix-aware: given cell definitions, cprop uses truth tables instead of
+ * the hardcoded binary rules.
  */
 
 #include "takahe.h"

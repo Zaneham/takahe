@@ -4,22 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_lower.c -- AST to RTL lowering for Takahe
+ * tk_lower.c -- AST to RTL lowering
  *
- * The moment of truth: SystemVerilog becomes hardware.
+ * Where the language stops being text and becomes hardware.
  *
- *   always_ff @(posedge clk)  ->  D flip-flop
- *   always_comb               ->  combinational logic cone
- *   assign a = b & c          ->  AND gate
- *   if (sel) a = b else a = c ->  MUX
+ *   always_ff @(posedge clk)   -> D flip-flop
+ *   always_comb                -> combinational cone
+ *   assign a = b & c           -> AND gate
+ *   if (sel) a = b else a = c  -> MUX
  *
- * This is where Takahe earns its keep. Everything before was
- * parsing and bookkeeping. This is synthesis.
- *
- * Like translating a recipe into a physical kitchen: the
- * words say "mix ingredients" but the hardware needs a
- * specific bowl, a specific whisk, and a specific order.
- *
+ * Everything before this was parsing and bookkeeping.
  */
 
 #include "takahe.h"
@@ -235,10 +229,10 @@ lw_ismem(const lw_ctx_t *C, uint32_t ident_n)
 }
 
 /* ---- Find or create a net for an AST identifier ----
- * Deduplicates by name: if a net with the same name already
- * exists, reuse it. Otherwise the same signal gets multiple
- * nets and the RTL looks like a phonebook with duplicate
- * entries for everyone called Smith. */
+ * Deduplicates by name, reusing a net when one of that name
+ * already exists. Otherwise the same signal ends up with
+ * several nets and the RTL reads like a phonebook with an
+ * entry per Smith. */
 
 static uint32_t
 lw_fnet(lw_ctx_t *C, uint32_t ast_id)
@@ -774,7 +768,7 @@ lw_asgn(lw_ctx_t *C, uint32_t nidx, int is_reg)
             uint32_t ci2;
 
             /* Both sides of mem[addr] <= data need evaluating
-             * before we can build the write cell */
+             * before the write cell can be built */
             anet = idx_n ? lw_expr(C, idx_n) : 0;
             dnet = lw_expr(C, rhs_n);
             if (anet == 0 || dnet == 0) return;
@@ -897,8 +891,9 @@ lw_asgn(lw_ctx_t *C, uint32_t nidx, int is_reg)
         C->M->nets[lhs].is_reg = 1;
     }
 
-    /* Inside always block: drive temp, let flush rewire.
-     * Outside: drive target directly (continuous assign). */
+    /* Inside an always block this drives a temp and lets flush
+     * rewire it. Outside, it drives the target directly as a
+     * continuous assign. */
     if (C->n_rdir > 0 || is_reg) {
         uint32_t tmp = rt_anet(C->M, "seq", 3, w, 0, C->radix);
         uint32_t ci2;
@@ -1509,16 +1504,16 @@ lw_stms(lw_ctx_t *C, uint32_t nidx, int is_reg)
 
     case TK_AST_BEGIN_END:
     {
-        /* Detect "assigns then case" pattern in always_comb.
-         * Pre-case assignments establish defaults. If we emit
-         * them as standalone ASSIGNs AND the case also drives
-         * the same net via a MUX chain, we get multi-driver
-         * conflicts. Like two scribes writing on the same
-         * tablet — only one can hold the stylus.
+        /* Detect the "assigns then case" pattern in always_comb.
+         * Pre-case assignments establish defaults, and emitting
+         * them as standalone ASSIGNs while the case drives the
+         * same net through a MUX chain gives two drivers on one
+         * net.
          *
-         * Fix: scan ahead for a CASE child. Collect pre-case
-         * assignments and feed them as defaults to lw_cmux.
-         * Only emit pre-case assigns for targets NOT in the case. */
+         * So scan ahead for a CASE child, collect the pre-case
+         * assignments and feed them to lw_cmux as defaults, and
+         * only emit standalone assigns for targets the case does
+         * not touch. */
         uint32_t case_n = 0;
         lw_pair_t dflts[16];
         int ndflt = 0;
@@ -1759,10 +1754,10 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
                     uint32_t pfl;
                     uint32_t ich, pni;
 
-                    /* Build prefix: "instname_" — but we use module
-                     * name since instance node text is module name.
-                     * The actual instance name is in a CONN child.
-                     * For now, use the first IDENT child as instance name. */
+                    /* Prefix is "instname_", but the instance node's
+                     * text holds the module name and the real instance
+                     * name lives in a CONN child. First IDENT child
+                     * stands in for now. */
                     ich = n->first_child;
                     KA_GUARD(gi2, 20);
                     while (ich && gi2--) {
@@ -1927,14 +1922,10 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
 }
 
 /* ---- DFF inference ----
- * After lowering, every net marked is_reg needs a DFF.
- * The MUX chain feeding it becomes the D input.
- * Clock comes from the sensitivity list (posedge clk).
- * Reset comes from async edges (negedge rst_n).
- *
- * Like fitting a latch to the barn door: the logic cone
- * already exists, we just need to say "hold this on the
- * clock edge, please." */
+ * After lowering, every net marked is_reg needs a DFF. The MUX chain
+ * feeding it becomes the D input, the clock comes from the sensitivity
+ * list, and reset comes from the async edges. The logic cone already
+ * exists, so all this adds is holding it on the clock edge. */
 
 static void
 lw_dffs(lw_ctx_t *C, uint32_t mod_n, uint32_t net_lo)

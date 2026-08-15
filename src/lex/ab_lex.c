@@ -4,18 +4,17 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * ab_lex.c -- ABEL-HDL lexer for Takahe
+ * ab_lex.c -- ABEL-HDL lexer
  *
- * Tokenises ABEL-HDL source using tables loaded from
- * abel_tok.def. Third frontend after SystemVerilog and VHDL.
+ * Tokenises against tables loaded from abel_tok.def. Third frontend after
+ * SystemVerilog and VHDL.
  *
- * ABEL keywords are case-insensitive but identifiers are
- * case-sensitive. Comments use " (to end of line or matching ")
- * and // (to end of line). Numbers use ^b ^o ^d ^h prefixes.
- * Special constants are dot-delimited (.X. .C. .Z. etc).
+ * Keywords are case-insensitive, identifiers are not. Comments run from a
+ * double quote to the matching one or to end of line, and from // to end of
+ * line. Numbers carry ^b ^o ^d ^h prefixes and special constants are
+ * dot-delimited, .X. and .C. and .Z. and the rest.
  *
- * Synario ABEL-HDL Reference, Data I/O, 1995.
- * Retrieved from bitsavers.org before the last copy vanished.
+ * Reference pulled off bitsavers, before the last copy vanished.
  */
 
 #include "takahe.h"
@@ -59,6 +58,7 @@ ab_emit(tk_lex_t *L, tk_toktype_t type, uint16_t sub,
         uint32_t off, uint16_t len, uint32_t line, uint16_t col)
 {
     tk_token_t *t;
+
     if (L->n_tok >= L->max_tok) return;
     t = &L->tokens[L->n_tok++];
     t->type = type;

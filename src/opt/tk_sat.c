@@ -6,23 +6,20 @@
 /*
  * tk_sat.c -- CDCL SAT solver
  *
- * Conflict-driven clause learning with two watched literals, VSIDS
- * activity for branching, first-UIP learning, and Luby restarts. The
- * standard recipe, which has not changed much since Chaff in 2001 and
+ * Two watched literals, VSIDS branching, first-UIP learning, Luby restarts.
+ * The standard recipe, which has not changed much since Chaff in 2001 and
  * does not need to.
  *
- * Written in-tree because pulling in MiniSat would mean a C++ toolchain
- * and a submodule for something that is, in the end, about seven hundred
- * lines of bookkeeping.
+ * Written in-tree because pulling in MiniSat would mean a C++ toolchain and
+ * a submodule for seven hundred lines of bookkeeping.
  *
- * Literals are encoded as 2*var for the positive and 2*var+1 for the
- * negative, so the watch lists index straight in without a branch. The
- * DIMACS convention stays at the boundary, where it belongs.
+ * Literals encode as 2*var positive and 2*var+1 negative, so watch lists
+ * index straight in without a branch. DIMACS convention stays at the
+ * boundary, where it belongs.
  *
- * Learnt clause deletion is still missing. The database grows without
- * bound, so very long runs will exhaust the pool rather than slow down
- * gracefully. Fine for what it is pointed at today, and the next thing
- * to add.
+ * No learnt clause deletion yet, so the database grows without bound and a
+ * long run exhausts the pool rather than degrading gracefully. Next thing to
+ * add. See docs/references.md.
  */
 
 #include "takahe.h"
@@ -316,7 +313,12 @@ sa_addcl(sa_t *S, const uint32_t *lits, uint32_t n)
     return c + 1;
 }
 
-/* Luby sequence, for restart intervals */
+/* Luby restart intervals. The sequence runs 1 1 2 1 1 2 4 1 1 2 1 1 2 4 8,
+ * which looks like a bug (not a bug, funnily enough).
+ *
+ * Iterative because the house rules ban recursion, and bounded because the
+ * reduction loop used to have no stop condition at all, so i = 0 walked off
+ * the end of it. Each step at least halves i, so 64 is generous. */
 static uint32_t
 sa_luby(uint32_t i)
 {

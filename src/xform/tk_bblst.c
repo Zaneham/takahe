@@ -5,14 +5,11 @@
 
 
 /*
- * tk_bblst.c -- Bit-blast for Takahe RTL
+ * tk_bblst.c -- bit-blast
  *
- * Decomposes multi-bit cells into 1-bit slices that map
- * directly to library gates. An 8-bit AND becomes eight
- * 1-bit ANDs. A 4-bit adder becomes a ripple-carry chain
- * of full adders. It's not glamorous work, but every gate
- * on every chip in every phone went through something like
- * this on the way to silicon.
+ * Decomposes multi-bit cells into 1-bit slices that map straight onto
+ * library gates. An 8-bit AND becomes eight 1-bit ANDs, a 4-bit adder
+ * becomes a ripple-carry chain of full adders.
  */
 
 #include "takahe.h"
@@ -346,7 +343,7 @@ bb_cell(rt_mod_t *M, uint32_t ci, uint32_t **smap, uint32_t smsz)
         /* Defer: emit as-is (1-bit output, operands already compared).
          * If operands are multi-bit, the width field is the operand width,
          * but output is always 1-bit — no blast needed for output.
-         * We just need to ensure inputs are blasted if they feed here. */
+         * Inputs still need blasting if they feed here. */
         break; /* leave as-is for now */
     }
 

@@ -4,18 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_dload.c -- Definition file loader for Takahe
+ * tk_dload.c -- definition file loader
  *
- * Reads sv_tok.def and populates keyword/operator tables.
- * Two-pass pattern from Tui's gr_parse.c:
- *   Pass 1: count entries, validate format
- *   Pass 2: populate tables, intern strings
+ * Reads sv_tok.def into the keyword and operator tables. Two passes, count
+ * and validate, then populate and intern, which is the pattern out of Tui's
+ * gr_parse.c.
  *
- * Adding a SystemVerilog keyword means adding one line to
- * sv_tok.def. This file never changes for language updates.
- * Like a customs officer who doesn't care what's in the
- * container, only that the paperwork is in order.
- *
+ * A new SystemVerilog keyword is one line in the .def. This file does not
+ * change for language updates.
  */
 
 #define KAURI_IMPL

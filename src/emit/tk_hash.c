@@ -4,26 +4,18 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_hash.c -- Synthesis fingerprint for Takahe RTL
+ * tk_hash.c -- synthesis fingerprint
  *
- * Hash a netlist deterministically. Two runs on the same
- * input produce the same digest. When they don't, something
- * has crept in that you didn't intend: a drifted pass
- * iteration order, an uninitialised byte, a clock cycle
- * the gremlins won at darts.
+ * Hashes a netlist deterministically, so two runs on the same input give the
+ * same digest. When they don't, something drifted in that you didn't intend,
+ * a pass iteration order or an uninitialised byte.
  *
- * FNV-1a, 64 bits. Not a cryptographic hash. It won't
- * survive an adversary but it will catch the day your
- * pipeline turned non-deterministic, which is the one
- * thing anyone actually wants to know about a synthesis
- * tool. IBM used CRCs to detect tape errors for forty
- * years before anyone needed SHA-anything. The principle
- * holds.
+ * FNV-1a, 64 bits, not cryptographic. It won't survive an adversary but it
+ * will catch the day the pipeline stopped being reproducible.
  *
- * Canonical form: bump HS_VER any time you change what
- * goes into the hash or in what order. Saved digests
- * become meaningfully invalid the moment the form changes,
- * like postage stamps after a regime change.
+ * Bump HS_VER whenever what goes into the hash changes, or the order it goes
+ * in. Saved digests stop meaning anything the moment the canonical form
+ * moves.
  */
 
 #include "takahe.h"

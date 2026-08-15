@@ -4,16 +4,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_abend.c -- ABEND diagnostics and bilingual messages for Takahe
+ * tk_abend.c -- ABEND diagnostics and bilingual messages
  *
- * Messages loaded from lang/en.txt and lang/mi.txt at startup.
- * Definition-driven: add a message by adding a line to a text
- * file, not by touching C. Same pattern as sv_tok.def for
- * keywords and cells.def for truth tables.
+ * Messages load from lang/en.txt and lang/mi.txt at startup. Adding one is a
+ * line in a text file, same as sv_tok.def for keywords and cells.def for
+ * truth tables, so a translation never has to touch C.
  *
- * When someone wants to translate Takahe to Mandarin, French,
- * or Klingon, they write a text file. The engine doesn't care
- * what language it's panicking in.
+ * ABEND because that is what the machines this borrows from call it. The
+ * idea turned up at a Kings Plant Barn, over an overpriced coffee, looking
+ * at succulents.
  *
  * Ko Takahe te ingoa. Ko Aotearoa te whenua.
  */

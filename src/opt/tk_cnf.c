@@ -7,18 +7,16 @@
  * tk_cnf.c -- turn a netlist into a question a SAT solver can answer
  *
  * Tseitin encoding. Every net becomes a variable, every cell becomes the
- * clauses that force its output to agree with its truth table. Ask for
- * an output to be true and the solver hands back the inputs that do it,
- * or proves no such inputs exist.
+ * clauses that force its output to agree with its truth table. Ask for an
+ * output to be true and the solver hands back the inputs that do it, or
+ * proves there are none.
  *
- * Sequential designs get unrolled into k copies of the combinational
- * logic, each copy's flop inputs wired to the previous copy's outputs.
- * Time becomes space, which is the oldest trick in the book and still
- * the best one available without a proper model checker.
+ * Sequential designs unroll into k copies, each copy's flop inputs wired to
+ * the previous copy's outputs. Time becomes space, which is the oldest trick
+ * available short of a proper model checker.
  *
- * A cell with n inputs contributes 2^n clauses, one per row of its truth
- * table. Standard cells top out at five inputs, so that is 32 clauses at
- * worst and usually far fewer. Wasteful in theory, irrelevant in practice.
+ * A cell with n inputs costs 2^n clauses. Standard cells stop at five, so 32
+ * at worst and usually far fewer.
  */
 
 #include "takahe.h"

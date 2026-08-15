@@ -4,49 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_espresso.c -- Two-level logic minimisation for Takahe
+ * tk_espresso.c -- two-level logic minimisation
  *
- * "That's that me espresso."
- *   — Carpenter, S. (2024). Espresso [Song]. On Short n' Sweet.
- *     Island Records.
+ * "That's that me espresso." Sabrina Carpenter was not talking about a
+ * minimal sum-of-products cover, but she could have been.
  *
- * "Is it that sweet? I guess so."
- *   — Also Sabrina Carpenter, but she could have been talking
- *     about a minimal sum-of-products cover, because it IS
- *     that sweet when you eliminate 40% of your product terms
- *     and the circuit area drops like a pop single climbing
- *     the charts in reverse.
+ * Espresso-II from Berkeley. Expand, irredundant, reduce, and repeat until
+ * the cover stops improving. Only up to ES_MAXIN (16) inputs, and wider
+ * cones go to the gate-level pattern matcher instead.
  *
- * The algorithm is Espresso-II from Berkeley:
- *   EXPAND  — make each cube as large as possible
- *   IRREDUNDANT — remove cubes the cover doesn't need
- *   REDUCE  — shrink cubes to create new expansion opportunities
- *   Repeat until the cover stops improving, or until you've
- *   been working late, cause you're a minimiser.
- *
- * References (APA 7th):
- *
- * Brayton, R. K., Hachtel, G. D., McMullen, C. T., &
- *   Sangiovanni-Vincentelli, A. L. (1984). Logic minimization
- *   algorithms for VLSI synthesis. Kluwer Academic Publishers.
- *   https://doi.org/10.1007/978-1-4613-2821-6
- *
- * Rudell, R. L., & Sangiovanni-Vincentelli, A. L. (1987).
- *   Multiple-valued minimization for PLA optimization. IEEE
- *   Transactions on Computer-Aided Design of Integrated
- *   Circuits and Systems, 6(5), 727–750.
- *   https://doi.org/10.1109/TCAD.1987.1270318
- *
- * McGeer, P. C., Sanghavi, J. V., Brayton, R. K., &
- *   Sangiovanni-Vincentelli, A. L. (1993). ESPRESSO-SIGNATURE:
- *   A new exact minimizer for logic functions. IEEE Transactions
- *   on VLSI Systems, 1(4), 432–440.
- *
- * Implementation note: this is a simplified Espresso for
- * functions up to ES_MAXIN inputs (16). Larger cones are
- * left unminimised — the gate-level pattern matcher handles
- * those. Sixteen inputs covers the vast majority of practical
- * logic cones in synthesised designs.
+ * See docs/references.md.
  */
 
 #include "takahe.h"

@@ -4,23 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_ceval.c -- Constant expression evaluator for Takahe
+ * tk_ceval.c -- constant expression evaluator
  *
- * Evaluates compile-time constant expressions in the AST.
- * Used by elaboration to resolve parameter values, generate
- * conditions, and array dimensions before synthesis.
+ * Resolves parameter values, generate conditions and array dimensions before
+ * synthesis. Walks the AST bottom-up on an explicit stack, folding nodes
+ * whose children are all constant and leaving the rest alone.
  *
- * Walks the AST bottom-up, evaluating nodes that have all
- * constant children. Leaves non-constant nodes untouched.
- * Like a tax inspector: only touches the numbers, never
- * the narrative.
- *
- * Supports: integer arithmetic, bitwise ops, shifts,
- * comparisons, logical ops, ternary, $clog2.
- * Does NOT support: reals, strings, or anything that
- * requires runtime information.
- *
- * explicit stack, no floats in the evaluator.
+ * Integer arithmetic, bitwise, shifts, comparisons, ternary and $clog2. No
+ * reals, no strings, nothing that needs runtime information.
  */
 
 #include "takahe.h"
@@ -344,7 +335,7 @@ ce_eval(const tk_parse_t *P, ce_val_t *vals, uint32_t nvals)
 
     /* Don't zero vals — caller may have pre-seeded values
      * (e.g. parameter substitutions from elaboration).
-     * We only fill in nodes that aren't already valid. */
+     * Only fills in nodes that aren't already valid. */
 
     /* Fixpoint iteration — like power iteration in Moa,
      * except the eigenvalue is "did we learn anything new"

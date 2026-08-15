@@ -4,26 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_gexp.c -- Generate block expansion for Takahe
+ * tk_gexp.c -- generate block expansion
  *
- * Prunes dead branches from generate-if blocks and unrolls
- * generate-for loops. After elaboration, the IF nodes have
- * their conditions evaluated (el_geval stamped the result
- * into n->op). This pass walks the AST and:
+ * Elaboration stamps the resolved condition into n->op, so this pass keeps
+ * the winning branch of a generate-if and marks the loser dead. Loop
+ * unrolling is not done yet.
  *
- *   1. For generate-if with resolved condition:
- *      - Keep the true branch, mark the false branch dead
- *      - Or vice versa if condition is false
- *
- *   2. For generate-for (future):
- *      - Unroll the loop body N times
- *      - Each copy gets the loop variable substituted
- *
- * Dead nodes are marked by setting their type to TK_AST_COUNT
- * (the sentinel value). Downstream passes skip them. Like
- * decommissioning a reactor: the building stays, but nothing
- * inside works anymore.
- *
+ * Dead nodes get their type set to TK_AST_COUNT and downstream passes skip
+ * them. Nothing is removed, so no index anywhere shifts underneath you.
  */
 
 #include "takahe.h"
@@ -125,9 +113,7 @@ ge_prune(tk_parse_t *P, uint32_t node)
                     /* Promote else to then position */
                     P->nodes[cond].next_sib = else_b;
                 } else {
-                    /* No else: kill the whole IF, it's dead.
-                     * Like a traffic light with no green phase:
-                     * technically present, functionally useless. */
+                    /* No else, so the whole IF is dead. */
                     ge_kill(P, node);
                 }
                 pruned++;

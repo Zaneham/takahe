@@ -4,25 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_cprop.c -- Constant propagation for Takahe RTL
+ * tk_cprop.c -- constant propagation, radix-aware
  *
- * The algebraic janitorial service, now radix-aware.
+ * Binary designs take the hardcoded rules. Ternary and stochastic ones look
+ * the cell's truth table up from the .def and evaluate it. Same answer, and
+ * the second path is how the engine works out that ternary AND(-1, x) = -1
+ * without anyone having written that down.
  *
- * Binary designs use the fast hardcoded rules (AND(0,x)=0, etc.)
- * that have worked since Tier 3. Ternary and stochastic designs
- * use the universal path: look up the cell's truth table from
- * the .def file and evaluate it. Same result, different path.
- *
- * When all inputs are constant, the truth table gives us the
- * answer directly. When one input is constant, we scan the
- * truth table for identity elements (x op K = x for all x)
- * and annihilators (x op K = C for all x). This is how the
- * engine discovers that ternary AND(-1, x) = -1 without
- * anyone hardcoding it.
- *
- * Brusentsov didn't need an optimiser — the Setun's balanced
- * ternary made everything elegant by construction. We're not
- * that lucky, so we optimise after the fact.
+ * All inputs constant means the table gives the answer directly. One input
+ * constant means scanning the table for identities (x op K = x) and
+ * annihilators (x op K = C).
  */
 
 #include "takahe.h"

@@ -4,32 +4,26 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_bind.c -- Cell binding for Takahe
+ * tk_bind.c -- cell binding
  *
- * Maps each RTL cell type to the best-matching library gate,
- * smallest area wins. The binding table is just a lookup,
- * RT_AND → cell index 42.
+ * Maps each RTL cell type to the best-matching library gate, smallest area
+ * wins. The table itself is a lookup, RT_AND to cell index 42.
  *
- * The hard work is deciding what a library cell actually does.
- * That used to be substring matching on the function string,
- * on the theory that Liberty is normalised enough to get away
- * with it. It isn't. Every PDK spells things differently and
- * SKY130 writes xor2 the long way round.
- *
- * So the expression gets parsed and evaluated into a truth
- * table instead, and the tables get compared. Boolean algebra
- * doesn't care how you spell it.
+ * The hard part is working out what a library cell actually does. Substring
+ * matching on the function string assumed Liberty was normalised enough to
+ * get away with. It isn't, and SKY130 writes xor2 the long way round. So the
+ * expression gets parsed into a truth table and the tables get compared,
+ * because boolean algebra doesn't care how you spell it.
  */
 
 #include "takahe.h"
 
 /* ---- Classification by truth table ----
- * We used to substring-match the function string, which worked
- * for and2 and quietly gave up on everything harder. Now the
- * expression gets parsed and evaluated (tk_lfn.c) and the
- * resulting truth table is compared against what each gate should
- * be. Costs a few hundred microseconds once, and SKY130's habit of
- * writing xor2 longhand stops mattering. */
+ * Substring matching on the function string worked for and2 and quietly
+ * gave up on everything harder. The expression gets parsed and evaluated
+ * (tk_lfn.c) instead, and the resulting truth table compared against what
+ * each gate should be. Costs a few hundred microseconds once, and
+ * SKY130's habit of writing xor2 longhand stops mattering. */
 
 #define M_NOT   0x1u   /* 1 input:  f(0)=1               */
 #define M_BUF   0x2u   /* 1 input:  f(1)=1               */

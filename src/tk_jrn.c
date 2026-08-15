@@ -4,43 +4,12 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_jrn.c -- CICS-style transaction journal for Takahe RTL
+ * tk_jrn.c -- transaction journal for the RTL netlist
  *
- * Every mutation to the netlist is journaled. If a pass fails
- * or makes things worse, discard the journal and revert. No
- * half-optimised netlists. No corrupted state. No "well it
- * was working before I ran Espresso."
+ * Every mutation gets journaled so a pass that makes things worse can be
+ * rolled back cleanly. Straight out of CICS, which has done this since 1968.
  *
- * The pattern comes from IBM's Customer Information Control
- * System (CICS), first deployed in 1968 on System/360. CICS
- * processes millions of transactions per second for banks,
- * airlines, and insurers. Every transaction is journaled so
- * that a failure at any point can be cleanly rolled back to
- * the last consistent state.
- *
- * We do the same for synthesis passes. The "transaction" is
- * an optimisation pass (cprop, Espresso, timing-driven
- * resize). The "journal" records every cell added, deleted,
- * or modified. The "rollback" undoes them in reverse order.
- *
- * The result: you can run aggressive optimisations knowing
- * that if they make things worse, the netlist reverts cleanly.
- * Like a bank transaction: either the whole transfer completes,
- * or none of it does. Your netlist never ends up with money
- * in neither account.
- *
- * References (APA 7th):
- *
- * IBM Corporation. (1977). CICS/VS System Programmer's
- *   Reference Manual (SC33-0068). IBM Systems Library.
- *
- * IBM Corporation. (2014). CICS Transaction Server for z/OS:
- *   Recovery and Restart Guide (SC34-7012). IBM Knowledge
- *   Center.
- *
- * Gray, J., & Reuter, A. (1993). Transaction Processing:
- *   Concepts and Techniques. Morgan Kaufmann.
- *   https://doi.org/10.1016/C2009-0-27825-8
+ * See docs/references.md.
  */
 
 #include "takahe.h"
@@ -76,9 +45,8 @@ typedef struct {
     int       active;     /* 1 = transaction in progress */
 } jr_ctx_t;
 
-/* Single global journal — one transaction at a time.
- * CICS supports nested transactions. We don't need to:
- * synthesis passes don't nest. Keep it simple. */
+/* Single global journal, one transaction at a time. CICS nests them.
+ * Synthesis passes don't, so this doesn't either. */
 
 static jr_ctx_t JR;
 
@@ -153,8 +121,7 @@ jr_commit(void)
 {
     JR.active = 0;
     JR.n = 0;
-    /* Journal discarded. Changes are permanent.
-     * Like closing a bank transaction: the money moved. */
+    /* Journal discarded, so the changes are permanent. */
 }
 
 /* ---- Public: rollback — undo all changes ---- */

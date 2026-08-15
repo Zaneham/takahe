@@ -4,39 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_flat.c -- Hierarchy flattening for Takahe
+ * tk_flat.c -- hierarchy flattening
  *
- * Inlines module instantiations into a single flat design.
- * After this pass, there are no INSTANCE nodes — every gate,
- * wire, and always block lives in one namespace with prefixed
- * names to avoid collisions.
+ * Synthesis wants a flat netlist. Hierarchy is for humans, the mapper only
+ * needs to know what is connected to what.
  *
- * Why flatten? Synthesis operates on a flat netlist. The
- * hierarchy is useful for humans reading the code, but the
- * mapper doesn't care which module a gate came from — it
- * just needs to know what's connected to what.
- *
- * Algorithm:
- *   1. Build a module table (name -> AST node)
- *   2. For each INSTANCE node in the top module:
- *      a. Look up the instantiated module definition
- *      b. Copy its body into the parent, prefixing all
- *         signal names with "instname_"
- *      c. Wire port connections to the prefixed names
- *      d. Mark the INSTANCE node as dead
- *   3. Repeat until no INSTANCE nodes remain (bounded)
- *
- * Like unpacking Russian dolls: each inner doll's contents
- * get spread across the table with a label saying which
- * doll they came from.
- *
- * NOTE: For Tier 1, we do a simplified version. Full
- * flattening with signal renaming and port binding is
- * complex. Instead, we build the module lookup table
- * and annotate instances with their definition index.
- * The RTL lowerer (Tier 2) will use this annotation to
- * process each module independently and wire them up.
- *
+ * Builds the module table and annotates each instance with its definition
+ * index. The actual inlining, with signal renaming and port binding, happens
+ * in the lowerer, which processes each module separately and wires them up.
  */
 
 #include "takahe.h"
@@ -142,9 +117,8 @@ fl_annot(fl_ctx_t *F, uint32_t node)
             F->P->nodes[node].op = (uint16_t)(mi + 1);
             resolved++;
         }
-        /* If not found, op stays 0 = external/black box.
-         * Like an import declaration: we know it exists,
-         * we just can't see inside. */
+        /* Not found, so op stays 0 and the instance is an external
+         * black box. Known to exist, contents not visible. */
     }
 
     /* Recurse */

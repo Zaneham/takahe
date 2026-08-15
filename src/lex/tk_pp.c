@@ -4,30 +4,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_preproc.c -- Verilog/SystemVerilog preprocessor for Takahe
+ * tk_pp.c -- Verilog preprocessor
  *
- * Runs BEFORE the lexer on raw source text. Evaluates backtick
- * directives and outputs a single expanded buffer.
+ * Runs on raw source before the lexer and produces one expanded buffer.
+ * Handles `define, `undef, `ifdef, `ifndef, `elsif, `else, `endif and macro
+ * expansion. `timescale and `resetall are ignored, `default_nettype is noted
+ * but not enforced, `include is not done yet.
  *
- * Handles:
- *   `define NAME [value]    -- define a text macro
- *   `undef NAME             -- undefine a macro
- *   `ifdef NAME             -- conditional inclusion
- *   `ifndef NAME            -- conditional exclusion
- *   `elsif NAME             -- else-if
- *   `else                   -- else branch
- *   `endif                  -- end conditional
- *   `include "file"         -- file inclusion (future)
- *   `timescale              -- ignored (simulation only)
- *   `default_nettype        -- noted but not enforced
- *   `resetall               -- ignored
- *   Macro expansion         -- `NAME replaced by definition
- *
- * Ported from BarraCUDA's preproc.c with backtick instead of
- * hash. Same bounded-loop, no-alloc-in-hot-path philosophy.
- * Like a customs inspector reading passports — we don't care
- * what's in the luggage, just whether you're allowed in.
- *
+ * Ported from BarraCUDA's preproc.c with backticks instead of hashes, same
+ * bounded loops and no allocation in the hot path.
  */
 
 #include "takahe.h"

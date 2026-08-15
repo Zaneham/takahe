@@ -4,39 +4,19 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_sta.c -- Static Timing Analysis for Takahe
+ * tk_sta.c -- static timing analysis
  *
- * Proper topological-sort STA with combinational loop detection.
+ * Build the dependency graph, each cell against the nets it reads and
+ * writes, with flops breaking the dependency. Topological sort by Kahn,
+ * processing a cell once all its inputs have arrival times. Whatever is left
+ * over sits in a combinational loop and gets reported as an error rather
+ * than skipped.
  *
- * The algorithm:
- *   1. Build a dependency graph: for each cell, record which
- *      nets it reads and writes. DFFs break dependencies.
- *   2. Topological sort via Kahn's algorithm: process cells
- *      whose inputs all have computed arrival times.
- *   3. Cells left unprocessed are in combinational loops —
- *      report them as errors.
- *   4. Slack = required - arrival. Report critical path.
- *   5. Setup/hold check at every DFF.
+ * Slack is required minus arrival. Setup and hold checked at every flop.
  *
  * All arithmetic in femtoseconds. No floats. Ever.
  *
- * References (APA 7th):
- *
- * Hitchcock, R. B., Smith, G. L., & Cheng, D. D. (1982).
- *   Timing analysis of computer hardware. IBM Journal of
- *   Research and Development, 26(1), 100–105.
- *   https://doi.org/10.1147/rd.261.0100
- *
- * Sapatnekar, S. S. (2004). Timing. Springer.
- *   https://doi.org/10.1007/978-0-387-21830-1
- *
- * Bhasker, J., & Chadha, R. (2009). Static timing analysis
- *   for nanometer designs: A practical approach. Springer.
- *   https://doi.org/10.1007/978-0-387-93820-2
- *
- * Liberty timing format:
- *   Open Source Liberty (2017). Liberty Technical Reference
- *   Manual. Si2 (Silicon Integration Initiative).
+ * See docs/references.md.
  */
 
 #include "takahe.h"

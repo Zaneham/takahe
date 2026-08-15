@@ -4,20 +4,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_blif.c -- BLIF netlist emitter for Takahe RTL
+ * tk_blif.c -- BLIF netlist emitter
  *
- * Berkeley Logic Interchange Format: the Esperanto of
- * synthesis tools. Nobody's first language, but everyone
- * speaks it well enough to get the job done.
+ * Combinational gates as .names, flops as .latch, wired up by net name.
+ * Feeds ABC, Yosys and nextpnr.
  *
- * Emits combinational gates as .names (truth tables),
- * DFFs as .latch, and wires everything up by net name.
- * The output can be fed into ABC, Yosys, or nextpnr.
- *
- * Limitation: no support for multi-bit operations yet.
- * Each cell is emitted as a single-bit BLIF gate with
- * a width annotation in a comment. Downstream tools
- * will need to handle vectorisation themselves.
+ * Single-bit only. Multi-bit cells emit as one-bit gates with the width in a
+ * comment, so anything downstream has to vectorise for itself.
  */
 
 #include "takahe.h"

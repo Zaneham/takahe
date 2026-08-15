@@ -4,21 +4,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * tk_espro.c -- Espresso integration for Takahe RTL
+ * tk_espro.c -- Espresso integration
  *
- * Walks output nets, extracts small logic cones (≤ ES_MAXIN
- * inputs), minimises them with Espresso, and replaces the
- * original gate cloud with a clean two-level AND-OR network.
+ * Walks output nets, pulls out cones of ES_MAXIN inputs or fewer, minimises
+ * them, and replaces the gate cloud with a two-level AND-OR network.
  *
- * The original cone might be 30 gates of tangled MUXes and
- * XORs from bit-blast. After Espresso it's 4 product terms
- * feeding one OR gate. Same function, fewer transistors,
- * lower area, faster timing, and the layout engineer buys
- * you a coffee.
- *
- * "Now he's thinking bout me every night, oh,
- *  is it that sweet? I guess so."
- *   — The circuit, after minimisation.
+ * A cone out of bit-blast might be thirty gates of tangled MUXes and XORs.
+ * After minimisation it is four product terms into one OR.
  */
 
 #include "takahe.h"
@@ -254,10 +246,10 @@ op_espro(rt_mod_t *M)
             if (new_gates >= orig_gates) continue; /* no improvement */
         }
 
-        /* Kill original cone and build minimised version.
-         * Journaled: if the build fails, roll back the kill.
-         * CICS pattern: either the whole transaction completes,
-         * or none of it does. No half-dead cones. */
+        /* Kill the original cone and build the minimised one.
+         * Journaled, so a failed build rolls the kill back.
+         * Either the whole thing lands or none of it does, and
+         * there are no half-dead cones. */
         jr_begin(M);
         eo_kill(M, i, inputs, nin);
         {

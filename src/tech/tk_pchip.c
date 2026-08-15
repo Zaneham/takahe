@@ -6,45 +6,19 @@
 /*
  * tk_pchip.c -- PCHIP interpolation in exact integer arithmetic
  *
- * Ported from SLATEC's PCHIM + CHFEV to C99 integer arithmetic.
+ * Ported from SLATEC's PCHIM and CHFEV to C99 integers. int64 femtoseconds
+ * throughout, intermediate products split into multiply-then-divide to dodge
+ * overflow without __int128, and derivatives held as slopes scaled by 10^6
+ * to keep fractional precision inside int64 range.
  *
- * Uses int64 femtoseconds throughout. Intermediate products use
- * split multiply-then-divide to avoid overflow without __int128.
- * Derivatives stored as slopes × 10^6 (PPM) for fractional
- * precision within int64 range.
- *
- * References (APA 7th):
- *
- * Fritsch, F. N., & Carlson, R. E. (1980). Monotone piecewise
- *   cubic interpolation. SIAM Journal on Numerical Analysis,
- *   17(2), 238–246. https://doi.org/10.1137/0717021
- *
- * Fritsch, F. N., & Butland, J. (1984). A method for
- *   constructing local monotone piecewise cubic interpolants.
- *   SIAM Journal on Scientific and Statistical Computing, 5(2),
- *   300–304. https://doi.org/10.1137/0905021
- *
- * Brodlie, K. W. (1980). A review of methods for curve and
- *   function drawing. In K. W. Brodlie (Ed.), Mathematical
- *   methods in computer graphics and design (pp. 1–37).
- *   Academic Press.
- *
- * Original SLATEC implementation:
- *   Fritsch, F. N. (1982). PCHIP: Piecewise Cubic Hermite
- *   Interpolation Package [Computer software]. Lawrence
- *   Livermore National Laboratory. SLATEC Common Mathematical
- *   Library, Version 4.1.
- *
- * Modernised SLATEC source:
- *   Hambly, Z. (2026). SLATEC-Modern [Computer software].
- *   https://github.com/Zaneham/slatec-modern
+ * See docs/references.md.
  */
 
 #include "takahe.h"
 
 /* ---- Scale factor for derivatives ----
  * Derivatives have units of fs/fs (or aF/aF) — dimensionless
- * slopes. We scale by 10^6 to keep integer precision. */
+ * slopes, scaled by 10^6 to keep integer precision. */
 
 #define PC_PPM  1000000LL
 
@@ -215,7 +189,7 @@ pc_eval(int64_t x1, int64_t x2, int64_t f1, int64_t f2,
      *
      * f(x) = f1*H00 + (d1*h/PPM)*H10 + f2*H01 + (d2*h/PPM)*H11
      *
-     * To avoid floats: compute with numerator/denominator. */
+     * Computed as numerator over denominator to avoid floats. */
     /* Evaluate via Fritsch's nested form (Horner's method).
      * f(x) = f1 + dx * (d1/PPM + dx * (c2/h + dx * c3/h²))
      * where c2 = (3*delta - 2*d1 - d2), c3 = (d1 + d2 - 2*delta)

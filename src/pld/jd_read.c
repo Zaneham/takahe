@@ -4,17 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 /*
- * jd_read.c -- JEDEC fuse map reader for Takahe
+ * jd_read.c -- JEDEC fuse map reader
  *
- * Reads the fuse states out of a JESD3-C file as written by PLD
- * assemblers and device programmers. Test vectors are skipped.
+ * Reads the fuse states out of a JESD3-C file as written by PLD assemblers
+ * and device programmers. Test vectors are skipped.
  *
- * A file that fails a checksum is still returned with the mismatch
- * recorded, because that is nearly always a truncated download and
- * the fuses are worth looking at anyway.
- *
- * JEDEC JESD3-C, Standard Data Transfer Format Between Data
- * Preparation System and Programmable Logic Device Programmer.
+ * A file that fails its checksum still comes back, with the mismatch
+ * recorded, because that is nearly always a truncated download and the fuses
+ * are worth looking at anyway.
  */
 
 #include "takahe.h"
@@ -266,7 +263,10 @@ jd_read(jd_file_t *J, const char *path)
     C.tsum = 0;
     C.acc  = 0;
 
-    /* Anything ahead of STX is preamble and is outside the checksum. */
+    /* Anything ahead of STX is preamble and sits outside the checksum. The
+     * format conceding, in writing, that these would turn up down a 300 baud
+     * line with a company banner, four blank lines and somebody's initials
+     * stapled to the front. */
     while ((c = getc(C.fp)) != EOF && c != JD_STX)
         if (c == '\n') C.line++;
 
