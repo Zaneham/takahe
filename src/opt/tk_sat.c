@@ -323,11 +323,21 @@ static uint32_t
 sa_luby(uint32_t i)
 {
     uint32_t k;
-    for (k = 1; k < 32; k++)
-        if (i == (1u << k) - 1) return 1u << (k - 1);
-    for (k = 1;; k++)
-        if ((1u << (k - 1)) <= i && i < (1u << k) - 1)
-            return sa_luby(i - (1u << (k - 1)) + 1);
+
+    KA_GUARD(g, 64);
+    while (g--) {
+        for (k = 1; k < 32; k++)
+            if (i == (1u << k) - 1) return 1u << (k - 1);
+
+        for (k = 1; k < 32; k++)
+            if ((1u << (k - 1)) <= i && i < (1u << k) - 1) {
+                i = i - (1u << (k - 1)) + 1;
+                break;
+            }
+
+        if (k >= 32) return 1;   /* out of range, restart at the bottom */
+    }
+    return 1;
 }
 
 /* ---- Public ---- */
