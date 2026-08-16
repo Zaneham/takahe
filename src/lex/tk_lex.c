@@ -72,7 +72,14 @@ lx_sint(tk_lex_t *L, const char *s, uint16_t len)
 {
     uint32_t off;
 
-    if (L->str_len + len + 1 > L->str_max) return 0;
+    if (L->str_len + len + 1 > L->str_max) {
+        if (!L->str_ovf) {
+            L->str_ovf = 1;
+            L->n_err++;
+            tk_emsg(7, L->str_len, L->str_max);
+        }
+        return 0;                 /* offset 0 is the reserved empty string */
+    }
 
     off = L->str_len;
     memcpy(L->strs + off, s, len);
@@ -147,6 +154,7 @@ tk_lex(tk_lex_t *L, const char *src, uint32_t len)
     L->n_tok   = 0;
     L->n_err   = 0;
     L->tok_ovf = 0;
+    L->str_ovf = 0;
 
     /* Bounded by the source length, because every path through the body
      * advances pos by at least one. Sizing it in tokens was wrong, since

@@ -11,6 +11,7 @@ TK003 parse error at %u:%u: %s
 TK004 AST node pool exhausted (%u nodes)
 TK005 token pool exhausted (%u tokens, max %u)
 TK006 lexer stopped at byte %u of %u
+TK007 string pool exhausted (%u bytes, max %u)
 
 # ---- Elaboration (010-019) ----
 TK010 unresolved parameter '%s'

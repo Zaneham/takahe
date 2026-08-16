@@ -178,6 +178,7 @@ typedef struct {
     /* Errors */
     uint32_t      n_err;
     uint8_t       tok_ovf;   /* token pool filled, source truncated */
+    uint8_t       str_ovf;   /* string pool filled, names came back empty */
 } tk_lex_t;
 
 /* ---- Error Entry ---- */
@@ -452,6 +453,7 @@ typedef struct {
     /* Errors */
     tk_err_t          errors[TK_MAX_ERRORS];
     uint32_t          n_err;
+    uint8_t           node_ovf;  /* AST pool filled, tree is incomplete */
 } tk_parse_t;
 
 /* ---- Public API ---- */

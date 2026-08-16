@@ -121,7 +121,14 @@ static uint32_t
 vp_alloc(tk_parse_t *P, tk_ast_type_t type)
 {
     uint32_t idx;
-    if (P->n_node >= P->max_node) return 0;
+    if (P->n_node >= P->max_node) {
+        if (!P->node_ovf) {
+            P->node_ovf = 1;
+            P->n_err++;
+            tk_emsg(4, P->max_node);
+        }
+        return 0;
+    }
     idx = P->n_node++;
     memset(&P->nodes[idx], 0, sizeof(tk_node_t));
     P->nodes[idx].type = type;

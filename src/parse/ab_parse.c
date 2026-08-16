@@ -123,7 +123,14 @@ ab_node(ab_ctx_t *C, tk_ast_type_t type, uint32_t tok_idx)
     uint32_t ni;
     const tk_token_t *t;
 
-    if (P->n_node >= TK_MAX_NODES) return 0;
+    if (P->n_node >= P->max_node) {
+        if (!P->node_ovf) {
+            P->node_ovf = 1;
+            P->n_err++;
+            tk_emsg(4, P->max_node);
+        }
+        return 0;
+    }
 
     ni = P->n_node++;
     memset(&P->nodes[ni], 0, sizeof(P->nodes[ni]));
