@@ -378,9 +378,10 @@ main(int argc, char **argv)
             }
 
             /* Constant evaluation */
-            ce_val_t *cvals = (ce_val_t *)calloc(P->n_node, sizeof(ce_val_t));
+            uint32_t n_cvals = P->n_node;
+            ce_val_t *cvals = (ce_val_t *)calloc(n_cvals, sizeof(ce_val_t));
             if (cvals) {
-                int neval = ce_eval(P, cvals, P->n_node);
+                int neval = ce_eval(P, cvals, n_cvals);
                 printf("takahe: %d constants evaluated\n", neval);
 
                 /* Show evaluated constants */
@@ -401,13 +402,32 @@ main(int argc, char **argv)
                     }
                 }
                 /* Elaboration: resolve params, substitute, eval generates */
-                el_elab(P, cvals, P->n_node);
+                el_elab(P, cvals, n_cvals);
 
                 /* Generate expansion: prune dead branches */
                 ge_expand(P);
 
                 /* Hierarchy flattening: annotate instances */
                 fl_flat(P);
+
+                /* Unrolling adds nodes, so cvals is now shorter than
+                 * P->n_node and everything below indexes it by node. */
+                if (P->n_node > n_cvals) {
+                    ce_val_t *grown = (ce_val_t *)realloc(cvals,
+                                          (size_t)P->n_node * sizeof(ce_val_t));
+                    if (!grown) {
+                        fprintf(stderr, "takahe: out of memory growing "
+                                "constants for %u nodes\n", P->n_node);
+                        free(cvals);
+                        tk_pfree(P); free(P);
+                        tk_ldfree(L); free(L);
+                        return 1;
+                    }
+                    memset(grown + n_cvals, 0,
+                           (size_t)(P->n_node - n_cvals) * sizeof(ce_val_t));
+                    cvals  = grown;
+                    n_cvals = P->n_node;
+                }
 
                 /* Width inference */
                 {
