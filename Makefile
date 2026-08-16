@@ -33,6 +33,15 @@ CFLAGS = $(WARN) -std=c99 -O0 -g -DDEBUG -MMD -MP $(INCS)
 TFLAGS = $(WARN) -std=c99 -O0 -g -DDEBUG -MMD -MP $(INCS)
 endif
 
+# make SAN=1 builds under ASan and UBSan. The adversarial tests are why this
+# exists: junk bytes, two-thousand-deep nesting and pools shrunk to eight are
+# only worth running if something is watching the memory while they run.
+ifdef SAN
+SANF    = -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1
+CFLAGS += $(SANF)
+TFLAGS += $(SANF)
+endif
+
 # Source files -- one line per stage
 SRCS = src/main.c \
        src/tk_abend.c \
