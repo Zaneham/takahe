@@ -112,7 +112,7 @@ TEST_SRCS = tests/tmain.c tests/tlex.c tests/tparse.c tests/telab.c \
             tests/trtl.c tests/topt.c tests/tmap.c tests/tvhdl.c \
             tests/tabel.c tests/thash.c tests/tspans.c tests/tmmap.c \
             tests/tlfn.c tests/tnlst.c tests/tsat.c tests/tfi.c \
-            tests/tjed.c
+            tests/tjed.c tests/tadv.c
 TEST_TARGET = trunner
 
 ifeq ($(OS),Windows_NT)
