@@ -45,3 +45,6 @@ list.txt
 
 # Header dependency files from -MMD
 *.d
+
+# Planning scratch
+kplt.txt
