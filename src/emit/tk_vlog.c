@@ -191,8 +191,12 @@ em_busbit(const rt_mod_t *M, uint32_t ni, char *base,
 /* ---- Emit a net reference in a cell connection ----
  * Bus port bits emit as base[N] rather than base_N */
 
+/* -Wformat-truncation is a gcc warning group and clang errors on the name
+ * under -Werror, so the pragma has to be hidden from it. */
+#ifndef __clang__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-truncation"
+#endif
 static const char *
 em_cnet(const rt_mod_t *M, uint32_t ni, char *buf, int bsz)
 {
@@ -205,7 +209,9 @@ em_cnet(const rt_mod_t *M, uint32_t ni, char *buf, int bsz)
     }
     return em_nnam(M, ni, buf, bsz);
 }
+#ifndef __clang__
 #pragma GCC diagnostic pop
+#endif
 
 /* ---- Cell input: inline constants ----
  * If net ni is driven by a CONST cell, return "1'b0"/"1'b1".
