@@ -1,6 +1,25 @@
 CHANGELOG
 =========
 
+2026-08-17  Adversarial input, and the three things it found
+  - tests/tadv.c, nine tests that ask what happens at a bound. The
+    pools are runtime fields as well as constants, so a test shrinks
+    max_tok to eight rather than generating two megabytes of source.
+    That is why these paths had never run.
+  - All three lexers bounded the main loop with TK_MAX_TOKENS while
+    iterating over characters, so a 2MB source stopped two thirds of
+    the way through and returned success. Bounded by source length
+    now, and anything left over is TK006.
+  - Token, string and AST pools all filled quietly. TK005, TK007 and
+    TK004 say so instead, and ab_parse capped against the constant
+    rather than the field so that path could not be tested at all.
+  - sa_luby called itself, which the house rules ban, and its
+    reduction loop had no stop condition. Iterative and bounded now,
+    checked against Knuth's prefix and the old function to 200000.
+  - clang had never built the tree, thanks to a gcc-only pragma in
+    tk_vlog.c. A sanitiser job builds with it under ASan and UBSan.
+  - The runner printed PASS under every FAIL.
+
 2026-08-10  JEDEC fuse maps, a 74LS target, and an emitter that meant it
   - jd_read parses JESD3-C, the format PLD programmers write. Fuse
     states only. Both checksums are compared, and a mismatch is
