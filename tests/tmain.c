@@ -43,6 +43,12 @@ int th_run(const char *cmd, char *obuf, int osz)
     if (rc != -1 && (rc & 0xFF) == 0)
         rc = (rc >> 8) & 0xFF;
 #endif
+
+    /* Every caller wants zero, so a non-zero exit means the child said
+     * something. Printing it is how a sanitiser report reaches the log. */
+    if (rc != 0 && obuf[0] != '\0')
+        printf("\n--- exited %d: %s ---\n%s---\n", rc, cmd, obuf);
+
     return rc;
 }
 

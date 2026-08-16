@@ -44,7 +44,7 @@ jobs:
   # Leak detection is off for now. The engine allocates its pools once and
   # does not always hand them back, so turning it on today would report the
   # design rather than a bug. Worth a separate pass.
-  sanitizers:
+  sanitisers:
     runs-on: ubuntu-latest
     env:
       ASAN_OPTIONS: detect_leaks=0
