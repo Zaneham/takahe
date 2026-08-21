@@ -5,7 +5,7 @@ module alu (
     input  clk,
     input  rst_n,
     input  en,
-    input  op,
+    input  [2:0] op,
     output zero,
     output [7:0] count,
     input  [31:0] b,

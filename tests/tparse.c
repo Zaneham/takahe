@@ -144,3 +144,30 @@ static void pk_smoke(void)
     PASS();
 }
 TH_REG("parse", pk_smoke)
+
+static void pk_gport(void)
+{
+    tk_lex_t *L = (tk_lex_t *)calloc(1, sizeof(tk_lex_t));
+    tk_parse_t *P = (tk_parse_t *)calloc(1, sizeof(tk_parse_t));
+    int n; uint32_t i, nport = 0;
+
+    CHECK(L != NULL && P != NULL);
+    CHECK(tk_ldinit(L, "defs/sv_tok.def") == 0);
+
+    n = parse_str(
+        "module p(input logic [7:0] a, b, output logic [7:0] y, z);\n"
+        "  assign y = a & b;\n"
+        "  assign z = a | b;\n"
+        "endmodule", L, P);
+    CHECK(n > 0);
+    CHECK(P->n_err == 0);
+
+    for (i = 0; i < P->n_node; i++)
+        if (P->nodes[i].type == TK_AST_PORT) nport++;
+    CHEQ(nport, 4u);
+
+    tk_pfree(P); free(P);
+    tk_ldfree(L); free(L);
+    PASS();
+}
+TH_REG("parse", pk_gport)

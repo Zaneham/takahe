@@ -12,6 +12,7 @@ TK004 AST node pool exhausted (%u nodes)
 TK005 token pool exhausted (%u tokens, max %u)
 TK006 lexer stopped at byte %u of %u
 TK007 string pool exhausted (%u bytes, max %u)
+TK008 unexpected character 0x%02x at %u:%u
 
 # ---- Elaboration (010-019) ----
 TK010 unresolved parameter '%s'
@@ -21,6 +22,7 @@ TK011 cannot resolve width for '%s'
 TK020 net pool exhausted (%u nets, max %u)
 TK021 cell pool exhausted (%u cells, max %u)
 TK022 output '%s' has no driver
+TK023 net '%s' at %u:%u is read but nothing drives it
 
 # ---- Timing (030-039) ----
 TK030 no cell library loaded (use --lib)

@@ -98,3 +98,29 @@ static void lx_prepr(void)
     PASS();
 }
 TH_REG("lex", lx_prepr)
+
+static void lx_unsz(void)
+{
+    tk_lex_t *L = (tk_lex_t *)calloc(1, sizeof(tk_lex_t));
+    static const char *lits[] = { "'bx", "'b0", "'d5", "'h1F", "'sd3",
+                                  "'o7", "'h DEAD", NULL };
+    int i;
+
+    CHECK(L != NULL);
+    CHECK(tk_ldinit(L, "defs/sv_tok.def") == 0);
+
+    for (i = 0; lits[i]; i++) {
+        lex_str(lits[i], L);
+        CHECK(L->n_err == 0);
+        CHECK(L->tokens[0].type == TK_TOK_INT_LIT);
+        CHECK(L->n_tok == 2);
+    }
+
+    lex_str("y <= 'bx;", L);
+    CHECK(L->n_err == 0);
+    CHECK(L->tokens[2].type == TK_TOK_INT_LIT);
+
+    tk_ldfree(L); free(L);
+    PASS();
+}
+TH_REG("lex", lx_unsz)

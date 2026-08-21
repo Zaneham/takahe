@@ -376,7 +376,11 @@ em_vlogn(const rt_mod_t *M, const lb_lib_t *lib,
                   n->is_port == 2 ? "output" : "inout ";
             if (!first) fprintf(fp, ",\n");
             first = 0;
-            fprintf(fp, "    %s %s", dir, em_nnam(M, i, nb, 64));
+            if (n->width > 1)
+                fprintf(fp, "    %s [%u:0] %s", dir, n->width - 1u,
+                        em_nnam(M, i, nb, 64));
+            else
+                fprintf(fp, "    %s %s", dir, em_nnam(M, i, nb, 64));
         }
         fprintf(fp, "\n);\n\n");
         free(done);
