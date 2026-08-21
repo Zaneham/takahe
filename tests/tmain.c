@@ -43,6 +43,12 @@ int th_run(const char *cmd, char *obuf, int osz)
     if (rc != -1 && (rc & 0xFF) == 0)
         rc = (rc >> 8) & 0xFF;
 #endif
+
+    /* Every caller wants zero, so a non-zero exit means the child said
+     * something. Printing it is how a sanitiser report reaches the log. */
+    if (rc != 0 && obuf[0] != '\0')
+        printf("\n--- exited %d: %s ---\n%s---\n", rc, cmd, obuf);
+
     return rc;
 }
 
@@ -86,6 +92,7 @@ int main(int argc, char **argv)
         if (filter && strcmp(filter, th_list[i].tcats) != 0)
             continue;
 
+        int fbefore = nfail, sbefore = nskip;
         int before = npass + nfail + nskip;
         printf("  %-28s", th_list[i].tname);
         fflush(stdout);
@@ -94,11 +101,14 @@ int main(int argc, char **argv)
 
         int after = npass + nfail + nskip;
         if (after == before) {
-            /* Test didn't call PASS/FAIL/SKIP. Assume pass
-             * if it didn't crash — the silent majority. */
+            /* Asserted nothing and did not crash. Counted as a pass, which
+             * is generous, but a gutted test body is the caller's problem. */
             npass++;
         }
-        if (nfail == 0 || after > before)
+        /* Only when it actually passed. The old condition was true whenever
+         * any counter moved, so a failing test printed its FAIL line and then
+         * PASS underneath it. */
+        if (nfail == fbefore && nskip == sbefore)
             printf("PASS\n");
     }
 

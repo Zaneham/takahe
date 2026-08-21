@@ -1,6 +1,56 @@
 CHANGELOG
 =========
 
+2026-08-21  Module instantiation, which had not worked since April
+  - 8182188 made instance port wiring directional and read the
+    direction off nets[pnet].is_port. The instance path had already
+    set that to zero on purpose, since an inlined child's ports are
+    not the top level's, so neither branch fired and every connection
+    was dropped without a word. lw_pdir reads the direction from the
+    child's own declaration instead. A connection naming something
+    that is not a port now warns rather than vanishing.
+  - Under that sat an older one. Instance nets are created as u_name,
+    but lw_fnet looked up the bare name, missed, and invented a fresh
+    net at the wrong width, so the child's body was never joined to
+    the instance at all. The context carries the prefix now, and does
+    not cache the lookup, because two instances share those AST nodes.
+  - always_ff inside an instance made no flop. The instance path kept
+    its own copy of the always loop and skipped the redirect flush, so
+    the chain never drove the target net. One lw_alwy, three callers.
+  - Those flops then had no clock, because lw_dffs only read the top
+    module's sensitivity lists. lw_ckrs runs over each expanded
+    instance too, with its prefix set.
+  - picorv32 goes from 257 cells to 8,090 with 210 flops. The 3,305
+    in the README was measured honestly but came off the old
+    bidirectional wiring sitting on top of the net bug, so it was
+    never the right number either. dozenal_alu, minuteman_d17b and
+    voyager_fds land exactly on their published counts. qsim, ruru
+    and setun70 have moved and want re-measuring.
+  - tools/synth-gate.sh checks every design against a cell floor,
+    wired into CI. The unit tests could not see a whole design
+    quietly shrinking, which is how this lasted 59 commits. Every
+    shipped design was flat enough to pass while broken, so
+    tests/hier.sv exists to be the one that is not.
+
+2026-08-17  Adversarial input, and the three things it found
+  - tests/tadv.c, nine tests that ask what happens at a bound. The
+    pools are runtime fields as well as constants, so a test shrinks
+    max_tok to eight rather than generating two megabytes of source.
+    That is why these paths had never run.
+  - All three lexers bounded the main loop with TK_MAX_TOKENS while
+    iterating over characters, so a 2MB source stopped two thirds of
+    the way through and returned success. Bounded by source length
+    now, and anything left over is TK006.
+  - Token, string and AST pools all filled quietly. TK005, TK007 and
+    TK004 say so instead, and ab_parse capped against the constant
+    rather than the field so that path could not be tested at all.
+  - sa_luby called itself, which the house rules ban, and its
+    reduction loop had no stop condition. Iterative and bounded now,
+    checked against Knuth's prefix and the old function to 200000.
+  - clang had never built the tree, thanks to a gcc-only pragma in
+    tk_vlog.c. A sanitiser job builds with it under ASan and UBSan.
+  - The runner printed PASS under every FAIL.
+
 2026-08-10  JEDEC fuse maps, a 74LS target, and an emitter that meant it
   - jd_read parses JESD3-C, the format PLD programmers write. Fuse
     states only. Both checksums are compared, and a mismatch is

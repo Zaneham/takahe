@@ -254,3 +254,60 @@ static void rt_dffck(void)
     PASS();
 }
 TH_REG("rtl", rt_dffck)
+
+
+static void rt_inst(void)
+{
+    rt_mod_t *M = rtl_str(
+        "module inv8(input logic [7:0] i, output logic [7:0] o);\n"
+        "  assign o = ~i;\n"
+        "endmodule\n"
+        "module top(input logic [7:0] a, output logic [7:0] y);\n"
+        "  inv8 u(.i(a), .o(y));\n"
+        "endmodule\n");
+    uint32_t ui, uo, ni;
+
+    CHECK(M != NULL);
+
+    ui = fnet(M, "u_i");
+    uo = fnet(M, "u_o");
+    CHECK(ui != 0);
+    CHECK(uo != 0);
+    CHEQ(M->nets[ui].width, 8u);
+    CHEQ(M->nets[uo].width, 8u);
+    CHECK(fnet(M, "i") == 0);
+    CHECK(fnet(M, "o") == 0);
+
+    ni = fcell(M, RT_NOT, 0);
+    CHECK(ni != 0);
+    CHEQ(M->cells[ni].ins[0], ui);
+
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("rtl", rt_inst)
+
+
+static void rt_instff(void)
+{
+    rt_mod_t *M = rtl_str(
+        "module reg8(input clk, input logic [7:0] d, output logic [7:0] q);\n"
+        "  always_ff @(posedge clk) q <= d;\n"
+        "endmodule\n"
+        "module top(input clk, input logic [7:0] a, output logic [7:0] y);\n"
+        "  reg8 u(.clk(clk), .d(a), .q(y));\n"
+        "endmodule\n");
+    uint32_t uq, ci;
+
+    CHECK(M != NULL);
+
+    uq = fnet(M, "u_q");
+    CHECK(uq != 0);
+    ci = fcell(M, RT_DFF, uq);
+    CHECK(ci != 0);
+    CHEQ(M->cells[ci].ins[1], fnet(M, "u_clk"));
+
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("rtl", rt_instff)

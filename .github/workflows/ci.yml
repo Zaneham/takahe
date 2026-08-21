@@ -37,6 +37,35 @@ jobs:
       - name: Score
         run: bash tools/sv-tests.sh /tmp/sv-tests --min 66
 
+  synthesis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make
+
+      - name: Every design is at or above its cell floor
+        run: bash tools/synth-gate.sh
+
+  # Hostile input through instrumentation. The adv suite feeds in binary junk,
+  # two-thousand-deep nesting and pools shrunk to eight, which is only worth
+  # running if something is watching the memory while it happens.
+  #
+  # Leak detection is off for now. The engine allocates its pools once and
+  # does not always hand them back, so turning it on today would report the
+  # design rather than a bug. Worth a separate pass.
+  sanitisers:
+    runs-on: ubuntu-latest
+    env:
+      ASAN_OPTIONS: detect_leaks=0
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test under ASan and UBSan
+        run: make SAN=1 CC=clang test
+
   build-windows:
     runs-on: windows-latest
     defaults:
