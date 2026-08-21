@@ -38,6 +38,8 @@ typedef struct {
     char              ipfx[64];
     uint16_t          ipfl;
 
+    uint32_t          ctxw;
+
     #define LW_INST_MAX 64
     struct { uint32_t mod; char pfx[64]; uint16_t pfl; } inst[LW_INST_MAX];
     uint32_t          n_inst;
@@ -504,13 +506,13 @@ lw_expr(lw_ctx_t *C, uint32_t nidx)
         else if (strcmp(op, "&&") == 0) { ct = RT_AND; is_cmp = 1; }
         else if (strcmp(op, "||") == 0) { ct = RT_OR;  is_cmp = 1; }
 
-        /* Width from operand nets, not AST inference */
         if (is_cmp) {
             ow = 1;
         } else {
             uint32_t lw = l < C->M->n_net ? C->M->nets[l].width : 1;
             uint32_t rw = r < C->M->n_net ? C->M->nets[r].width : 1;
             ow = lw > rw ? lw : rw;
+            if (C->ctxw > ow) ow = C->ctxw;
         }
 
         onet = rt_anet_at(C->M, "tmp", 3, ow, 0, C->radix,
@@ -909,8 +911,62 @@ lw_asgn(lw_ctx_t *C, uint32_t nidx, int is_reg)
         }
     }
 
+    if (C->P->nodes[lhs_n].type == TK_AST_CONCAT) {
+        uint32_t mem[32], mw[32], nm = 0, tot = 0, off, k, rv;
+        uint32_t m = C->P->nodes[lhs_n].first_child;
+        KA_GUARD(gcm, 32);
+
+        while (m && gcm--) {
+            uint32_t mn = lw_fnet(C, m);
+            if (mn == 0 || nm >= 32) return;
+            mem[nm] = mn;
+            mw[nm]  = C->M->nets[mn].width;
+            tot += mw[nm];
+            nm++;
+            m = C->P->nodes[m].next_sib;
+        }
+        if (nm == 0 || tot == 0) return;
+
+        {
+            uint32_t oc = C->ctxw;
+            C->ctxw = tot;
+            rv = lw_expr(C, rhs_n);
+            C->ctxw = oc;
+        }
+        if (rv == 0) return;
+
+        off = tot;
+        for (k = 0; k < nm; k++) {
+            uint32_t bw2 = mw[k], sn, sci, si[1];
+            off -= bw2;
+            sn = rt_anet(C->M, "cs", 2, bw2, 0, C->radix);
+            si[0] = rv;
+            sci = rt_acell(C->M, RT_SELECT, sn, si, 1, bw2);
+            if (sci > 0 && sci < C->M->n_cell)
+                C->M->cells[sci].param =
+                    (((int64_t)(off + bw2 - 1)) << 16) | (int64_t)off;
+
+            if (is_reg) C->M->nets[mem[k]].is_reg = 1;
+            if (C->n_rdir > 0 || is_reg) {
+                uint32_t tmp = rt_anet(C->M, "seq", 3, bw2, 0, C->radix);
+                uint32_t ai[1] = { sn };
+                uint32_t ci4 = rt_acell(C->M, RT_ASSIGN, tmp, ai, 1, bw2);
+                lw_rset(C, mem[k], tmp, ci4);
+            } else {
+                uint32_t ai[1] = { sn };
+                rt_acell(C->M, RT_ASSIGN, mem[k], ai, 1, bw2);
+            }
+        }
+        return;
+    }
+
     lhs = lw_fnet(C, lhs_n);
-    rhs = lw_expr(C, rhs_n);
+    {
+        uint32_t oc = C->ctxw;
+        C->ctxw = (lhs && lhs < C->M->n_net) ? C->M->nets[lhs].width : 0;
+        rhs = lw_expr(C, rhs_n);
+        C->ctxw = oc;
+    }
     if (lhs == 0 || rhs == 0) return;
 
     w = C->M->nets[lhs].width;

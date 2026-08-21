@@ -40,6 +40,15 @@ bb_tmp(rt_mod_t *M, const char *tag, uint32_t ci, uint32_t bit)
 /* Get or create 1-bit slice nets for a multi-bit net.
  * Stores indices in out[0..width-1]. Returns width. */
 static uint32_t
+bb_zero(rt_mod_t *M, uint32_t ci)
+{
+    uint32_t z = bb_tmp(M, "z", ci, 0);
+    uint32_t cc = rt_acell(M, RT_CONST, z, NULL, 0, 1);
+    if (cc > 0 && cc < M->n_cell) M->cells[cc].param = 0;
+    return z;
+}
+
+static uint32_t
 bb_slc(rt_mod_t *M, uint32_t ni, uint32_t *out, uint32_t maxw,
        uint32_t **smap, uint32_t smsz)
 {
@@ -86,7 +95,11 @@ bb_cell(rt_mod_t *M, uint32_t ci, uint32_t **smap, uint32_t smsz)
     uint32_t ins1[1], ins2[2], ins3[3];
     int created = 0;
 
-    if (w <= 1) return 0;  /* already 1-bit */
+    if (w <= 1) {
+        if (!(c->type == RT_SELECT && c->n_in > 0 &&
+              c->ins[0] < M->n_net && M->nets[c->ins[0]].width > 1))
+            return 0;
+    }
     if (w > 64) w = 64;    /* sanity bound */
 
     switch ((int)c->type) {
@@ -198,14 +211,21 @@ bb_cell(rt_mod_t *M, uint32_t ci, uint32_t **smap, uint32_t smsz)
         /* Ripple-carry adder: bit 0 = half adder, bits 1+ = full adder.
          * sum[i]   = a[i] ^ b[i] ^ cin
          * cout[i]  = (a[i] & b[i]) | (cin & (a[i] ^ b[i])) */
-        uint32_t carry = 0;
+        uint32_t carry = 0, zbit = 0;
         ow = bb_slc(M, c->out, obits, w, smap, smsz);
         aw = bb_slc(M, c->ins[0], abits, w, smap, smsz);
         bw = bb_slc(M, c->ins[1], bbits, w, smap, smsz);
 
-        for (j = 0; j < ow && j < aw && j < bw; j++) {
+        for (j = 0; j < ow; j++) {
             uint32_t axb = bb_tmp(M, "xb", ci, j);
-            ins2[0] = abits[j]; ins2[1] = bbits[j];
+            uint32_t aj, bj;
+            if (j >= aw || j >= bw) {
+                if (zbit == 0) zbit = bb_zero(M, ci);
+            }
+            aj = j < aw ? abits[j] : zbit;
+            bj = j < bw ? bbits[j] : zbit;
+            abits[j] = aj; bbits[j] = bj;
+            ins2[0] = aj; ins2[1] = bj;
             rt_acell(M, RT_XOR, axb, ins2, 2, 1);
 
             if (j == 0) {
@@ -391,8 +411,155 @@ bb_cell(rt_mod_t *M, uint32_t ci, uint32_t **smap, uint32_t smsz)
         break;
     }
 
-    case RT_SHL: case RT_SHR: case RT_SHRA:
     case RT_MUL:
+    {
+        uint32_t acc[64];
+        uint32_t zero;
+        uint32_t i, k;
+
+        ow = bb_slc(M, c->out, obits, w, smap, smsz);
+        aw = bb_slc(M, c->ins[0], abits, w, smap, smsz);
+        bw = bb_slc(M, c->ins[1], bbits, w, smap, smsz);
+        if (ow == 0 || aw == 0 || bw == 0 || ow > 64u) break;
+
+        zero = bb_zero(M, ci);
+
+        for (k = 0; k < ow; k++) {
+            if (k < aw) {
+                acc[k] = bb_tmp(M, "pp", ci, k);
+                ins2[0] = abits[k]; ins2[1] = bbits[0];
+                rt_acell(M, RT_AND, acc[k], ins2, 2, 1);
+                created++;
+            } else {
+                acc[k] = zero;
+            }
+        }
+
+        for (i = 1; i < bw; i++) {
+            uint32_t carry = 0;
+            for (k = i; k < ow; k++) {
+                uint32_t rb, axb, nx;
+                if (k - i < aw) {
+                    rb = bb_tmp(M, "pp", ci, (uint32_t)(i * ow + k));
+                    ins2[0] = abits[k - i]; ins2[1] = bbits[i];
+                    rt_acell(M, RT_AND, rb, ins2, 2, 1);
+                    created++;
+                } else if (carry == 0) {
+                    break;
+                } else {
+                    rb = zero;
+                }
+
+                axb = bb_tmp(M, "mx", ci, (uint32_t)(i * ow + k));
+                ins2[0] = acc[k]; ins2[1] = rb;
+                rt_acell(M, RT_XOR, axb, ins2, 2, 1);
+
+                nx = bb_tmp(M, "ms", ci, (uint32_t)(i * ow + k));
+                if (carry == 0) {
+                    ins1[0] = axb;
+                    rt_acell(M, RT_ASSIGN, nx, ins1, 1, 1);
+                    carry = bb_tmp(M, "mc", ci, (uint32_t)(i * ow + k));
+                    ins2[0] = acc[k]; ins2[1] = rb;
+                    rt_acell(M, RT_AND, carry, ins2, 2, 1);
+                } else {
+                    uint32_t ab, cx, nc;
+                    ins2[0] = axb; ins2[1] = carry;
+                    rt_acell(M, RT_XOR, nx, ins2, 2, 1);
+
+                    ab = bb_tmp(M, "ma", ci, (uint32_t)(i * ow + k));
+                    ins2[0] = acc[k]; ins2[1] = rb;
+                    rt_acell(M, RT_AND, ab, ins2, 2, 1);
+
+                    cx = bb_tmp(M, "mk", ci, (uint32_t)(i * ow + k));
+                    ins2[0] = carry; ins2[1] = axb;
+                    rt_acell(M, RT_AND, cx, ins2, 2, 1);
+
+                    nc = bb_tmp(M, "mc", ci, (uint32_t)(i * ow + k));
+                    ins2[0] = ab; ins2[1] = cx;
+                    rt_acell(M, RT_OR, nc, ins2, 2, 1);
+                    carry = nc;
+                }
+                acc[k] = nx;
+                created++;
+            }
+        }
+
+        for (k = 0; k < ow; k++) {
+            ins1[0] = acc[k];
+            rt_acell(M, RT_ASSIGN, obits[k], ins1, 1, 1);
+        }
+        c->type = RT_CELL_COUNT;
+        break;
+    }
+
+    case RT_SHL: case RT_SHR: case RT_SHRA:
+    {
+        uint32_t cur[64], nxt[64], sbits[64];
+        uint32_t sw, zbit = 0, fill, st, k;
+        int left = (c->type == RT_SHL);
+        int arith = (c->type == RT_SHRA);
+        int64_t amt = 0;
+        uint32_t sdrv;
+
+        ow = bb_slc(M, c->out, obits, w, smap, smsz);
+        aw = bb_slc(M, c->ins[0], abits, w, smap, smsz);
+        if (ow == 0 || aw == 0 || ow > 64) break;
+
+        for (k = 0; k < ow; k++)
+            cur[k] = k < aw ? abits[k] : (zbit ? zbit : (zbit = bb_zero(M, ci)));
+
+        fill = arith ? cur[aw - 1] : (zbit ? zbit : (zbit = bb_zero(M, ci)));
+
+        sdrv = c->ins[1] < M->n_net ? M->nets[c->ins[1]].driver : 0;
+        if (sdrv != 0 && sdrv < M->n_cell &&
+            M->cells[sdrv].type == RT_CONST) {
+            amt = M->cells[sdrv].param;
+            if (amt < 0) amt = 0;
+            for (k = 0; k < ow; k++) {
+                uint32_t src;
+                int have;
+                if (left) {
+                    have = ((int64_t)k >= amt);
+                    src = have ? cur[(uint32_t)((int64_t)k - amt)] : fill;
+                } else {
+                    have = ((int64_t)k + amt < (int64_t)ow);
+                    src = have ? cur[(uint32_t)((int64_t)k + amt)] : fill;
+                }
+                ins1[0] = src;
+                rt_acell(M, RT_ASSIGN, obits[k], ins1, 1, 1);
+                created++;
+            }
+            c->type = RT_CELL_COUNT;
+            break;
+        }
+
+        sw = bb_slc(M, c->ins[1], sbits, w, smap, smsz);
+        if (sw == 0) break;
+
+        for (st = 0; st < sw && (1u << st) < ow; st++) {
+            uint32_t d = 1u << st;
+            for (k = 0; k < ow; k++) {
+                uint32_t alt;
+                if (left)
+                    alt = (k >= d) ? cur[k - d] : fill;
+                else
+                    alt = (k + d < ow) ? cur[k + d] : fill;
+                nxt[k] = bb_tmp(M, "sb", ci, (uint32_t)(st * ow + k));
+                ins3[0] = sbits[st]; ins3[1] = cur[k]; ins3[2] = alt;
+                rt_acell(M, RT_MUX, nxt[k], ins3, 3, 1);
+                created++;
+            }
+            for (k = 0; k < ow; k++) cur[k] = nxt[k];
+        }
+
+        for (k = 0; k < ow; k++) {
+            ins1[0] = cur[k];
+            rt_acell(M, RT_ASSIGN, obits[k], ins1, 1, 1);
+        }
+        c->type = RT_CELL_COUNT;
+        break;
+    }
+
     case RT_PMUX:
     case RT_DLAT:
     case RT_MEMRD: case RT_MEMWR:

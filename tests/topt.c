@@ -629,3 +629,198 @@ static void op_emit(void)
     PASS();
 }
 TH_REG("opt", op_emit)
+
+static int mul_run(const rt_mod_t *M, uint32_t a, uint32_t b, uint32_t *got)
+{
+    sm_st_t S;
+    uint32_t na, nb, ny, i;
+    int r = -1;
+
+    if (sm_init(&S, M) != 0) return -1;
+    na = sm_net(M, "a"); nb = sm_net(M, "b"); ny = sm_net(M, "y");
+    if (!na || !nb || !ny) { printf("    nets a=%u b=%u y=%u\n", na, nb, ny); goto out; }
+
+    for (i = 0; i < 4; i++) {
+        char nm[8];
+        uint32_t bit;
+        snprintf(nm, sizeof(nm), "a_%u", i);
+        bit = sm_net(M, nm);
+        if (bit) sm_set(&S, bit, (uint8_t)((a >> i) & 1u));
+        snprintf(nm, sizeof(nm), "b_%u", i);
+        bit = sm_net(M, nm);
+        if (bit) sm_set(&S, bit, (uint8_t)((b >> i) & 1u));
+    }
+    if (sm_eval(M, NULL, &S) != 0) { printf("    sm_eval failed\n"); goto out; }
+
+    *got = 0;
+    for (i = 0; i < 8; i++) {
+        char nm[8];
+        uint32_t bit;
+        snprintf(nm, sizeof(nm), "y_%u", i);
+        bit = sm_net(M, nm);
+        if (bit && sm_get(&S, bit)) *got |= (1u << i);
+    }
+    r = 0;
+out:
+    sm_free(&S);
+    return r;
+}
+
+static void op_mul(void)
+{
+    rt_mod_t *M = rtl_str(
+        "module m(input logic [3:0] a, input logic [3:0] b,\n"
+        "         output logic [7:0] y);\n"
+        "  assign y = a * b;\n"
+        "endmodule\n");
+    uint32_t a, b, got, bad = 0;
+
+    CHECK(M != NULL);
+    CHECK(mp_bblst(M) >= 0);
+
+    for (a = 0; a < 16 && bad == 0; a++)
+        for (b = 0; b < 16 && bad == 0; b++) {
+            if (mul_run(M, a, b, &got) != 0) { bad = 1; break; }
+            if (got != a * b) {
+                printf("    %u * %u = %u, want %u\n", a, b, got, a * b);
+                bad = 1;
+            }
+        }
+    CHECK(bad == 0);
+
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("opt", op_mul)
+
+static void op_ccat(void)
+{
+    rt_mod_t *M = rtl_str(
+        "module m(input logic [3:0] a, input logic [3:0] b,\n"
+        "         output logic [3:0] sum, output logic cout);\n"
+        "  assign {cout, sum} = a + b;\n"
+        "endmodule\n");
+    uint32_t a, b, bad = 0;
+
+    CHECK(M != NULL);
+    CHECK(mp_bblst(M) >= 0);
+
+    for (a = 0; a < 16 && bad == 0; a++)
+        for (b = 0; b < 16 && bad == 0; b++) {
+            sm_st_t S;
+            uint32_t i, got = 0;
+            if (sm_init(&S, M) != 0) { bad = 1; break; }
+            for (i = 0; i < 4; i++) {
+                char nm[8];
+                uint32_t bit;
+                snprintf(nm, sizeof(nm), "a_%u", i);
+                bit = sm_net(M, nm);
+                if (bit) sm_set(&S, bit, (uint8_t)((a >> i) & 1u));
+                snprintf(nm, sizeof(nm), "b_%u", i);
+                bit = sm_net(M, nm);
+                if (bit) sm_set(&S, bit, (uint8_t)((b >> i) & 1u));
+            }
+            { int ev = sm_eval(M, NULL, &S); if (ev != 0) { printf("    sm_eval=%d a=%u b=%u\n", ev, a, b); sm_free(&S); bad = 1; break; } }
+            for (i = 0; i < 4; i++) {
+                char nm[8];
+                uint32_t bit;
+                snprintf(nm, sizeof(nm), "sum_%u", i);
+                bit = sm_net(M, nm);
+                if (bit && sm_get(&S, bit)) got |= (1u << i);
+            }
+            {
+                uint32_t cb = sm_net(M, "cout");
+                if (cb && sm_get(&S, cb)) got |= 16u;
+            }
+            sm_free(&S);
+            if (got != a + b) {
+                printf("    %u + %u = %u, want %u\n", a, b, got, a + b);
+                bad = 1;
+            }
+        }
+    CHECK(bad == 0);
+
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("opt", op_ccat)
+
+static int shf_run(const rt_mod_t *M, uint32_t a, uint32_t s, uint32_t *got)
+{
+    sm_st_t S;
+    uint32_t i;
+
+    if (sm_init(&S, M) != 0) return -1;
+    for (i = 0; i < 8; i++) {
+        char nm[8];
+        uint32_t bit;
+        snprintf(nm, sizeof(nm), "a_%u", i);
+        bit = sm_net(M, nm);
+        if (bit) sm_set(&S, bit, (uint8_t)((a >> i) & 1u));
+        if (i < 3) {
+            snprintf(nm, sizeof(nm), "s_%u", i);
+            bit = sm_net(M, nm);
+            if (bit) sm_set(&S, bit, (uint8_t)((s >> i) & 1u));
+        }
+    }
+    if (sm_eval(M, NULL, &S) != 0) { sm_free(&S); return -1; }
+    *got = 0;
+    for (i = 0; i < 8; i++) {
+        char nm[8];
+        uint32_t bit;
+        snprintf(nm, sizeof(nm), "y_%u", i);
+        bit = sm_net(M, nm);
+        if (bit && sm_get(&S, bit)) *got |= (1u << i);
+    }
+    sm_free(&S);
+    return 0;
+}
+
+static void op_shfk(void)
+{
+    rt_mod_t *M = rtl_str(
+        "module m(input logic [7:0] a, output logic [7:0] y);\n"
+        "  assign y = a >> 3;\n"
+        "endmodule\n");
+    uint32_t a, got, bad = 0;
+
+    CHECK(M != NULL);
+    CHECK(mp_bblst(M) >= 0);
+    for (a = 0; a < 256 && bad == 0; a++) {
+        if (shf_run(M, a, 0, &got) != 0) { bad = 1; break; }
+        if (got != (a >> 3)) {
+            printf("    %u >> 3 = %u, want %u\n", a, got, a >> 3);
+            bad = 1;
+        }
+    }
+    CHECK(bad == 0);
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("opt", op_shfk)
+
+static void op_shfv(void)
+{
+    rt_mod_t *M = rtl_str(
+        "module m(input logic [7:0] a, input logic [2:0] s,\n"
+        "         output logic [7:0] y);\n"
+        "  assign y = a << s;\n"
+        "endmodule\n");
+    uint32_t a, s, got, bad = 0;
+
+    CHECK(M != NULL);
+    CHECK(mp_bblst(M) >= 0);
+    for (a = 0; a < 256 && bad == 0; a++)
+        for (s = 0; s < 8 && bad == 0; s++) {
+            uint32_t want = (a << s) & 0xFFu;
+            if (shf_run(M, a, s, &got) != 0) { bad = 1; break; }
+            if (got != want) {
+                printf("    %u << %u = %u, want %u\n", a, s, got, want);
+                bad = 1;
+            }
+        }
+    CHECK(bad == 0);
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("opt", op_shfv)

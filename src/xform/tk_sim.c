@@ -119,6 +119,28 @@ sm_cell(const rt_mod_t *M, const cd_lib_t *cd, const sm_st_t *S,
     case RT_NOT:
         return c->n_in > 0 && c->ins[0] < S->n_net ?
                !S->val[c->ins[0]] : 1;
+    case RT_AND: case RT_OR: case RT_XOR:
+    case RT_NAND: case RT_NOR: case RT_XNOR:
+    {
+        int acc = (c->type == RT_AND || c->type == RT_NAND) ? 1 : 0;
+        if (c->n_in == 0) return -1;
+        for (k = 0; k < c->n_in; k++) {
+            int v = c->ins[k] < S->n_net ? S->val[c->ins[k]] != 0 : 0;
+            switch ((int)c->type) {
+            case RT_AND: case RT_NAND: acc = acc && v; break;
+            case RT_OR:  case RT_NOR:  acc = acc || v; break;
+            default:                   acc = k == 0 ? v : (acc ^ v); break;
+            }
+        }
+        if (c->type == RT_NAND || c->type == RT_NOR || c->type == RT_XNOR)
+            acc = !acc;
+        return acc ? 1 : 0;
+    }
+    case RT_MUX:
+        if (c->n_in < 3) return -1;
+        return (c->ins[0] < S->n_net && S->val[c->ins[0]])
+             ? (c->ins[2] < S->n_net ? S->val[c->ins[2]] : 0)
+             : (c->ins[1] < S->n_net ? S->val[c->ins[1]] : 0);
     default:
         return -1;
     }
@@ -144,6 +166,7 @@ sm_eval(const rt_mod_t *M, const cd_lib_t *cd, sm_st_t *S)
             int v;
 
             if (c->out == 0 || c->out >= S->n_net) continue;
+            if (c->type == RT_CELL_COUNT) continue;
 
             if (c->type == RT_DFF) continue;
             if (c->type == RT_DFFS) {

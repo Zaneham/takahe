@@ -614,7 +614,9 @@ main(int argc, char **argv)
                                 }
 
                                 if (blif_path) {
-                                    FILE *bf = fopen(blif_path, "w");
+                                    FILE *bf;
+                                    mp_bblst(rtl);
+                                    bf = fopen(blif_path, "w");
                                     if (bf) {
                                         mp_blif(rtl, bf);
                                         fclose(bf);

@@ -32,7 +32,29 @@ bl_nnam(const rt_mod_t *M, uint32_t ni, char *buf, int bsz)
     return buf;
 }
 
+static int
+bl_split(const rt_mod_t *M, uint32_t ni)
+{
+    char probe[64];
+    const char *nm = M->strs + M->nets[ni].name_off;
+    int pl;
+    uint32_t k;
+
+    if (M->nets[ni].width <= 1) return 0;
+    pl = snprintf(probe, sizeof(probe), "%.*s_0",
+                  (int)M->nets[ni].name_len, nm);
+    if (pl < 0 || pl >= (int)sizeof(probe)) return 0;
+    for (k = 1; k < M->n_net; k++) {
+        if (M->nets[k].name_len == (uint16_t)pl &&
+            memcmp(M->strs + M->nets[k].name_off, probe, (size_t)pl) == 0 &&
+            M->nets[k].is_port == M->nets[ni].is_port)
+            return 1;
+    }
+    return 0;
+}
+
 /* ---- Public: emit BLIF to file ---- */
+
 
 int
 mp_blif(const rt_mod_t *M, FILE *fp)
@@ -48,7 +70,7 @@ mp_blif(const rt_mod_t *M, FILE *fp)
     /* Inputs */
     fprintf(fp, ".inputs");
     for (i = 1; i < M->n_net; i++) {
-        if (M->nets[i].is_port == 1)
+        if (M->nets[i].is_port == 1 && !bl_split(M, i))
             fprintf(fp, " %s", bl_nnam(M, i, nb, 64));
     }
     fprintf(fp, "\n");
@@ -56,7 +78,7 @@ mp_blif(const rt_mod_t *M, FILE *fp)
     /* Outputs */
     fprintf(fp, ".outputs");
     for (i = 1; i < M->n_net; i++) {
-        if (M->nets[i].is_port == 2)
+        if (M->nets[i].is_port == 2 && !bl_split(M, i))
             fprintf(fp, " %s", bl_nnam(M, i, nb, 64));
     }
     fprintf(fp, "\n\n");
