@@ -255,9 +255,6 @@ static void rt_dffck(void)
 }
 TH_REG("rtl", rt_dffck)
 
-/* ---- rt_inst: an instantiated body must reach the instance's nets ----
- * Regression for 8182188, which read the direction off a net the instance
- * path had already zeroed, so every connection was dropped in silence. */
 
 static void rt_inst(void)
 {
@@ -272,8 +269,6 @@ static void rt_inst(void)
 
     CHECK(M != NULL);
 
-    /* The child's nets are prefixed, and the body must use those and not
-     * invent bare ones at the wrong width. */
     ui = fnet(M, "u_i");
     uo = fnet(M, "u_o");
     CHECK(ui != 0);
@@ -283,7 +278,6 @@ static void rt_inst(void)
     CHECK(fnet(M, "i") == 0);
     CHECK(fnet(M, "o") == 0);
 
-    /* And the inversion has to be in there, reading the instance's input. */
     ni = fcell(M, RT_NOT, 0);
     CHECK(ni != 0);
     CHEQ(M->cells[ni].ins[0], ui);
@@ -293,7 +287,6 @@ static void rt_inst(void)
 }
 TH_REG("rtl", rt_inst)
 
-/* ---- rt_instff: always_ff inside an instance still makes a flop ---- */
 
 static void rt_instff(void)
 {

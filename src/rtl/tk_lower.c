@@ -35,13 +35,9 @@ typedef struct {
     uint32_t          nmsz;
     uint32_t          net_lo; /* first net for current module scope */
 
-    /* Instance prefix while an instantiated body is being lowered. Its nets
-     * were created as "u_name", so a bare lookup would miss and make a new
-     * one. Empty at the top level. */
     char              ipfx[64];
     uint16_t          ipfl;
 
-    /* Instances expanded so far, so the DFF pass can find their clocks. */
     #define LW_INST_MAX 64
     struct { uint32_t mod; char pfx[64]; uint16_t pfl; } inst[LW_INST_MAX];
     uint32_t          n_inst;
@@ -254,16 +250,13 @@ lw_fnet(lw_ctx_t *C, uint32_t ast_id)
 
     if (ast_id == 0 || ast_id >= C->nmsz) return 0;
 
-    /* Already mapped from this exact AST node? Not trusted inside an
-     * instance, where a second copy of the same module would reuse it. */
+    /* Already mapped from this exact AST node? */
     if (C->ipfl == 0 && C->nmap[ast_id] != 0) return C->nmap[ast_id];
 
     nm   = lw_text(C, ast_id);
     nlen = lw_tlen(C, ast_id);
     w    = lw_width(C, ast_id);
 
-    /* Inside an instance the net is the prefixed one. Not cached, because
-     * two instances of one module share these AST nodes. */
     if (C->ipfl != 0 && (uint32_t)C->ipfl + nlen < sizeof C->ipfx) {
         char qn[64];
         uint16_t ql = (uint16_t)(C->ipfl + nlen);
@@ -287,7 +280,7 @@ lw_fnet(lw_ctx_t *C, uint32_t ast_id)
         }
     }
 
-    /* Create new net, prefixed if we are inside an instance */
+    /* Create new net */
     if (C->ipfl != 0 && (uint32_t)C->ipfl + nlen < sizeof C->ipfx) {
         char qn[64];
         memcpy(qn, C->ipfx, C->ipfl);
@@ -1615,10 +1608,6 @@ lw_stms(lw_ctx_t *C, uint32_t nidx, int is_reg)
     }
 }
 
-/* ---- One always block ----
- * Shared by lw_mod and the instance path, which used to keep its own copy
- * and skip the flush, so an always_ff inside an instance made no flop. */
-
 static void
 lw_alwy(lw_ctx_t *C, uint32_t nidx, int is_reg)
 {
@@ -1632,8 +1621,6 @@ lw_alwy(lw_ctx_t *C, uint32_t nidx, int is_reg)
         ch = C->P->nodes[ch].next_sib;
     }
 
-    /* Rewire each chain's last cell to drive the target net directly, so
-     * DFF inference sees MUX -> tgt rather than stopping at the tmp. */
     for (ri = 0; ri < C->n_rdir; ri++) {
         if (C->rdir[ri].cur != C->rdir[ri].net &&
             C->rdir[ri].cell > 0 &&
@@ -1644,10 +1631,6 @@ lw_alwy(lw_ctx_t *C, uint32_t nidx, int is_reg)
     }
     C->n_rdir = 0;
 }
-
-/* ---- Port direction ----
- * An inlined instance zeroes is_port, so the net can't say which way a
- * connection runs and the AST has to. 0 means no port by that name. */
 
 static uint8_t
 lw_pdir(const lw_ctx_t *C, uint32_t mod_def, const char *pnm, uint16_t pnl)
@@ -1661,8 +1644,6 @@ lw_pdir(const lw_ctx_t *C, uint32_t mod_def, const char *pnm, uint16_t pnl)
 
         if (pn->type != TK_AST_PORT) { mc = pn->next_sib; continue; }
 
-        /* ANSI: name in an IDENT child, direction in the node's text.
-         * Non-ANSI: no child, and the name sits where the direction would. */
         ch = pn->first_child;
         {
             KA_GUARD(gpi, 10);
@@ -1963,9 +1944,6 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
                                         uint8_t dir = lw_pdir(C, mod_def,
                                                               prt, ppnl);
                                         if (dir == 0) {
-                                            /* Not a port of the module, so
-                                             * nothing to take a direction
-                                             * from. Say so, don't drop it. */
                                             printf("takahe: warning: instance "
                                                    "port .%.*s() is not a port "
                                                    "of the module, wiring both "
@@ -2000,10 +1978,6 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
         c = n->next_sib;
     }
 }
-
-/* ---- Clock and reset from the sensitivity lists ----
- * Called for the top module and again for each instantiated one, with the
- * instance prefix set so the idents resolve to that instance's nets. */
 
 static void
 lw_ckrs(lw_ctx_t *C, uint32_t mod_n, uint32_t *pclk, uint32_t *prst)
@@ -2085,8 +2059,6 @@ lw_dffs(lw_ctx_t *C, uint32_t mod_n, uint32_t net_lo)
 
     lw_ckrs(C, mod_n, &clk, &rst);
 
-    /* An instantiated body's sensitivity list lives in its own module, so
-     * scan those too or its flops get clocked by nothing. */
     {
         uint32_t k;
         char     opfx[64];

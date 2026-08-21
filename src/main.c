@@ -779,6 +779,11 @@ main(int argc, char **argv)
                                                                  / (tk_fs_t)sta_mhz;
                                                 ta_sta(rtl, llib, btbl, clk_fs);
                                             }
+                                        } else {
+                                            fprintf(stderr, "takahe: --map "
+                                                    "needs a library it can "
+                                                    "read, nothing mapped\n");
+                                            exit_code = 1;
                                         }
                                         free(llib);
                                     }

@@ -1,18 +1,4 @@
 #!/bin/bash
-# Synthesise every shipped design and check the cell count against a floor.
-#
-#   tools/synth-gate.sh              # report
-#   tools/synth-gate.sh --update     # rewrite the floors from this build
-#
-# The unit tests prove a construct lowers. They cannot see a whole design
-# quietly getting smaller, which is how 8182188 dropped picorv32 from 3,305
-# cells to 257 and still exited zero. A floor per design catches that: any
-# change that stops logic reaching the netlist trips it.
-#
-# Floors sit a little under the current count so ordinary optimiser work does
-# not trip them. Anything that legitimately shrinks a design updates the floor
-# in the same commit, which is the point at which somebody looks at why.
-
 set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -25,12 +11,13 @@ if [ ! -x "$TAKAHE" ]; then
     exit 2
 fi
 
-LIB="lib/sky130_fd_sc_hd__tt_025C_1v80.lib"
+LIB="lib/ttl7400.lib"
 FLOORS="tools/synth-floors.txt"
 UPDATE=""
 [ "${1:-}" = "--update" ] && UPDATE=1
 
 [ -f "$FLOORS" ] || { echo "missing $FLOORS" >&2; exit 2; }
+[ -f "$LIB" ]    || { echo "missing $LIB" >&2; exit 2; }
 
 OUT=$(mktemp -d)
 trap 'rm -rf "$OUT"' EXIT
@@ -54,8 +41,6 @@ while read -r name floor; do
     vhdl=""
     case "$src" in *.vhd) vhdl="--vhdl" ;; esac
 
-    # Cell count comes from the emitted netlist, not the log line, so a
-    # backend that reports more than it writes cannot pass this.
     if ! $TAKAHE $vhdl --lib "$LIB" --opt --map "$OUT/$name.v" "$src" \
          >"$OUT/$name.log" 2>&1; then
         printf '%-24s %8s %8s   %s\n' "$name" - "$floor" "SYNTH FAILED"
@@ -63,7 +48,7 @@ while read -r name floor; do
         continue
     fi
 
-    n=$(grep -cE '^[a-z0-9_]+__[a-z0-9_]+ ' "$OUT/$name.v" 2>/dev/null)
+    n=$(grep -cE '^[A-Za-z_][A-Za-z0-9_]* +[A-Za-z_][A-Za-z0-9_]* *\( *\.'              "$OUT/$name.v" 2>/dev/null)
     n=${n:-0}
 
     if [ -n "$UPDATE" ]; then
@@ -81,7 +66,7 @@ done < "$FLOORS"
 
 if [ -n "$UPDATE" ]; then
     echo
-    echo "floors above are 90% of the measured count; edit $FLOORS by hand"
+    echo "floors above are 90% of measured; edit $FLOORS by hand"
     exit 0
 fi
 

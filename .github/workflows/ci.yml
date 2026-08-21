@@ -37,11 +37,6 @@ jobs:
       - name: Score
         run: bash tools/sv-tests.sh /tmp/sv-tests --min 66
 
-  # Whole designs, not constructs. The unit suite proves a construct lowers
-  # and cannot see a design quietly getting smaller, which is how 8182188
-  # dropped picorv32 from 3,305 cells to 257 while every test stayed green.
-  # tests/hier.sv is the one that matters here: it is built out of instances,
-  # so it collapses to a fraction of its size if port wiring breaks again.
   synthesis:
     runs-on: ubuntu-latest
     steps:

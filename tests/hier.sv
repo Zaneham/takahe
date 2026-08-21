@@ -1,8 +1,3 @@
-/* hier.sv -- a datapath built out of instances, for the synthesis gate.
- * Every shipped design is flat enough that instantiation could break
- * without the cell count moving, which is how 8182188 went unnoticed.
- * This one collapses to almost nothing if ports stop being wired. */
-
 module addsub8(input logic sub,
                input logic [7:0] a,
                input logic [7:0] b,
