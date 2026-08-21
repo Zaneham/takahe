@@ -1,0 +1,16 @@
+# Minimum cell count per design, checked by tools/synth-gate.sh.
+# Roughly 90% of the measured count, so optimiser work has room but a
+# design losing its logic does not slip through. Lower one only with a
+# reason, in the same commit as whatever made it smaller.
+
+dozenal_alu         36
+minuteman_d17b     207
+qsim               117
+ruru                74
+setun70             48
+setun70_physical    31
+setun_alu           82
+voyager_fds        189
+smoke              261
+bigger              17
+hier               178

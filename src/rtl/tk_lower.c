@@ -35,6 +35,17 @@ typedef struct {
     uint32_t          nmsz;
     uint32_t          net_lo; /* first net for current module scope */
 
+    /* Instance prefix while an instantiated body is being lowered. Its nets
+     * were created as "u_name", so a bare lookup would miss and make a new
+     * one. Empty at the top level. */
+    char              ipfx[64];
+    uint16_t          ipfl;
+
+    /* Instances expanded so far, so the DFF pass can find their clocks. */
+    #define LW_INST_MAX 64
+    struct { uint32_t mod; char pfx[64]; uint16_t pfl; } inst[LW_INST_MAX];
+    uint32_t          n_inst;
+
     /* Sequential redirect: tracks current value of each net
      * within an always block. When x <= a; if(c) x <= b;
      * the second if's hold reads the first assignment's
@@ -243,12 +254,28 @@ lw_fnet(lw_ctx_t *C, uint32_t ast_id)
 
     if (ast_id == 0 || ast_id >= C->nmsz) return 0;
 
-    /* Already mapped from this exact AST node? */
-    if (C->nmap[ast_id] != 0) return C->nmap[ast_id];
+    /* Already mapped from this exact AST node? Not trusted inside an
+     * instance, where a second copy of the same module would reuse it. */
+    if (C->ipfl == 0 && C->nmap[ast_id] != 0) return C->nmap[ast_id];
 
     nm   = lw_text(C, ast_id);
     nlen = lw_tlen(C, ast_id);
     w    = lw_width(C, ast_id);
+
+    /* Inside an instance the net is the prefixed one. Not cached, because
+     * two instances of one module share these AST nodes. */
+    if (C->ipfl != 0 && (uint32_t)C->ipfl + nlen < sizeof C->ipfx) {
+        char qn[64];
+        uint16_t ql = (uint16_t)(C->ipfl + nlen);
+        memcpy(qn, C->ipfx, C->ipfl);
+        memcpy(qn + C->ipfl, nm, nlen);
+        for (i = C->net_lo ? C->net_lo : 1; i < C->M->n_net; i++) {
+            const rt_net_t *n = &C->M->nets[i];
+            if (n->name_len == ql &&
+                memcmp(C->M->strs + n->name_off, qn, ql) == 0)
+                return i;
+        }
+    }
 
     /* Scan nets in current module scope for name match */
     for (i = C->net_lo ? C->net_lo : 1; i < C->M->n_net; i++) {
@@ -260,7 +287,15 @@ lw_fnet(lw_ctx_t *C, uint32_t ast_id)
         }
     }
 
-    /* Create new net */
+    /* Create new net, prefixed if we are inside an instance */
+    if (C->ipfl != 0 && (uint32_t)C->ipfl + nlen < sizeof C->ipfx) {
+        char qn[64];
+        memcpy(qn, C->ipfx, C->ipfl);
+        memcpy(qn + C->ipfl, nm, nlen);
+        return rt_anet_at(C->M, qn, (uint16_t)(C->ipfl + nlen), w, 0,
+                          C->radix, lw_line(C, ast_id), lw_col(C, ast_id));
+    }
+
     ni = rt_anet_at(C->M, nm, nlen, w, 0, C->radix,
                     lw_line(C, ast_id), lw_col(C, ast_id));
     C->nmap[ast_id] = ni;
@@ -1580,6 +1615,83 @@ lw_stms(lw_ctx_t *C, uint32_t nidx, int is_reg)
     }
 }
 
+/* ---- One always block ----
+ * Shared by lw_mod and the instance path, which used to keep its own copy
+ * and skip the flush, so an always_ff inside an instance made no flop. */
+
+static void
+lw_alwy(lw_ctx_t *C, uint32_t nidx, int is_reg)
+{
+    uint32_t ch = C->P->nodes[nidx].first_child, ri;
+    KA_GUARD(ga, 100);
+
+    C->n_rdir = 0;
+    while (ch && ga--) {
+        if (C->P->nodes[ch].type != TK_AST_SENS_LIST)
+            lw_stms(C, ch, is_reg);
+        ch = C->P->nodes[ch].next_sib;
+    }
+
+    /* Rewire each chain's last cell to drive the target net directly, so
+     * DFF inference sees MUX -> tgt rather than stopping at the tmp. */
+    for (ri = 0; ri < C->n_rdir; ri++) {
+        if (C->rdir[ri].cur != C->rdir[ri].net &&
+            C->rdir[ri].cell > 0 &&
+            C->rdir[ri].cell < C->M->n_cell) {
+            C->M->cells[C->rdir[ri].cell].out = C->rdir[ri].net;
+            C->M->nets[C->rdir[ri].net].driver = C->rdir[ri].cell;
+        }
+    }
+    C->n_rdir = 0;
+}
+
+/* ---- Port direction ----
+ * An inlined instance zeroes is_port, so the net can't say which way a
+ * connection runs and the AST has to. 0 means no port by that name. */
+
+static uint8_t
+lw_pdir(const lw_ctx_t *C, uint32_t mod_def, const char *pnm, uint16_t pnl)
+{
+    uint32_t mc = C->P->nodes[mod_def].first_child;
+    KA_GUARD(gpd, 10000);
+
+    while (mc && gpd--) {
+        const tk_node_t *pn = &C->P->nodes[mc];
+        uint32_t ch, nid = 0;
+
+        if (pn->type != TK_AST_PORT) { mc = pn->next_sib; continue; }
+
+        /* ANSI: name in an IDENT child, direction in the node's text.
+         * Non-ANSI: no child, and the name sits where the direction would. */
+        ch = pn->first_child;
+        {
+            KA_GUARD(gpi, 10);
+            while (ch && gpi--) {
+                if (C->P->nodes[ch].type == TK_AST_IDENT) { nid = ch; break; }
+                ch = C->P->nodes[ch].next_sib;
+            }
+        }
+
+        if (nid == 0) {
+            if (pn->d.text.len == pnl &&
+                memcmp(C->P->lex->strs + pn->d.text.off, pnm, pnl) == 0)
+                return 3;
+        } else if (C->P->nodes[nid].d.text.len == pnl &&
+                   memcmp(C->P->lex->strs + C->P->nodes[nid].d.text.off,
+                          pnm, pnl) == 0) {
+            const char *d = C->P->lex->strs + pn->d.text.off;
+            uint16_t    dl = pn->d.text.len;
+            if (dl >= 5 && memcmp(d, "input",  5) == 0) return 1;
+            if (dl >= 6 && memcmp(d, "output", 6) == 0) return 2;
+            if (dl >= 5 && memcmp(d, "inout",  5) == 0) return 3;
+            return 3;
+        }
+
+        mc = pn->next_sib;
+    }
+    return 0;
+}
+
 /* ---- Lower one module ---- */
 
 static void
@@ -1663,59 +1775,13 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
         }
 
         case TK_AST_ALWAYS_FF:
-        {
-            uint32_t ch = n->first_child;
-            C->n_rdir = 0;
-            KA_GUARD(ga, 100);
-            while (ch && ga--) {
-                if (C->P->nodes[ch].type != TK_AST_SENS_LIST)
-                    lw_stms(C, ch, 1);
-                ch = C->P->nodes[ch].next_sib;
-            }
-            /* Flush: rewire each chain's LAST cell to drive
-             * the target net directly. No ASSIGN wrapper —
-             * the cell's output just changes from tmp to tgt.
-             * DFF inference sees MUX → tgt. Clean. */
-            {
-                uint32_t ri;
-                for (ri = 0; ri < C->n_rdir; ri++) {
-                    if (C->rdir[ri].cur != C->rdir[ri].net &&
-                        C->rdir[ri].cell > 0 &&
-                        C->rdir[ri].cell < C->M->n_cell) {
-                        C->M->cells[C->rdir[ri].cell].out = C->rdir[ri].net;
-                        C->M->nets[C->rdir[ri].net].driver = C->rdir[ri].cell;
-                    }
-                }
-            }
-            C->n_rdir = 0;
+            lw_alwy(C, c, 1);
             break;
-        }
 
         case TK_AST_ALWAYS_COMB:
         case TK_AST_ALWAYS:
-        {
-            uint32_t ch = n->first_child;
-            C->n_rdir = 0;
-            KA_GUARD(ga2, 100);
-            while (ch && ga2--) {
-                if (C->P->nodes[ch].type != TK_AST_SENS_LIST)
-                    lw_stms(C, ch, 0);
-                ch = C->P->nodes[ch].next_sib;
-            }
-            {
-                uint32_t ri;
-                for (ri = 0; ri < C->n_rdir; ri++) {
-                    if (C->rdir[ri].cur != C->rdir[ri].net &&
-                        C->rdir[ri].cell > 0 &&
-                        C->rdir[ri].cell < C->M->n_cell) {
-                        C->M->cells[C->rdir[ri].cell].out = C->rdir[ri].net;
-                        C->M->nets[C->rdir[ri].net].driver = C->rdir[ri].cell;
-                    }
-                }
-            }
-            C->n_rdir = 0;
+            lw_alwy(C, c, 0);
             break;
-        }
 
         case TK_AST_INSTANCE:
         {
@@ -1819,31 +1885,34 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
                     /* Lower the module body (assignments, always blocks) */
                     {
                         uint32_t mc = C->P->nodes[mod_def].first_child;
+                        char     opfx[64];
+                        uint16_t opfl = C->ipfl;
                         KA_GUARD(gmc2, 100000);
+
+                        memcpy(opfx, C->ipfx, sizeof opfx);
+                        memcpy(C->ipfx, pfx, pfl);
+                        C->ipfl = (uint16_t)pfl;
+
+                        if (C->n_inst < LW_INST_MAX) {
+                            C->inst[C->n_inst].mod = mod_def;
+                            memcpy(C->inst[C->n_inst].pfx, pfx, pfl);
+                            C->inst[C->n_inst].pfl = (uint16_t)pfl;
+                            C->n_inst++;
+                        }
                         while (mc && gmc2--) {
                             const tk_node_t *mn2 = &C->P->nodes[mc];
                             if (mn2->type == TK_AST_ASSIGN)
                                 lw_asgn(C, mc, 0);
-                            else if (mn2->type == TK_AST_ALWAYS_FF) {
-                                uint32_t ach = mn2->first_child;
-                                KA_GUARD(gaf, 100);
-                                while (ach && gaf--) {
-                                    if (C->P->nodes[ach].type != TK_AST_SENS_LIST)
-                                        lw_stms(C, ach, 1);
-                                    ach = C->P->nodes[ach].next_sib;
-                                }
-                            } else if (mn2->type == TK_AST_ALWAYS_COMB ||
-                                       mn2->type == TK_AST_ALWAYS) {
-                                uint32_t ach = mn2->first_child;
-                                KA_GUARD(gac, 100);
-                                while (ach && gac--) {
-                                    if (C->P->nodes[ach].type != TK_AST_SENS_LIST)
-                                        lw_stms(C, ach, 0);
-                                    ach = C->P->nodes[ach].next_sib;
-                                }
-                            }
+                            else if (mn2->type == TK_AST_ALWAYS_FF)
+                                lw_alwy(C, mc, 1);
+                            else if (mn2->type == TK_AST_ALWAYS_COMB ||
+                                     mn2->type == TK_AST_ALWAYS)
+                                lw_alwy(C, mc, 0);
                             mc = mn2->next_sib;
                         }
+
+                        memcpy(C->ipfx, opfx, sizeof opfx);
+                        C->ipfl = opfl;
                     }
 
                     /* Wire port connections: each CONN child maps
@@ -1891,7 +1960,18 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
                                          * inout  → both (genuine bidir) */
                                         uint32_t ww = C->M->nets[pnet].width;
                                         uint32_t ins2[1];
-                                        uint8_t dir = C->M->nets[pnet].is_port;
+                                        uint8_t dir = lw_pdir(C, mod_def,
+                                                              prt, ppnl);
+                                        if (dir == 0) {
+                                            /* Not a port of the module, so
+                                             * nothing to take a direction
+                                             * from. Say so, don't drop it. */
+                                            printf("takahe: warning: instance "
+                                                   "port .%.*s() is not a port "
+                                                   "of the module, wiring both "
+                                                   "ways\n", (int)ppnl, prt);
+                                            dir = 3;
+                                        }
                                         if (dir == 1 || dir == 3) {
                                             /* input/inout: parent → child */
                                             ins2[0] = enet;
@@ -1921,23 +2001,15 @@ lw_mod(lw_ctx_t *C, uint32_t mod_node)
     }
 }
 
-/* ---- DFF inference ----
- * After lowering, every net marked is_reg needs a DFF. The MUX chain
- * feeding it becomes the D input, the clock comes from the sensitivity
- * list, and reset comes from the async edges. The logic cone already
- * exists, so all this adds is holding it on the clock edge. */
+/* ---- Clock and reset from the sensitivity lists ----
+ * Called for the top module and again for each instantiated one, with the
+ * instance prefix set so the idents resolve to that instance's nets. */
 
 static void
-lw_dffs(lw_ctx_t *C, uint32_t mod_n, uint32_t net_lo)
+lw_ckrs(lw_ctx_t *C, uint32_t mod_n, uint32_t *pclk, uint32_t *prst)
 {
-    uint32_t i;
-    uint32_t clk = 0, rst = 0;
-    /* net_lo: first net index created for this module.
-     * Only process nets in [net_lo, n_net). */
+    uint32_t clk = *pclk, rst = *prst;
 
-    /* Find clock and reset from sensitivity lists.
-     * Walk always_ff blocks, extract posedge/negedge idents. */
-    {
         uint32_t ch = C->P->nodes[mod_n].first_child;
         KA_GUARD(gs, 10000);
         while (ch && gs--) {
@@ -1993,6 +2065,40 @@ lw_dffs(lw_ctx_t *C, uint32_t mod_n, uint32_t net_lo)
             }
             ch = C->P->nodes[ch].next_sib;
         }
+    *pclk = clk;
+    *prst = rst;
+}
+
+/* ---- DFF inference ----
+ * After lowering, every net marked is_reg needs a DFF. The MUX chain
+ * feeding it becomes the D input, the clock comes from the sensitivity
+ * list, and reset comes from the async edges. The logic cone already
+ * exists, so all this adds is holding it on the clock edge. */
+
+static void
+lw_dffs(lw_ctx_t *C, uint32_t mod_n, uint32_t net_lo)
+{
+    uint32_t i;
+    uint32_t clk = 0, rst = 0;
+    /* net_lo: first net index created for this module.
+     * Only process nets in [net_lo, n_net). */
+
+    lw_ckrs(C, mod_n, &clk, &rst);
+
+    /* An instantiated body's sensitivity list lives in its own module, so
+     * scan those too or its flops get clocked by nothing. */
+    {
+        uint32_t k;
+        char     opfx[64];
+        uint16_t opfl = C->ipfl;
+        memcpy(opfx, C->ipfx, sizeof opfx);
+        for (k = 0; k < C->n_inst; k++) {
+            memcpy(C->ipfx, C->inst[k].pfx, C->inst[k].pfl);
+            C->ipfl = C->inst[k].pfl;
+            lw_ckrs(C, C->inst[k].mod, &clk, &rst);
+        }
+        memcpy(C->ipfx, opfx, sizeof opfx);
+        C->ipfl = opfl;
     }
 
     /* For each registered net, insert a DFF cell.
