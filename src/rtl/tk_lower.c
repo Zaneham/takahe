@@ -470,6 +470,7 @@ lw_expr(lw_ctx_t *C, uint32_t nidx)
         uint32_t c2 = c1 ? C->P->nodes[c1].next_sib : 0;
         uint32_t l, r, onet, ow;
         const char *op;
+        char obuf[16];
         rt_ctype_t ct;
         uint32_t ins[2];
         int is_cmp;
@@ -480,13 +481,29 @@ lw_expr(lw_ctx_t *C, uint32_t nidx)
         r = lw_expr(C, c2);
         if (l == 0 || r == 0) return 0;
 
-        /* Map operator to cell type */
-        op = C->P->lex->strs +
-            C->P->lex->ops[n->op].chars_off;
+        /* Map operator to cell type. VHDL's word operators are keywords, so
+         * its parser records the spelling and n->op indexes the wrong table. */
+        {
+            if (n->d.text.len > 0 && n->d.text.len < sizeof obuf) {
+                memcpy(obuf, C->P->lex->strs + n->d.text.off, n->d.text.len);
+                obuf[n->d.text.len] = 0;
+                op = obuf;
+            } else {
+                op = C->P->lex->strs + C->P->lex->ops[n->op].chars_off;
+            }
+        }
 
         ct = RT_ASSIGN;
         is_cmp = 0;
-        if (strcmp(op, "+") == 0)       ct = RT_ADD;
+        if (strcmp(op, "and") == 0)     ct = RT_AND;
+        else if (strcmp(op, "or") == 0)   ct = RT_OR;
+        else if (strcmp(op, "xor") == 0)  ct = RT_XOR;
+        else if (strcmp(op, "nand") == 0) ct = RT_NAND;
+        else if (strcmp(op, "nor") == 0)  ct = RT_NOR;
+        else if (strcmp(op, "xnor") == 0) ct = RT_XNOR;
+        else if (strcmp(op, "=") == 0)  { ct = RT_EQ; is_cmp = 1; }
+        else if (strcmp(op, "/=") == 0) { ct = RT_NE; is_cmp = 1; }
+        else if (strcmp(op, "+") == 0)  ct = RT_ADD;
         else if (strcmp(op, "-") == 0)  ct = RT_SUB;
         else if (strcmp(op, "*") == 0)  ct = RT_MUL;
         else if (strcmp(op, "&") == 0)  ct = RT_AND;

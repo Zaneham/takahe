@@ -2,7 +2,7 @@ dozenal_alu         36
 minuteman_d17b      114
 qsim                89
 ruru                41
-setun70             41
+setun70             36
 setun70_physical    27
 setun_alu           82
 voyager_fds         99

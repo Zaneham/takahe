@@ -824,3 +824,58 @@ static void op_shfv(void)
     PASS();
 }
 TH_REG("opt", op_shfv)
+
+static void op_cmp(void)
+{
+    rt_mod_t *M = rtl_str(
+        "module m(input logic [3:0] a, input logic [3:0] b,\n"
+        "         output logic lt, output logic le,\n"
+        "         output logic gt, output logic ge,\n"
+        "         output logic eq, output logic ne);\n"
+        "  assign lt = a < b;  assign le = a <= b;\n"
+        "  assign gt = a > b;  assign ge = a >= b;\n"
+        "  assign eq = a == b; assign ne = a != b;\n"
+        "endmodule\n");
+    uint32_t a, b, bad = 0;
+
+    CHECK(M != NULL);
+    CHECK(mp_bblst(M) >= 0);
+
+    for (a = 0; a < 16 && bad == 0; a++)
+        for (b = 0; b < 16 && bad == 0; b++) {
+            sm_st_t S;
+            uint32_t i;
+            int got[6], want[6];
+            static const char *nm6[6] = { "lt","le","gt","ge","eq","ne" };
+
+            if (sm_init(&S, M) != 0) { bad = 1; break; }
+            for (i = 0; i < 4; i++) {
+                char nm[8];
+                uint32_t bit;
+                snprintf(nm, sizeof(nm), "a_%u", i);
+                bit = sm_net(M, nm);
+                if (bit) sm_set(&S, bit, (uint8_t)((a >> i) & 1u));
+                snprintf(nm, sizeof(nm), "b_%u", i);
+                bit = sm_net(M, nm);
+                if (bit) sm_set(&S, bit, (uint8_t)((b >> i) & 1u));
+            }
+            if (sm_eval(M, NULL, &S) != 0) { sm_free(&S); bad = 1; break; }
+            for (i = 0; i < 6; i++) {
+                uint32_t bit = sm_net(M, nm6[i]);
+                got[i] = (bit && sm_get(&S, bit)) ? 1 : 0;
+            }
+            sm_free(&S);
+            want[0] = a <  b; want[1] = a <= b; want[2] = a >  b;
+            want[3] = a >= b; want[4] = a == b; want[5] = a != b;
+            for (i = 0; i < 6; i++)
+                if (got[i] != want[i]) {
+                    printf("    %u %s %u = %d, want %d\n",
+                           a, nm6[i], b, got[i], want[i]);
+                    bad = 1;
+                }
+        }
+    CHECK(bad == 0);
+    rt_free(M); free(M);
+    PASS();
+}
+TH_REG("opt", op_cmp)

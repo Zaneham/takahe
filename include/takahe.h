@@ -741,6 +741,8 @@ uint32_t     rt_acell_at(rt_mod_t *M, rt_ctype_t type, uint32_t out,
 int          rt_ovflow(void);
 void         rt_dump (const rt_mod_t *M);
 uint32_t     rt_undrv(const rt_mod_t *M);
+rt_mod_t *   rt_mclone(const rt_mod_t *M);
+int          rt_split (const rt_mod_t *M, uint32_t ni);
 const char  *rt_cname(rt_ctype_t t);
 
 /* RTL lowering */

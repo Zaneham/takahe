@@ -96,9 +96,19 @@ bb_cell(rt_mod_t *M, uint32_t ci, uint32_t **smap, uint32_t smsz)
     int created = 0;
 
     if (w <= 1) {
-        if (!(c->type == RT_SELECT && c->n_in > 0 &&
-              c->ins[0] < M->n_net && M->nets[c->ins[0]].width > 1))
+        int wide = 0;
+        uint8_t q;
+        for (q = 0; q < c->n_in; q++)
+            if (c->ins[q] < M->n_net && M->nets[c->ins[q]].width > 1)
+                wide = 1;
+        if (!wide) return 0;
+        switch ((int)c->type) {
+        case RT_SELECT: case RT_EQ: case RT_NE:
+        case RT_LT: case RT_LE: case RT_GT: case RT_GE:
+            break;
+        default:
             return 0;
+        }
     }
     if (w > 64) w = 64;    /* sanity bound */
 
@@ -302,70 +312,68 @@ bb_cell(rt_mod_t *M, uint32_t ci, uint32_t **smap, uint32_t smsz)
         break;
     }
 
-    case RT_EQ:
-    {
-        /* XOR each bit pair, OR-reduce, then invert.
-         * eq = ~(|{a[i]^b[i]}) */
-        uint32_t acc = 0;
-        aw = bb_slc(M, c->ins[0], abits, w, smap, smsz);
-        bw = bb_slc(M, c->ins[1], bbits, w, smap, smsz);
-        /* Note: output is 1-bit, no need to slice */
-        for (j = 0; j < aw && j < bw; j++) {
-            uint32_t xb = bb_tmp(M, "xb", ci, j);
-            ins2[0] = abits[j]; ins2[1] = bbits[j];
-            rt_acell(M, RT_XOR, xb, ins2, 2, 1);
-            if (j == 0) {
-                acc = xb;
-            } else {
-                uint32_t ored = bb_tmp(M, "or", ci, j);
-                ins2[0] = acc; ins2[1] = xb;
-                rt_acell(M, RT_OR, ored, ins2, 2, 1);
-                acc = ored;
-            }
-        }
-        /* Invert: eq = ~any_diff */
-        ins1[0] = acc;
-        rt_acell(M, RT_NOT, c->out, ins1, 1, 1);
-        c->type = RT_CELL_COUNT;
-        created++;
-        break;
-    }
-
-    case RT_NE:
-    {
-        /* XOR each bit, OR-reduce */
-        uint32_t acc = 0;
-        aw = bb_slc(M, c->ins[0], abits, w, smap, smsz);
-        bw = bb_slc(M, c->ins[1], bbits, w, smap, smsz);
-        for (j = 0; j < aw && j < bw; j++) {
-            uint32_t xb = bb_tmp(M, "xb", ci, j);
-            ins2[0] = abits[j]; ins2[1] = bbits[j];
-            rt_acell(M, RT_XOR, xb, ins2, 2, 1);
-            if (j == 0) { acc = xb; }
-            else {
-                uint32_t ored = bb_tmp(M, "or", ci, j);
-                ins2[0] = acc; ins2[1] = xb;
-                rt_acell(M, RT_OR, ored, ins2, 2, 1);
-                acc = ored;
-            }
-        }
-        ins1[0] = acc;
-        rt_acell(M, RT_ASSIGN, c->out, ins1, 1, 1);
-        c->type = RT_CELL_COUNT;
-        created++;
-        break;
-    }
-
+    case RT_EQ: case RT_NE:
     case RT_LT: case RT_LE: case RT_GT: case RT_GE:
     {
-        /* Ripple comparator: MSB-first subtraction, check sign bit.
-         * For simplicity, use SUB bit-blast pattern and check carry. */
-        /* Defer: emit as-is (1-bit output, operands already compared).
-         * If operands are multi-bit, the width field is the operand width,
-         * but output is always 1-bit — no blast needed for output.
-         * Inputs still need blasting if they feed here. */
-        break; /* leave as-is for now */
+        uint32_t zbit = 0, lt = 0, eq = 0, n, k;
+
+        aw = bb_slc(M, c->ins[0], abits, 64, smap, smsz);
+        bw = bb_slc(M, c->ins[1], bbits, 64, smap, smsz);
+        if (aw == 0 || bw == 0) break;
+        n = aw > bw ? aw : bw;
+        if (n > 64) n = 64;
+        for (k = 0; k < n; k++) {
+            if (k >= aw || k >= bw) {
+                if (zbit == 0) zbit = bb_zero(M, ci);
+            }
+            if (k >= aw) abits[k] = zbit;
+            if (k >= bw) bbits[k] = zbit;
+        }
+
+        for (k = n; k-- > 0; ) {
+            uint32_t xn = bb_tmp(M, "ce", ci, k);
+            uint32_t na = bb_tmp(M, "cn", ci, k);
+            uint32_t tl = bb_tmp(M, "cl", ci, k);
+
+            ins2[0] = abits[k]; ins2[1] = bbits[k];
+            rt_acell(M, RT_XNOR, xn, ins2, 2, 1);
+            ins1[0] = abits[k];
+            rt_acell(M, RT_NOT, na, ins1, 1, 1);
+            ins2[0] = na; ins2[1] = bbits[k];
+            rt_acell(M, RT_AND, tl, ins2, 2, 1);
+
+            if (eq == 0) {
+                lt = tl;
+                eq = xn;
+            } else {
+                uint32_t et = bb_tmp(M, "cet", ci, k);
+                uint32_t nl = bb_tmp(M, "clt", ci, k);
+                uint32_t ne = bb_tmp(M, "ceq", ci, k);
+                ins2[0] = eq; ins2[1] = tl;
+                rt_acell(M, RT_AND, et, ins2, 2, 1);
+                ins2[0] = lt; ins2[1] = et;
+                rt_acell(M, RT_OR, nl, ins2, 2, 1);
+                ins2[0] = eq; ins2[1] = xn;
+                rt_acell(M, RT_AND, ne, ins2, 2, 1);
+                lt = nl; eq = ne;
+            }
+            created++;
+        }
+
+        switch ((int)c->type) {
+        case RT_EQ: ins1[0] = eq; rt_acell(M, RT_ASSIGN, c->out, ins1, 1, 1); break;
+        case RT_NE: ins1[0] = eq; rt_acell(M, RT_NOT,    c->out, ins1, 1, 1); break;
+        case RT_LT: ins1[0] = lt; rt_acell(M, RT_ASSIGN, c->out, ins1, 1, 1); break;
+        case RT_GE: ins1[0] = lt; rt_acell(M, RT_NOT,    c->out, ins1, 1, 1); break;
+        case RT_LE: ins2[0] = lt; ins2[1] = eq;
+                    rt_acell(M, RT_OR,  c->out, ins2, 2, 1); break;
+        default:    ins2[0] = lt; ins2[1] = eq;
+                    rt_acell(M, RT_NOR, c->out, ins2, 2, 1); break;
+        }
+        c->type = RT_CELL_COUNT;
+        break;
     }
+
 
     case RT_CONCAT:
     {
