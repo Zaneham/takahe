@@ -252,3 +252,37 @@ rt_dump(const rt_mod_t *M)
         printf("\n");
     }
 }
+
+uint32_t
+rt_undrv(const rt_mod_t *M)
+{
+    uint32_t i, j, n = 0;
+    uint8_t *used, *drvn;
+
+    if (!M || M->n_net == 0) return 0;
+
+    used = (uint8_t *)calloc(M->n_net, 1);
+    drvn = (uint8_t *)calloc(M->n_net, 1);
+    if (!used || !drvn) { free(used); free(drvn); return 0; }
+
+    for (i = 1; i < M->n_cell; i++) {
+        const rt_cell_t *c = &M->cells[i];
+        if (c->out > 0 && c->out < M->n_net) drvn[c->out] = 1;
+        for (j = 0; j < c->n_in; j++)
+            if (c->ins[j] > 0 && c->ins[j] < M->n_net)
+                used[c->ins[j]] = 1;
+    }
+
+    for (i = 1; i < M->n_net; i++) {
+        const rt_net_t *nt = &M->nets[i];
+        if (!used[i] || drvn[i]) continue;
+        if (nt->driver != 0) continue;
+        if (nt->is_port == 1 || nt->is_port == 3) continue;
+        tk_emsg(23, M->strs + nt->name_off, nt->line, (unsigned)nt->col);
+        n++;
+    }
+
+    free(used);
+    free(drvn);
+    return n;
+}

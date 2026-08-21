@@ -286,6 +286,37 @@ tk_lex(tk_lex_t *L, const char *src, uint32_t len)
             }
         }
 
+        /* ---- Unsized based literal ('bx, 'b0, 'd5, 'h1F) ---- */
+        if (c == '\'' && pos + 1 < len) {
+            uint32_t p2 = pos + 1;
+            if (p2 < len && (src[p2] == 's' || src[p2] == 'S')) p2++;
+            if (p2 < len && (src[p2] == 'b' || src[p2] == 'B' ||
+                             src[p2] == 'o' || src[p2] == 'O' ||
+                             src[p2] == 'd' || src[p2] == 'D' ||
+                             src[p2] == 'h' || src[p2] == 'H')) {
+                uint32_t start = pos;
+                uint16_t scol = col;
+                col = (uint16_t)(col + (p2 + 1 - pos));
+                pos = p2 + 1;
+                while (pos < len && (src[pos] == ' ' || src[pos] == '\t')) {
+                    pos++; col++;
+                }
+                while (pos < len &&
+                       (lx_anum(src[pos]) || src[pos] == '_' ||
+                        src[pos] == '?' || src[pos] == 'x' ||
+                        src[pos] == 'X' || src[pos] == 'z' ||
+                        src[pos] == 'Z')) {
+                    pos++; col++;
+                }
+                {
+                    uint16_t tlen = (uint16_t)(pos - start);
+                    uint32_t off = lx_sint(L, src + start, tlen);
+                    lx_emit(L, TK_TOK_INT_LIT, 0, off, tlen, line, scol);
+                }
+                continue;
+            }
+        }
+
         /* ---- Number literal ----
          * Handles: decimal, based (4'b1010, 8'hFF), real.
          * The ' character distinguishes based from plain decimal. */
@@ -411,6 +442,7 @@ tk_lex(tk_lex_t *L, const char *src, uint32_t len)
         }
 
         /* ---- Unknown character ---- */
+        tk_emsg(8, (unsigned)(unsigned char)c, line, (unsigned)col);
         pos++; col++;
         L->n_err++;
     }

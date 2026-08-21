@@ -1649,6 +1649,31 @@ pk_mbdy(tk_parse_t *P, uint32_t mod)
 
 /* ---- Module Declaration ---- */
 
+static int
+pk_pty(tk_parse_t *P, uint32_t port)
+{
+    if (pk_isty(P)) {
+        pk_achld(P, port, pk_type(P));
+        return 1;
+    }
+    if (is_op(P, "[")) {
+        uint32_t ty = pk_alloc(P, TK_AST_TYPE_SPEC);
+        uint32_t rng, hi, lo;
+        advance(P);
+        rng = pk_alloc(P, TK_AST_RANGE);
+        hi = pk_expr(P);
+        pk_achld(P, rng, hi);
+        pk_eop(P, ":");
+        lo = pk_expr(P);
+        pk_achld(P, rng, lo);
+        pk_eop(P, "]");
+        pk_achld(P, ty, rng);
+        pk_achld(P, port, ty);
+        return 1;
+    }
+    return 0;
+}
+
 static uint32_t
 pk_mod(tk_parse_t *P)
 {
@@ -1724,23 +1749,8 @@ pk_mod(tk_parse_t *P)
                 P->nodes[port].d.text.off = cur(P)->off;
                 P->nodes[port].d.text.len = cur(P)->len;
                 advance(P);
-                if (pk_isty(P)) {
-                    uint32_t ty = pk_type(P);
-                    pk_achld(P, port, ty);
-                } else if (is_op(P, "[")) {
-                    /* Bare range after direction: input [31:0] name */
-                    uint32_t ty = pk_alloc(P, TK_AST_TYPE_SPEC);
-                    advance(P);
-                    uint32_t rng = pk_alloc(P, TK_AST_RANGE);
-                    uint32_t hi = pk_expr(P);
-                    pk_achld(P, rng, hi);
-                    pk_eop(P, ":");
-                    uint32_t lo = pk_expr(P);
-                    pk_achld(P, rng, lo);
-                    pk_eop(P, "]");
-                    pk_achld(P, ty, rng);
-                    pk_achld(P, port, ty);
-                }
+                uint32_t tpos = P->pos;
+                int      hadty = pk_pty(P, port);
                 if (pk_ctyp(P) == TK_TOK_IDENT) {
                     uint32_t name = pk_alloc(P, TK_AST_IDENT);
                     P->nodes[name].d.text.off = cur(P)->off;
@@ -1755,6 +1765,30 @@ pk_mod(tk_parse_t *P)
                     pk_achld(P, port, def);
                 }
                 pk_achld(P, mod, port);
+
+                {
+                    KA_GUARD(gg, 256);
+                    while (is_op(P, ",") && P->pos + 1 < P->n_tok &&
+                           P->tokens[P->pos + 1].type == TK_TOK_IDENT &&
+                           gg--) {
+                        uint32_t p2, nm2, save;
+                        advance(P);
+                        p2 = pk_alloc(P, TK_AST_PORT);
+                        P->nodes[p2].d.text = P->nodes[port].d.text;
+                        if (hadty) {
+                            save = P->pos;
+                            P->pos = tpos;
+                            (void)pk_pty(P, p2);
+                            P->pos = save;
+                        }
+                        nm2 = pk_alloc(P, TK_AST_IDENT);
+                        P->nodes[nm2].d.text.off = cur(P)->off;
+                        P->nodes[nm2].d.text.len = cur(P)->len;
+                        advance(P);
+                        pk_achld(P, p2, nm2);
+                        pk_achld(P, mod, p2);
+                    }
+                }
             } else if (pk_ctyp(P) == TK_TOK_IDENT) {
                 /* Non-ANSI port name */
                 uint32_t port = pk_alloc(P, TK_AST_PORT);

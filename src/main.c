@@ -690,6 +690,8 @@ main(int argc, char **argv)
                                                (unsigned)live, budget);
                                     }
                                 }
+                                (void)rt_undrv(rtl);
+
                                 if (map_path) {
                                     if (!lib_path) {
                                         fprintf(stderr,
