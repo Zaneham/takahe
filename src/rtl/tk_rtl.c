@@ -286,3 +286,48 @@ rt_undrv(const rt_mod_t *M)
     free(drvn);
     return n;
 }
+
+rt_mod_t *
+rt_mclone(const rt_mod_t *M)
+{
+    rt_mod_t *D;
+
+    if (!M) return NULL;
+    D = (rt_mod_t *)calloc(1, sizeof(rt_mod_t));
+    if (!D) return NULL;
+
+    memcpy(D, M, sizeof(rt_mod_t));
+    D->nets  = (rt_net_t *)malloc(M->max_net * sizeof(rt_net_t));
+    D->cells = (rt_cell_t *)malloc(M->max_cell * sizeof(rt_cell_t));
+    D->strs  = (char *)malloc(M->str_max);
+    if (!D->nets || !D->cells || !D->strs) {
+        free(D->nets); free(D->cells); free(D->strs); free(D);
+        return NULL;
+    }
+    memcpy(D->nets,  M->nets,  M->n_net  * sizeof(rt_net_t));
+    memcpy(D->cells, M->cells, M->n_cell * sizeof(rt_cell_t));
+    memcpy(D->strs,  M->strs,  M->str_len);
+    return D;
+}
+
+int
+rt_split(const rt_mod_t *M, uint32_t ni)
+{
+    char probe[64];
+    int pl;
+    uint32_t k;
+
+    if (!M || ni == 0 || ni >= M->n_net) return 0;
+    if (M->nets[ni].width <= 1) return 0;
+    pl = snprintf(probe, sizeof(probe), "%.*s_0",
+                  (int)M->nets[ni].name_len,
+                  M->strs + M->nets[ni].name_off);
+    if (pl < 0 || pl >= (int)sizeof(probe)) return 0;
+    for (k = 1; k < M->n_net; k++) {
+        if (M->nets[k].name_len == (uint16_t)pl &&
+            memcmp(M->strs + M->nets[k].name_off, probe, (size_t)pl) == 0 &&
+            M->nets[k].is_port == M->nets[ni].is_port)
+            return 1;
+    }
+    return 0;
+}

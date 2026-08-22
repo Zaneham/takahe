@@ -199,17 +199,32 @@ eq_check(const rt_mod_t *A, const rt_mod_t *B)
     int exhaustive;
     uint64_t *va, *vb;
     int mismatches = 0;
+    int sat_fail = 0;
 
     if (!A || !B) return -2;
     if (A->n_net > EQ_MAXNET || B->n_net > EQ_MAXNET) return -2;
 
-    /* A proof beats a sample, so ask the solver first. */
     {
-        int s = eq_sat(A, B);
+        int s = -1;
+        rt_mod_t *ba = rt_mclone(A), *bb = rt_mclone(B);
+        if (ba && bb) {
+            mp_bblst(ba);
+            mp_bblst(bb);
+            fprintf(stderr, "DBGU A undriven=%u  B undriven=%u\n",
+                    rt_undrv(ba), rt_undrv(bb));
+            s = eq_sat(ba, bb);
+        }
+        if (ba) { rt_free(ba); free(ba); }
+        if (bb) { rt_free(bb); free(bb); }
         if (s == 1) return 0;
-        if (s == 0) return -1;
-        printf("takahe: equiv: not encodable for SAT "
-               "(wide or sequential cells), falling back to vectors\n");
+        if (s == 0) {
+            sat_fail = 1;
+            printf("takahe: equiv: solver says not equivalent, "
+                   "checking against simulation\n");
+        } else {
+            printf("takahe: equiv: not encodable for SAT "
+                   "(wide or sequential cells), falling back to vectors\n");
+        }
     }
 
     npa = eq_ports(A, pa, 128);
@@ -335,6 +350,13 @@ eq_check(const rt_mod_t *A, const rt_mod_t *B)
 
     free(va);
     free(vb);
+
+    if (mismatches == 0 && sat_fail) {
+        printf("takahe: equiv: warning: the solver's counterexample does "
+               "not reproduce over %" PRIu64 " vectors, so the CNF "
+               "encoding is wrong and its verdict is being ignored\n",
+               n_vectors);
+    }
 
     if (mismatches == 0) {
         printf("takahe: equiv: PASS — %s equivalent (%"

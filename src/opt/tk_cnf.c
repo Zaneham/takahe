@@ -271,7 +271,7 @@ cn_gmsk(rt_ctype_t t, uint8_t n_in, uint32_t *mask)
     for (combo = 0; combo < (1u << n_in); combo++) {
         uint32_t a = combo & 1u;
         uint32_t b = (combo >> 1) & 1u;
-        uint32_t s = (combo >> 2) & 1u;
+        uint32_t c2 = (combo >> 2) & 1u;
         uint32_t r;
         switch ((int)t) {
         case RT_AND:  r = a & b; break;
@@ -283,7 +283,7 @@ cn_gmsk(rt_ctype_t t, uint8_t n_in, uint32_t *mask)
         case RT_NOT:  r = !a; break;
         case RT_BUF:
         case RT_ASSIGN: r = a; break;
-        case RT_MUX:  r = s ? b : a; break;
+        case RT_MUX:  r = a ? c2 : b; break;
         default: return -1;
         }
         if (r) m |= 1u << combo;
@@ -394,6 +394,7 @@ cn_mitr(cn_t *C, const rt_mod_t *A, const rt_mod_t *B, const cd_lib_t *cd)
     for (i = 1; i < A->n_net; i++) {
         uint32_t bi;
         if (A->nets[i].is_port != 1) continue;
+        if (rt_split(A, i)) continue;
         bi = cn_fnet(B, A->strs + A->nets[i].name_off,
                      A->nets[i].name_len);
         if (!bi) continue;
@@ -410,6 +411,7 @@ cn_mitr(cn_t *C, const rt_mod_t *A, const rt_mod_t *B, const cd_lib_t *cd)
         uint32_t bi, x;
         uint32_t ins2[2];
         if (A->nets[i].is_port != 2) continue;
+        if (rt_split(A, i)) continue;
         bi = cn_fnet(B, A->strs + A->nets[i].name_off,
                      A->nets[i].name_len);
         if (!bi) continue;

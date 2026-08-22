@@ -34,6 +34,7 @@ bl_nnam(const rt_mod_t *M, uint32_t ni, char *buf, int bsz)
 
 /* ---- Public: emit BLIF to file ---- */
 
+
 int
 mp_blif(const rt_mod_t *M, FILE *fp)
 {
@@ -48,7 +49,7 @@ mp_blif(const rt_mod_t *M, FILE *fp)
     /* Inputs */
     fprintf(fp, ".inputs");
     for (i = 1; i < M->n_net; i++) {
-        if (M->nets[i].is_port == 1)
+        if (M->nets[i].is_port == 1 && !rt_split(M, i))
             fprintf(fp, " %s", bl_nnam(M, i, nb, 64));
     }
     fprintf(fp, "\n");
@@ -56,7 +57,7 @@ mp_blif(const rt_mod_t *M, FILE *fp)
     /* Outputs */
     fprintf(fp, ".outputs");
     for (i = 1; i < M->n_net; i++) {
-        if (M->nets[i].is_port == 2)
+        if (M->nets[i].is_port == 2 && !rt_split(M, i))
             fprintf(fp, " %s", bl_nnam(M, i, nb, 64));
     }
     fprintf(fp, "\n\n");
