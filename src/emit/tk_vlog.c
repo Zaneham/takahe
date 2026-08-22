@@ -624,15 +624,22 @@ wires:
             break;
 
         case RT_MUX:
-            fprintf(fp, ".A0(%s), ",
-                    em_cin(M, c->ins[1], n0, 64));
-            fprintf(fp, ".A1(%s), ",
-                    em_cin(M, c->ins[2], n1, 64));
-            fprintf(fp, ".S(%s), ",
-                    em_cin(M, c->ins[0], n2, 64));
-            fprintf(fp, ".X(%s)",
-                    em_cnet(M, c->out, nb, 64));
+        {
+            const char *dp[2] = { "A0", "A1" };
+            const char *sp = "S", *op = "X";
+            uint8_t nd = 0, j;
+            for (j = 0; j < lc->n_pin && j < LB_MAX_PINS; j++) {
+                const char *pn = lib->strs + lc->pins[j].name_off;
+                if (lc->pins[j].dir == LB_DIR_OUT) { op = pn; continue; }
+                if (nd < 2) dp[nd++] = pn;
+                else sp = pn;
+            }
+            fprintf(fp, ".%s(%s), ", dp[0], em_cin(M, c->ins[1], n0, 64));
+            fprintf(fp, ".%s(%s), ", dp[1], em_cin(M, c->ins[2], n1, 64));
+            fprintf(fp, ".%s(%s), ", sp,    em_cin(M, c->ins[0], n2, 64));
+            fprintf(fp, ".%s(%s)",   op,    em_cnet(M, c->out, nb, 64));
             break;
+        }
 
         case RT_NOT:
             fprintf(fp, ".A(%s), .Y(%s)",

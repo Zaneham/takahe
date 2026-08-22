@@ -48,6 +48,31 @@ jobs:
       - name: Every design is at or above its cell floor
         run: bash tools/synth-gate.sh
 
+  equivalence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make
+
+      - name: Every design survives its own optimiser
+        run: bash tools/equiv-gate.sh
+
+  netlist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make
+
+      - name: Install iverilog
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq iverilog
+
+      - name: Another tool can read what we emit
+        run: bash tools/netlist-parse.sh
+
   # Hostile input through instrumentation. The adv suite feeds in binary junk,
   # two-thousand-deep nesting and pools shrunk to eight, which is only worth
   # running if something is watching the memory while it happens.
