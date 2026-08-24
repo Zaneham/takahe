@@ -54,6 +54,20 @@ usage(const char *prog)
     printf("because chip design shouldn't cost more than a house.\n");
 }
 
+static int
+tk_num(const char *s, int *out)
+{
+    char *e;
+    long v;
+
+    if (!s || !*s) return 0;
+    v = strtol(s, &e, 10);
+    if (*e || v < 0 || v > 1000000000L) return 0;
+    *out = (int)v;
+    return 1;
+}
+
+
 int
 main(int argc, char **argv)
 {
@@ -128,11 +142,26 @@ main(int argc, char **argv)
         } else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) {
             i++;
             if (strcmp(argv[i], "mi") == 0) tk_slang(1);
+            else if (strcmp(argv[i], "en") != 0) {
+                fprintf(stderr, "takahe: --lang wants en or mi, got '%s'\n",
+                        argv[i]);
+                return 1;
+            }
         } else if (strcmp(argv[i], "--radix") == 0 && i + 1 < argc) {
-            radix = atoi(argv[++i]);
+            if (!tk_num(argv[++i], &radix) || radix < 2 || radix > 12 ||
+                radix == 5 || radix == 6 || radix == 9 ||
+                radix == 10 || radix == 11) {
+                fprintf(stderr, "takahe: --radix wants 2, 3, 4, 7, 8 "
+                        "or 12, got '%s'\n", argv[i]);
+                return 1;
+            }
             mode_parse = 1;
         } else if (strcmp(argv[i], "--sta") == 0 && i + 1 < argc) {
-            sta_mhz = atoi(argv[++i]);
+            if (!tk_num(argv[++i], &sta_mhz) || sta_mhz == 0) {
+                fprintf(stderr, "takahe: --sta wants a frequency in "
+                        "MHz, got '%s'\n", argv[i]);
+                return 1;
+            }
             mode_opt = 1;
             mode_parse = 1;
         } else if (strcmp(argv[i], "--fpga") == 0 && i + 1 < argc) {
@@ -163,7 +192,11 @@ main(int argc, char **argv)
             mode_hash = 1;
             mode_parse = 1;
         } else if (strcmp(argv[i], "--budget") == 0 && i + 1 < argc) {
-            budget = atoi(argv[++i]);
+            if (!tk_num(argv[++i], &budget) || budget == 0) {
+                fprintf(stderr, "takahe: --budget wants a cell count, "
+                        "got '%s'\n", argv[i]);
+                return 1;
+            }
             mode_parse = 1;
         } else if (strcmp(argv[i], "--vhdl") == 0) {
             mode_vhdl = 1;
@@ -201,6 +234,19 @@ main(int argc, char **argv)
     if (!src_path) {
         fprintf(stderr, "takahe: no input file\n");
         usage(argv[0]);
+        return 1;
+    }
+
+    if (mode_vhdl && mode_abel) {
+        fprintf(stderr, "takahe: --vhdl and --abel are exclusive\n");
+        return 1;
+    }
+    if (mode_nlst && !lib_path) {
+        fprintf(stderr, "takahe: --netlist requires --lib <file>\n");
+        return 1;
+    }
+    if (map_path && !lib_path) {
+        fprintf(stderr, "takahe: --map requires --lib <file>\n");
         return 1;
     }
 
@@ -481,9 +527,11 @@ main(int argc, char **argv)
                                     nlib = NULL; ncd = NULL;
                                 }
                             }
-                            if (mode_nlst && !nlib)
+                            if (mode_nlst && !nlib) {
                                 fprintf(stderr, "takahe: --netlist needs a "
                                         "readable --lib <file>\n");
+                                return 1;
+                            }
 
                             if (nlib) {
                                 rtl = lw_build_n(P, cvals, wvals,
@@ -698,6 +746,7 @@ main(int argc, char **argv)
                                     if (!lib_path) {
                                         fprintf(stderr,
                                             "takahe: --map requires --lib\n");
+                                        return 1;
                                     } else {
                                         lb_lib_t *llib = (lb_lib_t *)calloc(1, sizeof(lb_lib_t));
                                         if (llib && lb_load(llib, lib_path) == 0) {
