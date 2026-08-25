@@ -23,6 +23,8 @@
 #define PP_MAX_DEPTH   64      /* ifdef nesting depth */
 #define PP_MAX_NAMELEN 128
 #define PP_MAX_VALLEN  4096    /* max macro value length */
+#define PP_MAX_PARMS   8       /* parameters on a function-like macro */
+#define PP_MAX_PNAME   32      /* length of one parameter name */
 
 /* ---- Macro Table ---- */
 
@@ -31,6 +33,10 @@ typedef struct {
     char     value[PP_MAX_VALLEN];
     uint16_t nlen;
     uint16_t vlen;
+    uint8_t  isfn;
+    uint8_t  nparm;
+    uint8_t  plen[PP_MAX_PARMS];
+    char     parm[PP_MAX_PARMS][PP_MAX_PNAME];
 } pp_macro_t;
 
 typedef struct {
@@ -53,6 +59,9 @@ typedef struct {
     int8_t      if_active[PP_MAX_DEPTH]; /* 1=emitting, 0=skipping */
     int8_t      if_seen[PP_MAX_DEPTH];   /* seen a true branch yet */
     uint32_t    if_depth;
+
+    char        aval[PP_MAX_PARMS][PP_MAX_VALLEN];
+    uint16_t    alen[PP_MAX_PARMS];
 
     /* External defines (-D flags) */
     uint32_t    n_err;
@@ -113,8 +122,8 @@ static int pp_find(const tk_pp_t *pp, const char *name, uint16_t nlen)
     return -1;
 }
 
-static void pp_def(tk_pp_t *pp, const char *name, uint16_t nlen,
-                   const char *val, uint16_t vlen)
+static pp_macro_t *pp_def(tk_pp_t *pp, const char *name, uint16_t nlen,
+                          const char *val, uint16_t vlen)
 {
     int idx = pp_find(pp, name, nlen);
     pp_macro_t *m;
@@ -122,7 +131,7 @@ static void pp_def(tk_pp_t *pp, const char *name, uint16_t nlen,
     if (idx >= 0) {
         m = &pp->macros[idx];
     } else {
-        if (pp->n_macro >= PP_MAX_MACROS) return;
+        if (pp->n_macro >= PP_MAX_MACROS) return NULL;
         m = &pp->macros[pp->n_macro++];
     }
 
@@ -136,6 +145,10 @@ static void pp_def(tk_pp_t *pp, const char *name, uint16_t nlen,
     memcpy(m->value, val, vlen);
     m->value[vlen] = '\0';
     m->vlen = vlen;
+
+    m->isfn = 0;
+    m->nparm = 0;
+    return m;
 }
 
 static void pp_undef(tk_pp_t *pp, const char *name, uint16_t nlen)
@@ -147,6 +160,142 @@ static void pp_undef(tk_pp_t *pp, const char *name, uint16_t nlen)
     if ((uint32_t)idx < pp->n_macro - 1)
         pp->macros[idx] = pp->macros[pp->n_macro - 1];
     pp->n_macro--;
+}
+
+/* ---- Function-like macro calls ---- */
+
+static uint8_t pp_args(tk_pp_t *pp)
+{
+    uint8_t na = 0, k;
+    int depth = 1;
+    uint16_t len = 0;
+
+    KA_GUARD(g, PP_MAX_VALLEN * PP_MAX_PARMS);
+    while (!pp_end(pp) && g--) {
+        char c = pp_cur(pp);
+
+        if (c == '"') {
+            if (na < PP_MAX_PARMS && len < PP_MAX_VALLEN - 1)
+                pp->aval[na][len++] = c;
+            pp_adv(pp);
+            {
+                KA_GUARD(gs, PP_MAX_VALLEN);
+                while (!pp_end(pp) && gs--) {
+                    char d = pp_cur(pp);
+                    if (na < PP_MAX_PARMS && len < PP_MAX_VALLEN - 1)
+                        pp->aval[na][len++] = d;
+                    pp_adv(pp);
+                    if (d == '\\' && !pp_end(pp)) {
+                        char e = pp_cur(pp);
+                        if (na < PP_MAX_PARMS && len < PP_MAX_VALLEN - 1)
+                            pp->aval[na][len++] = e;
+                        pp_adv(pp);
+                        continue;
+                    }
+                    if (d == '"') break;
+                }
+            }
+            continue;
+        }
+
+        if (c == '(' || c == '[' || c == '{') depth++;
+        else if (c == ')' || c == ']' || c == '}') {
+            depth--;
+            if (depth == 0) { pp_adv(pp); break; }
+        } else if (c == ',' && depth == 1) {
+            if (na < PP_MAX_PARMS) pp->alen[na] = len;
+            if (na < PP_MAX_PARMS) na++;
+            len = 0;
+            pp_adv(pp);
+            continue;
+        }
+
+        if (na < PP_MAX_PARMS && len < PP_MAX_VALLEN - 1)
+            pp->aval[na][len++] = c;
+        pp_adv(pp);
+    }
+    if (na < PP_MAX_PARMS) { pp->alen[na] = len; na++; }
+
+    for (k = 0; k < na; k++) {
+        uint16_t a = 0, b = pp->alen[k];
+        while (a < b && (pp->aval[k][a] == ' ' || pp->aval[k][a] == '\t' ||
+                         pp->aval[k][a] == '\n' || pp->aval[k][a] == '\r'))
+            a++;
+        while (b > a && (pp->aval[k][b-1] == ' ' || pp->aval[k][b-1] == '\t' ||
+                         pp->aval[k][b-1] == '\n' || pp->aval[k][b-1] == '\r'))
+            b--;
+        if (a > 0) memmove(pp->aval[k], pp->aval[k] + a, (size_t)(b - a));
+        pp->alen[k] = (uint16_t)(b - a);
+    }
+    return na;
+}
+
+static void pp_subs(tk_pp_t *pp, const pp_macro_t *m, uint8_t na)
+{
+    uint16_t i = 0;
+
+    KA_GUARD(g, PP_MAX_VALLEN + 1);
+    while (i < m->vlen && g--) {
+        char c = m->value[i];
+
+        if (c == '"') {
+            pp_putc(pp, c);
+            i++;
+            while (i < m->vlen) {
+                pp_putc(pp, m->value[i]);
+                if (m->value[i] == '\\' && i + 1 < m->vlen) {
+                    pp_putc(pp, m->value[i+1]);
+                    i += 2;
+                    continue;
+                }
+                if (m->value[i] == '"') { i++; break; }
+                i++;
+            }
+            continue;
+        }
+
+        if (isalpha((unsigned char)c) || c == '_') {
+            uint16_t st = i, l = 0;
+            uint8_t k, hit = PP_MAX_PARMS;
+            while (i < m->vlen &&
+                   (isalnum((unsigned char)m->value[i]) || m->value[i] == '_')) {
+                i++;
+                l++;
+            }
+            for (k = 0; k < m->nparm; k++) {
+                if (m->plen[k] == l &&
+                    memcmp(m->parm[k], m->value + st, l) == 0) { hit = k; break; }
+            }
+            if (hit < PP_MAX_PARMS && hit < na)
+                pp_puts(pp, pp->aval[hit], pp->alen[hit]);
+            else
+                pp_puts(pp, m->value + st, l);
+            continue;
+        }
+
+        pp_putc(pp, c);
+        i++;
+    }
+}
+
+static void pp_xmac(tk_pp_t *pp, int idx)
+{
+    pp_macro_t *m = &pp->macros[idx];
+    uint32_t pk;
+
+    if (!m->isfn) { pp_puts(pp, m->value, m->vlen); return; }
+
+    pk = pp->pos;
+    while (pk < pp->src_len && (pp->src[pk] == ' ' || pp->src[pk] == '\t'))
+        pk++;
+    if (pk >= pp->src_len || pp->src[pk] != '(') {
+        pp_puts(pp, m->value, m->vlen);
+        return;
+    }
+
+    while (pp->pos < pk) pp_adv(pp);
+    pp_adv(pp);
+    pp_subs(pp, m, pp_args(pp));
 }
 
 /* ---- Skip to end of line ---- */
@@ -227,12 +376,44 @@ static void pp_dir(tk_pp_t *pp)
 
     /* ---- `define ---- */
     if (strcmp(dname, "define") == 0) {
+        char pnam[PP_MAX_PARMS][PP_MAX_PNAME];
+        uint8_t pl[PP_MAX_PARMS];
+        uint8_t np = 0, isfn = 0;
+
         pp_skws(pp);
         nlen = pp_rnam(pp, mname, PP_MAX_NAMELEN);
         if (nlen == 0) { pp_skln(pp); return; }
+
+        if (!pp_end(pp) && pp_cur(pp) == '(') {
+            isfn = 1;
+            pp_adv(pp);
+            KA_GUARD(gp, PP_MAX_PARMS + 1);
+            while (!pp_end(pp) && gp--) {
+                uint16_t l;
+                pp_skws(pp);
+                l = pp_rnam(pp, pnam[np < PP_MAX_PARMS ? np : 0],
+                            PP_MAX_PNAME);
+                if (l > 0 && np < PP_MAX_PARMS) pl[np++] = (uint8_t)l;
+                pp_skws(pp);
+                if (pp_end(pp) || pp_cur(pp) != ',') break;
+                pp_adv(pp);
+            }
+            if (!pp_end(pp) && pp_cur(pp) == ')') pp_adv(pp);
+        }
+
         vlen = pp_rval(pp, mval, PP_MAX_VALLEN);
-        if (pp_eok(pp))
-            pp_def(pp, mname, nlen, mval, vlen);
+        if (pp_eok(pp)) {
+            pp_macro_t *m = pp_def(pp, mname, nlen, mval, vlen);
+            if (m && isfn) {
+                uint8_t k;
+                m->isfn = 1;
+                m->nparm = np;
+                for (k = 0; k < np; k++) {
+                    m->plen[k] = pl[k];
+                    memcpy(m->parm[k], pnam[k], pl[k]);
+                }
+            }
+        }
         return;
     }
 
@@ -356,7 +537,7 @@ static void pp_dir(tk_pp_t *pp)
     if (pp_eok(pp)) {
         int idx = pp_find(pp, dname, dlen);
         if (idx >= 0) {
-            pp_puts(pp, pp->macros[idx].value, pp->macros[idx].vlen);
+            pp_xmac(pp, idx);
         } else {
             /* Undefined macro. If followed by (, skip the
              * parenthesised arguments too — `debug(...) should

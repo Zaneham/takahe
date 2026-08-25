@@ -1,6 +1,14 @@
 CHANGELOG
 =========
 
+2026-08-25  hit me baby 45,414 more times
+  - Function-like macros in tk_pp, so `debug(...) stops leaving its
+    brackets in the output; picorv32 goes from 44 errors to 0.
+  - LBD clause deletion in tk_sat, which turns out not to help: a
+    723k-clause instance closes in 45,414 conflicts, so reduction
+    never fires and the gap to Cadical is propagation, not clause
+    count.
+
 2026-08-21  Module instantiation, which had not worked since April
   - 8182188 made instance port wiring directional and read the
     direction off nets[pnet].is_port. The instance path had already
