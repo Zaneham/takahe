@@ -17,9 +17,7 @@
  * index straight in without a branch. DIMACS convention stays at the
  * boundary, where it belongs.
  *
- * No learnt clause deletion yet, so the database grows without bound and a
- * long run exhausts the pool rather than degrading gracefully. Next thing to
- * add. See docs/references.md.
+ * See docs/references.md.
  */
 
 #include "takahe.h"
@@ -28,6 +26,9 @@
 #define SA_UNDEF  0
 #define SA_TRUE   1
 #define SA_FALSE  2
+
+#define SA_LBDB   64
+#define SA_MAXLG  500
 
 #define LIT(l)    ((l) > 0 ? (((uint32_t)(l)) << 1) \
                            : ((((uint32_t)(-(l))) << 1) | 1u))
@@ -66,6 +67,13 @@ typedef struct {
     uint32_t  n_heap;
 
     uint8_t  *phase;     /* last value each variable took       */
+
+    uint32_t *lbd;
+    uint32_t  n_orig, maxl;
+    uint8_t  *lockd;
+    uint32_t *map;
+    uint32_t *lstmp;
+    uint32_t  lstc;
 
     uint64_t  conf;
     double    vinc;
@@ -237,7 +245,7 @@ sa_prop(sa_t *S)
 
 static uint32_t
 sa_learn(sa_t *S, uint32_t conf, uint32_t *out, uint32_t *nout,
-         int32_t *btlevel)
+         int32_t *btlevel, uint32_t *olbd)
 {
     uint32_t cnt = 0, idx = S->n_trail, p = 0, n = 0;
     uint32_t c = conf;
@@ -274,6 +282,20 @@ sa_learn(sa_t *S, uint32_t conf, uint32_t *out, uint32_t *nout,
             *btlevel = S->level[VAR(out[1])];
         }
     }
+    {
+        uint32_t i, d = 0;
+        if (++S->lstc == 0) {
+            memset(S->lstmp, 0, ((size_t)S->n_var + 2) * sizeof(uint32_t));
+            S->lstc = 1;
+        }
+        for (i = 0; i < n; i++) {
+            uint32_t lv = (uint32_t)S->level[VAR(out[i])];
+            if (lv > S->n_var) continue;
+            if (S->lstmp[lv] != S->lstc) { S->lstmp[lv] = S->lstc; d++; }
+        }
+        *olbd = d;
+    }
+
     for (idx = 0; idx < n; idx++) S->seen[VAR(out[idx])] = 0;
     *nout = n;
     return 0;
@@ -306,11 +328,107 @@ sa_addcl(sa_t *S, const uint32_t *lits, uint32_t n)
     S->n_lit += n;
     S->n_cls++;
     S->start[S->n_cls] = S->n_lit;
+    S->lbd[c] = 0;
     if (n >= 2) {
         if (sa_wpush(S, lits[0], c) != 0) return 0;
         if (sa_wpush(S, lits[1], c) != 0) return 0;
     }
     return c + 1;
+}
+
+/* ---- Reduction ---- */
+
+static int  sa_wrb(sa_t *S);
+
+static int
+sa_red(sa_t *S)
+{
+    uint32_t hist[SA_LBDB];
+    uint32_t c, i, n = 0, acc = 0, cut = SA_LBDB, want;
+    uint32_t nlit = 0, ncls = 0;
+
+    memset(S->lockd, 0, (size_t)S->n_cls + 1);
+    for (i = 0; i < S->n_trail; i++) {
+        uint32_t r = S->reason[VAR(S->trail[i])];
+        if (r) S->lockd[r] = 1;
+    }
+
+    for (i = 0; i < SA_LBDB; i++) hist[i] = 0;
+    for (c = S->n_orig; c < S->n_cls; c++) {
+        uint32_t g = S->lbd[c];
+        if (S->lockd[c] || g <= 2) continue;
+        hist[g < SA_LBDB ? g : SA_LBDB - 1]++;
+        n++;
+    }
+    want = n / 2;
+    if (want == 0) return 0;
+
+    for (i = SA_LBDB; i-- > 0; ) {
+        acc += hist[i];
+        if (acc >= want) { cut = i; break; }
+    }
+
+    for (c = 0; c < S->n_cls; c++) {
+        uint32_t st = S->start[c], len = S->start[c + 1] - st;
+        uint32_t g = S->lbd[c];
+        int keep = (c == 0) || (c < S->n_orig) || S->lockd[c] ||
+                   g <= 2 || g < cut;
+        if (!keep) { S->map[c] = 0; continue; }
+        S->map[c] = ncls;
+        S->start[ncls] = nlit;
+        S->lbd[ncls] = g;
+        if (nlit != st)
+            for (i = 0; i < len; i++) S->lits[nlit + i] = S->lits[st + i];
+        nlit += len;
+        ncls++;
+    }
+    S->n_cls = ncls;
+    S->n_lit = nlit;
+    S->start[ncls] = nlit;
+
+    for (i = 0; i < S->n_trail; i++) {
+        uint32_t v = VAR(S->trail[i]);
+        if (S->reason[v]) S->reason[v] = S->map[S->reason[v]];
+    }
+
+    return sa_wrb(S);
+}
+
+static int
+sa_wrb(sa_t *S)
+{
+    uint32_t nl = 2 * S->n_var + 2;
+    uint32_t c, i, total = 0;
+    uint32_t *pool;
+
+    for (i = 0; i < nl; i++) S->wn[i] = 0;
+    for (c = 1; c < S->n_cls; c++) {
+        uint32_t st = S->start[c];
+        if (S->start[c + 1] - st < 2) continue;
+        S->wn[S->lits[st]]++;
+        S->wn[S->lits[st + 1]]++;
+    }
+    for (i = 0; i < nl; i++) {
+        S->woff[i] = total;
+        S->wcap[i] = S->wn[i] ? S->wn[i] + 4 : 0;
+        total += S->wcap[i];
+    }
+
+    pool = (uint32_t *)realloc(S->wl, (size_t)(total + 16) * sizeof(uint32_t));
+    if (!pool) return -1;
+    S->wl = pool;
+    S->woff[2 * S->n_var + 2] = total;
+
+    for (i = 0; i < nl; i++) S->wn[i] = 0;
+    for (c = 1; c < S->n_cls; c++) {
+        uint32_t st = S->start[c], a, b;
+        if (S->start[c + 1] - st < 2) continue;
+        a = S->lits[st];
+        b = S->lits[st + 1];
+        S->wl[S->woff[a] + S->wn[a]++] = c;
+        S->wl[S->woff[b] + S->wn[b]++] = c;
+    }
+    return 0;
 }
 
 /* Luby restart intervals. The sequence runs 1 1 2 1 1 2 4 1 1 2 1 1 2 4 8,
@@ -374,11 +492,16 @@ sa_solve(const cn_t *C, uint8_t *model, uint64_t max_conf)
     S.heap   = (uint32_t *)malloc((size_t)(nv + 2) * sizeof(uint32_t));
     S.hpos   = (int32_t  *)malloc((size_t)(nv + 2) * sizeof(int32_t));
     S.phase  = (uint8_t  *)calloc(nv + 2, 1);
+    S.lbd    = (uint32_t *)calloc((size_t)S.max_cls + 2, sizeof(uint32_t));
+    S.lockd  = (uint8_t  *)calloc((size_t)S.max_cls + 2, 1);
+    S.map    = (uint32_t *)malloc(((size_t)S.max_cls + 2) * sizeof(uint32_t));
+    S.lstmp  = (uint32_t *)calloc(nv + 2, sizeof(uint32_t));
     learnt   = (uint32_t *)malloc((size_t)(nv + 4) * sizeof(uint32_t));
 
     if (!S.lits || !S.start || !S.val || !S.level || !S.reason || !S.act ||
         !S.seen || !S.trail || !S.lim || !S.wn || !S.wcap || !S.woff ||
-        !S.wl || !learnt || !S.heap || !S.hpos || !S.phase) {
+        !S.wl || !learnt || !S.heap || !S.hpos || !S.phase ||
+        !S.lbd || !S.lockd || !S.map || !S.lstmp) {
         rc = -1; goto done;
     }
 
@@ -429,6 +552,9 @@ sa_solve(const cn_t *C, uint8_t *model, uint64_t max_conf)
         if (sa_addcl(&S, buf, n) == 0) { rc = -1; goto done; }
     }
 
+    S.n_orig = S.n_cls;
+    S.maxl = S.n_orig / 3 > 2000 ? S.n_orig / 3 : 2000;
+
     if (sa_prop(&S) != 0) { rc = 0; goto done; }
 
     until = 100;
@@ -436,18 +562,26 @@ sa_solve(const cn_t *C, uint8_t *model, uint64_t max_conf)
         uint32_t conf = sa_prop(&S);
 
         if (conf) {
-            uint32_t n = 0;
+            uint32_t n = 0, glue = 0;
             int32_t bt = 0;
             S.conf++;
             if (S.dl == 0) { rc = 0; goto done; }
             if (S.conf > max_conf) { rc = -1; goto done; }
-            sa_learn(&S, conf, learnt, &n, &bt);
+            sa_learn(&S, conf, learnt, &n, &bt, &glue);
             sa_cancel(&S, bt);
+            if (S.n_cls - S.n_orig > S.maxl ||
+                S.n_cls + 2 >= S.max_cls ||
+                S.n_lit + n + 2 >= S.max_lit) {
+                if (sa_red(&S) != 0) { rc = -1; goto done; }
+                S.maxl += SA_MAXLG;
+            }
             {
                 uint32_t c = sa_addcl(&S, learnt, n);
                 if (n == 1) sa_assign(&S, learnt[0], 0);
-                else if (c) sa_assign(&S, learnt[0], c - 1);
-                else { rc = -1; goto done; }
+                else if (c) {
+                    S.lbd[c - 1] = glue;
+                    sa_assign(&S, learnt[0], c - 1);
+                } else { rc = -1; goto done; }
             }
             S.vinc *= 1.05;
             if (S.vinc > 1e100) {
@@ -495,6 +629,7 @@ done:
     free(S.reason); free(S.act); free(S.seen); free(S.trail);
     free(S.lim); free(S.wn); free(S.wcap); free(S.woff); free(S.wl);
     free(S.heap); free(S.hpos); free(S.phase);
+    free(S.lbd); free(S.lockd); free(S.map); free(S.lstmp);
     free(learnt);
     return rc;
 }

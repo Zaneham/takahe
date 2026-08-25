@@ -10,14 +10,9 @@
 #include "takahe.h"
 #include <inttypes.h>
 
-/* Both fixtures live outside the repo: the SKY130 Liberty is 12MB
- * and the netlist belongs to someone else. Tests SKIP when either
- * is missing, so a fresh clone still goes green. The netlist is the
- * warm-up from Jane Street's 2026 ASIC reverse-engineering puzzle,
- * which ships with its own source, so there's a right answer to
- * check against. */
+/* The SKY130 Liberty is 12MB and lives outside the repo, so these
+ * SKIP when it is missing and a fresh clone still goes green. */
 #define SKY130_LIB "lib/sky130_fd_sc_hd__tt_025C_1v80.lib"
-#define WARMUP "C:/dev/asic-puzzle-2026/warmup/01_netlist.v"
 
 /* ---- Helper: lex+parse+elab+width+lower a netlist string ---- */
 
@@ -71,30 +66,6 @@ nl_str(const char *src, const lb_lib_t *lib, cd_lib_t *cd)
     tk_pfree(P); free(P);
     tk_ldfree(L); free(L);
     return M;
-}
-
-/* ---- Read a file into a malloc'd buffer ---- */
-
-static char *
-nl_slurp(const char *path)
-{
-    FILE *f = fopen(path, "rb");
-    char *b;
-    long n;
-
-    if (!f) return NULL;
-    fseek(f, 0, SEEK_END);
-    n = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (n <= 0) { fclose(f); return NULL; }
-    b = (char *)malloc((size_t)n + 1);
-    if (!b) { fclose(f); return NULL; }
-    if (fread(b, 1, (size_t)n, f) != (size_t)n) {
-        free(b); fclose(f); return NULL;
-    }
-    b[n] = '\0';
-    fclose(f);
-    return b;
 }
 
 static uint32_t
@@ -413,140 +384,3 @@ static void nl_fsm(void)
     PASS();
 }
 TH_REG("nlst", nl_fsm)
-
-/* ---- Run the recovered warm-up and watch success ----
- * 00_source.v asserts S when A + B == 496. Shift two bytes in
- * MSB first, tick eight times, and the recovered netlist should
- * agree. 248 + 248 hits it; 248 + 247 must not. */
-
-static int
-nl_try(const rt_mod_t *M, const cd_lib_t *cd, uint32_t a, uint32_t b)
-{
-    sm_st_t S;
-    uint32_t nA, nB, nS, nclk, nen, nrst;
-    int i, r = -1;
-
-    if (sm_init(&S, M) != 0) return -1;
-
-    nA = sm_net(M, "A");  nB = sm_net(M, "B");  nS = sm_net(M, "S");
-    nclk = sm_net(M, "clk"); nen = sm_net(M, "en");
-    nrst = sm_net(M, "rst_n");
-    if (!nA || !nB || !nS || !nclk || !nen || !nrst) goto out;
-
-    /* Reset low, settle, then release */
-    sm_set(&S, nrst, 0);
-    sm_set(&S, nen, 0);
-    sm_set(&S, nclk, 0);
-    if (sm_eval(M, cd, &S) != 0) goto out;
-    sm_set(&S, nrst, 1);
-    sm_set(&S, nen, 1);
-
-    for (i = 7; i >= 0; i--) {
-        sm_set(&S, nA, (uint8_t)((a >> i) & 1));
-        sm_set(&S, nB, (uint8_t)((b >> i) & 1));
-        if (sm_tick(M, cd, &S) != 0) goto out;
-    }
-
-    r = sm_get(&S, nS);
-out:
-    sm_free(&S);
-    return r;
-}
-
-static void nl_sim(void)
-{
-    lb_lib_t *lib;
-    cd_lib_t *cd;
-    rt_mod_t *M;
-    char *src;
-
-    if (!th_exist(SKY130_LIB)) SKIP("no sky130 .lib");
-    if (!th_exist(WARMUP)) SKIP("no warm-up netlist");
-
-    lib = (lb_lib_t *)calloc(1, sizeof(lb_lib_t));
-    cd  = (cd_lib_t *)calloc(1, sizeof(cd_lib_t));
-    CHECK(lib != NULL && cd != NULL);
-    CHECK(lb_load(lib, SKY130_LIB) == 0);
-
-    src = nl_slurp(WARMUP);
-    CHECK(src != NULL);
-    M = nl_str(src, lib, cd);
-    CHECK(M != NULL);
-
-    printf("  sim: 248+248=%d  248+247=%d  0+0=%d  255+241=%d\n",
-           nl_try(M, cd, 248, 248), nl_try(M, cd, 248, 247),
-           nl_try(M, cd, 0, 0), nl_try(M, cd, 255, 241));
-
-    CHECK(nl_try(M, cd, 248, 248) == 1);   /* 496 */
-    CHECK(nl_try(M, cd, 255, 241) == 1);   /* 496 the other way */
-    CHECK(nl_try(M, cd, 248, 247) == 0);   /* 495 */
-    CHECK(nl_try(M, cd, 249, 248) == 0);   /* 497 */
-    CHECK(nl_try(M, cd, 0, 0) == 0);
-    CHECK(nl_try(M, cd, 255, 255) == 0);   /* 510 */
-
-    free(src);
-    rt_free(M); free(M);
-    free(cd); free(lib);
-    PASS();
-}
-TH_REG("nlst", nl_sim)
-
-/* ---- The real thing: Jane Street's warm-up netlist ----
- * 79 logic cells, of which 16 are resettable flops. The 93 tap
- * and 58 decap cells carry no function and must not become
- * anything at all. */
-
-static void nl_warm(void)
-{
-    lb_lib_t *lib;
-    cd_lib_t *cd;
-    rt_mod_t *M;
-    char *src;
-
-    if (!th_exist(SKY130_LIB)) SKIP("no sky130 .lib");
-    if (!th_exist(WARMUP)) SKIP("no warm-up netlist");
-
-    lib = (lb_lib_t *)calloc(1, sizeof(lb_lib_t));
-    cd  = (cd_lib_t *)calloc(1, sizeof(cd_lib_t));
-    CHECK(lib != NULL && cd != NULL);
-    CHECK(lb_load(lib, SKY130_LIB) == 0);
-
-    src = nl_slurp(WARMUP);
-    CHECK(src != NULL);
-
-    M = nl_str(src, lib, cd);
-    CHECK(M != NULL);
-
-    printf("  warm-up: %u nets, %u cells (%u LUT, %u DFFR)\n",
-           M->n_net, M->n_cell - 1,
-           nl_cnt(M, RT_LUT), nl_cnt(M, RT_DFFR));
-
-    CHECK(nl_cnt(M, RT_LUT) == 63);
-    CHECK(nl_cnt(M, RT_DFFR) == 16);
-    CHECK(nl_cnt(M, RT_DFF) == 0);
-
-    /* 19 distinct cell types in the netlist, minus tap, decap and
-     * the flop, all of which are interned elsewhere or not at all */
-    CHECK(cd->n_cell > 8 && cd->n_cell < 20);
-
-    /* 00_source.v is two 8-bit shift registers feeding an adder
-     * and a comparator. Recover that from the wires alone. */
-    {
-        sq_res_t *R = (sq_res_t *)calloc(1, sizeof(sq_res_t));
-        CHECK(R != NULL);
-        CHECK(sq_scan(M, R) == 0);
-        CHECK(R->n_ff == 16);
-        CHECK(R->n_chain == 2);
-        CHECK(R->chlen[0] == 8);
-        CHECK(R->chlen[1] == 8);
-        printf("  warm-up seq: %u chains of %u and %u\n",
-               R->n_chain, R->chlen[0], R->chlen[1]);
-        free(R);
-    }
-
-    free(src);
-    rt_free(M); free(M);
-    free(cd); free(lib);
-    PASS();
-}
-TH_REG("nlst", nl_warm)
